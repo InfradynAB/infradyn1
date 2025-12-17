@@ -18,7 +18,7 @@ async function resetDb() {
     await client.query('GRANT ALL ON SCHEMA public TO public;');
     console.log('Public schema reset.');
   } catch (err) {
-    console.error('Error resetting DB:', err);
+    console.error('Error resetting DB schema:', err);
   } finally {
     client.release();
     await pool.end();
