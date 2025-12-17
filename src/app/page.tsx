@@ -5,10 +5,10 @@ export default function HomePage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-24 bg-gradient-to-br from-slate-900 to-slate-800">
       <div className="text-center space-y-4">
-        <h1 className="text-5xl font-bold text-white">
+        <h1 className="text-5xl font-bold text-gray-100">
           Infradyn Materials Tracker
         </h1>
-        <p className="text-xl text-slate-300 max-w-xl">
+        <p className="text-xl text-gray-300 max-w-xl">
           Your single source of truth for project management, from PO to payment.
         </p>
       </div>

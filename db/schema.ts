@@ -500,6 +500,10 @@ export const purchaseOrderRelations = relations(purchaseOrder, ({ one, many }) =
     invoices: many(invoice),
 }));
 
+export const poVersionRelations = relations(poVersion, ({ one }) => ({
+    purchaseOrder: one(purchaseOrder, { fields: [poVersion.purchaseOrderId], references: [purchaseOrder.id] }),
+}));
+
 export const boqItemRelations = relations(boqItem, ({ one, many }) => ({
     purchaseOrder: one(purchaseOrder, { fields: [boqItem.purchaseOrderId], references: [purchaseOrder.id] }),
     deliveryItems: many(deliveryItem),
