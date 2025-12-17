@@ -1,0 +1,77 @@
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
+import { BuildingsIcon, FolderSimpleIcon, PlusIcon } from "@phosphor-icons/react/dist/ssr";
+import { auth } from "@/auth";
+
+export default async function DashboardPage() {
+    const session = await auth.api.getSession({
+        headers: await headers()
+    });
+
+    if (!session) {
+        redirect("/sign-in");
+    }
+
+    return (
+        <div className="space-y-8">
+            <div>
+                <h1 className="text-3xl font-bold">Welcome, {session.user.name}!</h1>
+                <p className="text-muted-foreground">Manage your organizations and projects from here.</p>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {/* Quick Actions */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <BuildingsIcon className="h-5 w-5" />
+                            Organizations
+                        </CardTitle>
+                        <CardDescription>Create and manage your organizations</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild className="w-full">
+                            <Link href="/dashboard/org">
+                                <PlusIcon className="mr-2 h-4 w-4" />
+                                New Organization
+                            </Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <FolderSimpleIcon className="h-5 w-5" />
+                            Projects
+                        </CardTitle>
+                        <CardDescription>Create and manage your projects</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild className="w-full">
+                            <Link href="/dashboard/projects">
+                                <PlusIcon className="mr-2 h-4 w-4" />
+                                New Project
+                            </Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Session Info</CardTitle>
+                        <CardDescription>Your current session details</CardDescription>
+                    </CardHeader>
+                    <CardContent className="text-sm space-y-1">
+                        <p><strong>Email:</strong> {session.user.email}</p>
+                        <p><strong>Verified:</strong> {session.user.emailVerified ? "Yes" : "No"}</p>
+                        <p><strong>2FA:</strong> {session.user.twoFactorEnabled ? "Enabled" : "Disabled"}</p>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
+}

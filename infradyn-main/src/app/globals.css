@@ -1,0 +1,165 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  /* Radius: 10px base, which calculates to 8px (md) and 14px (xl) */
+  --radius: 0.625rem;
+
+  /* Base Light Theme */
+  --background: #F5F5F5;
+  /* Grey 100 */
+  --foreground: #1E1E1E;
+  /* Grey 900 */
+
+  --card: #FFFFFF;
+  --card-foreground: #1E1E1E;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #1E1E1E;
+
+  /* Infra Green Primary */
+  --primary: #0F6157;
+  --primary-foreground: #FFFFFF;
+
+  /* Secondary / Muted */
+  --secondary: #DDDDDD;
+  /* Grey 300 */
+  --secondary-foreground: #1E1E1E;
+
+  --muted: #F5F5F5;
+  --muted-foreground: #888888;
+  /* Grey 500 */
+
+  /* Infra Magenta Accent */
+  --accent: #E14FE3;
+  --accent-foreground: #FFFFFF;
+
+  --destructive: #FF4F4F;
+  /* Danger Red */
+  --destructive-foreground: #FFFFFF;
+
+  --border: #DDDDDD;
+  /* Grey 300 */
+  --input: #DDDDDD;
+  --ring: #0F6157;
+  /* Infra Green Ring */
+
+  --chart-1: #0F6157;
+  --chart-2: #E14FE3;
+  --chart-3: #0A1C27;
+  --chart-4: #FFC107;
+  --chart-5: #FF4F4F;
+
+  /* Sidebar - Light Mode */
+  --sidebar: #F5F5F5;
+  --sidebar-foreground: #1E1E1E;
+  --sidebar-primary: #0F6157;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E5E5E5;
+  --sidebar-accent-foreground: #1E1E1E;
+  --sidebar-border: #DDDDDD;
+  --sidebar-ring: #0F6157;
+}
+
+.dark {
+  /* Dark Theme Adaptation */
+  --background: #0A1C27;
+  /* Deep Navy Main BG */
+  --foreground: #F5F5F5;
+
+  --card: #152836;
+  /* Slightly lighter navy for cards */
+  --card-foreground: #F5F5F5;
+
+  --popover: #152836;
+  --popover-foreground: #F5F5F5;
+
+  --primary: #0F6157;
+  /* Keep Infra Green */
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #1E2D3D;
+  --secondary-foreground: #F5F5F5;
+
+  --muted: #1E2D3D;
+  --muted-foreground: #A0A0A0;
+
+  --accent: #E14FE3;
+  --accent-foreground: #FFFFFF;
+
+  --destructive: #FF4F4F;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #1E2D3D;
+  --input: #1E2D3D;
+  --ring: #0F6157;
+
+  --chart-1: #0F6157;
+  --chart-2: #E14FE3;
+  --chart-3: #F5F5F5;
+  --chart-4: #FFC107;
+  --chart-5: #FF4F4F;
+
+  /* Sidebar uses same colors in dark mode essentially, but maybe slightly tweaked */
+  --sidebar: #050E14;
+  /* Even darker for sidebar in dark mode to distinguish */
+  --sidebar-foreground: #F5F5F5;
+  --sidebar-primary: #0F6157;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #0F6157;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #1E2D3D;
+  --sidebar-ring: #E14FE3;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
