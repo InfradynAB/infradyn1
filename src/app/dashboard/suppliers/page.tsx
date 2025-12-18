@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ImportSupplierDialog } from "@/components/import-supplier-dialog";
+import { AddSupplierDialog } from "@/components/add-supplier-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import {  TruckIcon } from "@phosphor-icons/react/dist/ssr";
+import { TruckIcon } from "@phosphor-icons/react/dist/ssr";
 
 export default async function SuppliersPage() {
     return (
@@ -15,7 +16,10 @@ export default async function SuppliersPage() {
                     <h1 className="text-3xl font-bold">Suppliers</h1>
                     <p className="text-muted-foreground">Manage your organization&apos;s supplier registry.</p>
                 </div>
-                <ImportSupplierDialog />
+                <div className="flex gap-2">
+                    <AddSupplierDialog />
+                    <ImportSupplierDialog />
+                </div>
             </div>
 
             <Suspense fallback={<SuppliersTableSkeleton />}>

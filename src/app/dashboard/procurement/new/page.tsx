@@ -15,11 +15,11 @@ async function getFormData() {
         redirect("/sign-in");
     }
 
-    // Fetch projects and suppliers for dropdowns
+    // Fetch projects (with orgId) and suppliers for dropdowns
     const [projects, suppliers] = await Promise.all([
         db.query.project.findMany({
             where: eq(project.isDeleted, false),
-            columns: { id: true, name: true },
+            columns: { id: true, name: true, organizationId: true },
         }),
         db.query.supplier.findMany({
             where: eq(supplier.isDeleted, false),
@@ -40,3 +40,4 @@ export default async function NewPOPage() {
         />
     );
 }
+

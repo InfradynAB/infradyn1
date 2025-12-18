@@ -29,8 +29,10 @@ import {
     SpinnerIcon,
     CheckCircleIcon,
     WarningCircleIcon,
+    PlusIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
+import { AddSupplierDialog } from "@/components/add-supplier-dialog";
 
 // Form schema - uses coerce for HTML form inputs
 const formSchema = z.object({
@@ -56,6 +58,7 @@ const currencies = [
 interface ProjectOption {
     id: string;
     name: string;
+    organizationId: string;
 }
 
 interface SupplierOption {
@@ -74,6 +77,7 @@ export default function NewPurchaseOrderPage({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [fileUrl, setFileUrl] = useState<string | null>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploadProgress, setUploadProgress] = useState<
         "idle" | "uploading" | "done" | "error"
     >("idle");
@@ -82,6 +86,7 @@ export default function NewPurchaseOrderPage({
         register,
         handleSubmit,
         setValue,
+        watch,
         formState: { errors },
     } = useForm<FormData>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -91,31 +96,68 @@ export default function NewPurchaseOrderPage({
         },
     });
 
-    // Mock file upload handler (replace with real UploadThing integration)
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedProjectId = watch("projectId");
+    const selectedProject = projects.find((p) => p.id === selectedProjectId);
+
+    // Handle file selection (just store locally, upload on submit)
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
-        setUploadProgress("uploading");
-
-        // TODO: Replace with actual UploadThing upload
-        // Simulating upload delay
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        // Mock URL - in production this comes from UploadThing
-        const mockUrl = `https://utfs.io/f/${crypto.randomUUID()}.pdf`;
-        setFileUrl(mockUrl);
+        setSelectedFile(file);
         setUploadProgress("done");
     };
 
+    // Upload to S3 and create PO
     const onSubmit = async (data: FormData) => {
         setIsSubmitting(true);
         setSubmitError(null);
 
         try {
+            let uploadedFileUrl: string | undefined;
+
+            // Upload file to S3 if selected
+            if (selectedFile && selectedProject) {
+                setUploadProgress("uploading");
+
+                const contentType = selectedFile.type || "application/pdf";
+
+                const presignResponse = await fetch("/api/upload/presign", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        fileName: selectedFile.name,
+                        contentType,
+                        docType: "po",
+                        orgId: selectedProject.organizationId,
+                        projectId: selectedProject.id,
+                    }),
+                });
+
+                if (!presignResponse.ok) {
+                    throw new Error("Failed to get upload URL");
+                }
+
+                const { uploadUrl, fileUrl: s3FileUrl } = await presignResponse.json();
+
+                // Upload to S3
+                const uploadResponse = await fetch(uploadUrl, {
+                    method: "PUT",
+                    headers: { "Content-Type": contentType },
+                    body: selectedFile,
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error("Failed to upload file to S3");
+                }
+
+                uploadedFileUrl = s3FileUrl;
+                setFileUrl(s3FileUrl);
+            }
+
+            // Create PO
             const result = await createPurchaseOrder({
                 ...data,
-                fileUrl: fileUrl || undefined,
+                fileUrl: uploadedFileUrl || fileUrl || undefined,
             });
 
             if (result.success) {
@@ -125,7 +167,8 @@ export default function NewPurchaseOrderPage({
                 setSubmitError(result.error);
             }
         } catch (error) {
-            setSubmitError("An unexpected error occurred");
+            setSubmitError(error instanceof Error ? error.message : "An unexpected error occurred");
+            setUploadProgress("error");
         } finally {
             setIsSubmitting(false);
         }
@@ -276,7 +319,17 @@ export default function NewPurchaseOrderPage({
 
                         {/* Supplier Select */}
                         <div className="space-y-2">
-                            <Label>Supplier *</Label>
+                            <div className="flex items-center justify-between">
+                                <Label>Supplier *</Label>
+                                <AddSupplierDialog
+                                    trigger={
+                                        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                                            <PlusIcon className="mr-1 h-3 w-3" />
+                                            Add New
+                                        </Button>
+                                    }
+                                />
+                            </div>
                             <Select
                                 onValueChange={(v) => setValue("supplierId", v)}
                             >

@@ -88,3 +88,49 @@ export async function importSuppliers(formData: FormData) {
     }
 }
 
+// Schema for creating a single supplier
+interface CreateSupplierInput {
+    name: string;
+    contactEmail?: string;
+    taxId?: string;
+}
+
+/**
+ * Create a single supplier manually
+ */
+export async function createSupplier(input: CreateSupplierInput) {
+    const session = await auth.api.getSession({
+        headers: await headers()
+    });
+
+    if (!session || !session.user) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    const orgId = await getUserOrgId(session.user.id);
+    if (!orgId) {
+        return { success: false, error: "You must be a member of an organization first." };
+    }
+
+    if (!input.name || input.name.trim().length === 0) {
+        return { success: false, error: "Supplier name is required" };
+    }
+
+    try {
+        const [newSupplier] = await db.insert(supplier).values({
+            organizationId: orgId,
+            name: input.name.trim(),
+            contactEmail: input.contactEmail?.trim() || null,
+            taxId: input.taxId?.trim() || null,
+            status: 'INACTIVE',
+        }).returning();
+
+        revalidatePath("/dashboard/suppliers");
+        revalidatePath("/dashboard/procurement/new");
+
+        return { success: true, supplier: newSupplier };
+    } catch (error) {
+        console.error("[createSupplier] Error:", error);
+        return { success: false, error: "Failed to create supplier" };
+    }
+}

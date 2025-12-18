@@ -29,6 +29,7 @@ import {
     ClockIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { format } from "date-fns";
+import { UploadVersionDialog } from "@/components/procurement/upload-version-dialog";
 
 // Status badge colors
 const statusColors: Record<string, string> = {
@@ -101,10 +102,12 @@ export default async function PODetailPage({ params }: PageProps) {
                             </a>
                         </Button>
                     )}
-                    <Button>
-                        <UploadSimpleIcon className="mr-2 h-4 w-4" />
-                        Upload New Version
-                    </Button>
+                    <UploadVersionDialog
+                        purchaseOrderId={po.id}
+                        organizationId={po.organizationId}
+                        projectId={po.projectId}
+                        nextVersionNumber={(latestVersion?.versionNumber || 0) + 1}
+                    />
                 </div>
             </div>
 
@@ -356,7 +359,7 @@ export default async function PODetailPage({ params }: PageProps) {
                         </CardContent>
                     </Card>
                 </TabsContent>
-            </Tabs>
-        </div>
+            </Tabs >
+        </div >
     );
 }
