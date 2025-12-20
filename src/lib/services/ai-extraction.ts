@@ -19,12 +19,38 @@ const openai = new OpenAI({
 });
 
 // Types
+export interface ExtractedMilestone {
+    title: string;
+    description?: string;
+    expectedDate?: string; // ISO date
+    paymentPercentage: number;
+}
+
+export interface ExtractedBOQItem {
+    itemNumber: string;
+    description: string;
+    unit: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+}
+
 export interface ExtractedPOData {
+    // Basic fields
     poNumber: string | null;
     vendorName: string | null;
     date: string | null;
     totalValue: number | null;
     currency: string | null;
+    // Extended fields
+    scope: string | null;
+    paymentTerms: string | null;
+    incoterms: string | null;
+    retentionPercentage: number | null;
+    // Related data
+    milestones: ExtractedMilestone[];
+    boqItems: ExtractedBOQItem[];
+    // Meta
     confidence: number;
     rawText?: string;
 }
@@ -72,15 +98,20 @@ export async function extractTextWithTextract(
 
         console.log(`[Textract] Job started: ${jobId}`);
 
-        // Poll for completion (max 60 seconds)
+        // Poll for completion (max 3 minutes for large multi-page PDFs)
         let status = "IN_PROGRESS";
         let attempts = 0;
-        const maxAttempts = 30; // 30 attempts * 2 seconds = 60 seconds max
+        const maxAttempts = 90; // 90 attempts * 2 seconds = 180 seconds (3 min) max
         let allBlocks: any[] = [];
 
         while (status === "IN_PROGRESS" && attempts < maxAttempts) {
             await sleep(2000); // Wait 2 seconds between polls
             attempts++;
+
+            // Log progress every 10 attempts
+            if (attempts % 10 === 0) {
+                console.log(`[Textract] Still processing... (${attempts * 2}s elapsed)`);
+            }
 
             const getCommand = new GetDocumentTextDetectionCommand({
                 JobId: jobId,
@@ -154,32 +185,70 @@ export async function parseWithGPT(rawText: string): Promise<ExtractionResult> {
     try {
         console.log("[GPT] Parsing extracted text...");
 
-        const systemPrompt = `You are a document parsing assistant specialized in extracting data from Purchase Order (PO) documents.
-        
-Extract the following fields from the provided text:
-- PO Number (the unique identifier for the purchase order)
-- Vendor/Supplier Name (the company providing goods/services)
-- Date (the PO date in ISO format YYYY-MM-DD)
-- Total Value (the total amount, numeric only)
-- Currency (e.g., USD, KES, EUR, GBP)
+        const systemPrompt = `You are a document parsing assistant specialized in extracting comprehensive data from Purchase Order (PO) documents.
+
+Extract ALL of the following fields from the provided text:
+
+**Basic PO Information:**
+- poNumber: The unique PO identifier
+- vendorName: The supplier/vendor company name
+- date: The PO date (ISO format YYYY-MM-DD)
+- totalValue: The total PO amount (number only, no currency symbols)
+- currency: Currency code (USD, EUR, GBP, KES, etc.)
+
+**Contract Terms:**
+- scope: Brief description of the project scope or what is being purchased
+- paymentTerms: Payment conditions (e.g., "Net 30", "50% advance, 50% on delivery")
+- incoterms: Trade terms if present (e.g., "FOB", "CIF", "DDP", "EXW")
+- retentionPercentage: Retention/holdback percentage if specified (number only)
+
+**Milestones (if present):**
+Extract any payment milestones, delivery stages, or project phases. Each milestone should have:
+- title: Name of the milestone
+- description: Brief description (optional)
+- expectedDate: Date in YYYY-MM-DD format (optional)
+- paymentPercentage: Payment % for this milestone (number)
+
+**BOQ/Line Items (if present):**
+Extract Bill of Quantities or line items. Each item should have:
+- itemNumber: Item number or code
+- description: Item description
+- unit: Unit of measurement (EA, KG, M, L, etc.)
+- quantity: Quantity (number)
+- unitPrice: Price per unit (number)
+- totalPrice: Total price for this line (number)
 
 Respond ONLY with valid JSON in this exact format:
 {
   "poNumber": "string or null",
-  "vendorName": "string or null", 
+  "vendorName": "string or null",
   "date": "YYYY-MM-DD or null",
   "totalValue": number or null,
   "currency": "string or null",
+  "scope": "string or null",
+  "paymentTerms": "string or null",
+  "incoterms": "string or null",
+  "retentionPercentage": number or null,
+  "milestones": [
+    {"title": "string", "description": "string or null", "expectedDate": "YYYY-MM-DD or null", "paymentPercentage": number}
+  ],
+  "boqItems": [
+    {"itemNumber": "string", "description": "string", "unit": "string", "quantity": number, "unitPrice": number, "totalPrice": number}
+  ],
   "confidence": 0.0-1.0
 }
 
-If a field cannot be found, set it to null. The confidence score (0-1) should reflect how certain you are about the overall extraction quality.`;
+Rules:
+- Set fields to null if not found
+- milestones and boqItems should be empty arrays [] if none found
+- BOQ item totalPrice should be quantity * unitPrice if not explicitly stated
+- Confidence (0-1) reflects overall extraction quality`;
 
         const response = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
                 { role: "system", content: systemPrompt },
-                { role: "user", content: `Extract PO data from this document text:\n\n${rawText.slice(0, 8000)}` },
+                { role: "user", content: `Extract all PO data from this document text:\n\n${rawText.slice(0, 12000)}` },
             ],
             temperature: 0.1,
             response_format: { type: "json_object" },
@@ -193,9 +262,16 @@ If a field cannot be found, set it to null. The confidence score (0-1) should re
         const parsed = JSON.parse(content) as ExtractedPOData;
         parsed.rawText = rawText.slice(0, 500); // Include preview of raw text
 
+        // Ensure arrays exist
+        if (!parsed.milestones) parsed.milestones = [];
+        if (!parsed.boqItems) parsed.boqItems = [];
+
         console.log("[GPT] Extraction complete:", {
             poNumber: parsed.poNumber,
             vendor: parsed.vendorName,
+            scope: parsed.scope?.slice(0, 50),
+            milestones: parsed.milestones.length,
+            boqItems: parsed.boqItems.length,
             confidence: parsed.confidence,
         });
 

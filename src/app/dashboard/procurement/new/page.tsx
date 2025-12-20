@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import db from "@/db/drizzle";
 import { project, supplier } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import NewPurchaseOrderPage from "@/components/procurement/new-po-form";
+import POWizard from "@/components/procurement/po-wizard";
 
 async function getFormData() {
     const session = await auth.api.getSession({
@@ -15,11 +15,11 @@ async function getFormData() {
         redirect("/sign-in");
     }
 
-    // Fetch projects (with orgId) and suppliers for dropdowns
+    // Fetch projects (with orgId and currency) and suppliers for dropdowns
     const [projects, suppliers] = await Promise.all([
         db.query.project.findMany({
             where: eq(project.isDeleted, false),
-            columns: { id: true, name: true, organizationId: true },
+            columns: { id: true, name: true, organizationId: true, currency: true },
         }),
         db.query.supplier.findMany({
             where: eq(supplier.isDeleted, false),
@@ -34,7 +34,7 @@ export default async function NewPOPage() {
     const { projects, suppliers } = await getFormData();
 
     return (
-        <NewPurchaseOrderPage
+        <POWizard
             projects={projects}
             suppliers={suppliers}
         />

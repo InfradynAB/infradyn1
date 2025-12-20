@@ -170,6 +170,13 @@ export const purchaseOrder = pgTable('purchase_order', {
     totalValue: numeric('total_value').notNull(),
     currency: text('currency').default('USD').notNull(),
     status: text('status').default('DRAFT').notNull(),
+    // Phase 2 additions
+    scope: text('scope'), // Project scope description
+    paymentTerms: text('payment_terms'), // e.g., "Net 30", "50% advance, 50% on delivery"
+    incoterms: text('incoterms'), // e.g., "FOB", "CIF", "DDP"
+    retentionPercentage: numeric('retention_percentage').default('0'), // Retention %
+    complianceStatus: text('compliance_status').default('PENDING'), // PENDING, PASSED, FAILED
+    complianceNotes: text('compliance_notes'), // Validator notes/flags
 }, (t) => ({
     poNumberIdx: uniqueIndex('po_number_idx').on(t.projectId, t.poNumber),
 }));
@@ -191,6 +198,10 @@ export const boqItem = pgTable('boq_item', {
     quantity: numeric('quantity').notNull(),
     unitPrice: numeric('unit_price').notNull(),
     totalPrice: numeric('total_price').notNull(),
+    // Phase 2 additions - ROS (Required On Site)
+    rosDate: timestamp('ros_date'), // Required on site date
+    isCritical: boolean('is_critical').default(false), // Critical material flag
+    rosStatus: text('ros_status').default('NOT_SET'), // NOT_SET, SET, TBD
 });
 
 export const milestone = pgTable('milestone', {
@@ -202,6 +213,8 @@ export const milestone = pgTable('milestone', {
     paymentPercentage: numeric('payment_percentage').notNull(),
     amount: numeric('amount'),
     status: text('status').default('PENDING'),
+    // Phase 2 additions
+    sequenceOrder: integer('sequence_order').default(0), // Order in milestone flow
 });
 
 // --- 4. DOCUMENT INGESTION ---
