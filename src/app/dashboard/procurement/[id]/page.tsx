@@ -30,6 +30,7 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import { format } from "date-fns";
 import { UploadVersionDialog } from "@/components/procurement/upload-version-dialog";
+import { ImportBOQDialog } from "@/components/procurement/import-boq-dialog";
 
 // Status badge colors
 const statusColors: Record<string, string> = {
@@ -229,10 +230,7 @@ export default async function PODetailPage({ params }: PageProps) {
                                         Line items from uploaded BOQ
                                     </CardDescription>
                                 </div>
-                                <Button variant="outline">
-                                    <UploadSimpleIcon className="mr-2 h-4 w-4" />
-                                    Import BOQ
-                                </Button>
+                                <ImportBOQDialog purchaseOrderId={po.id} />
                             </div>
                         </CardHeader>
                         <CardContent>

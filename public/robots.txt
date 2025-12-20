@@ -1,0 +1,21 @@
+# Robots.txt for Infradyn.com
+# https://infradyn.com
+
+User-agent: *
+Allow: /
+
+# Block authentication and protected pages
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /verify-email
+Disallow: /reset-password
+Disallow: /invite
+
+# Block Next.js internal routes
+Disallow: /_next/
+Disallow: /static/
+
+# Sitemap location
+Sitemap: https://infradyn.com/sitemap.xml

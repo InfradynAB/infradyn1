@@ -17,6 +17,14 @@ import {
 } from "@/components/ui/sidebar"
 import { auth } from "../../../auth"
 import { headers } from "next/headers"
+import { noIndexMetadata } from "@/lib/seo.config"
+import type { Metadata } from "next"
+
+// Prevent search engine indexing of dashboard pages
+export const metadata: Metadata = {
+    ...noIndexMetadata,
+    title: "Dashboard",
+};
 
 export default async function DashboardLayout({
     children,
