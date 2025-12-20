@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { UploadSimpleIcon, SpinnerGap, FilePdfIcon } from "@phosphor-icons/react/dist/ssr";
+import { toast } from "sonner";
 
 interface UploadVersionDialogProps {
     purchaseOrderId: string;
@@ -55,6 +56,8 @@ export function UploadVersionDialog({
         setIsSubmitting(true);
         setError(null);
         setUploadProgress("uploading");
+
+        const toastId = toast.loading("Uploading new version...");
 
         try {
             // 1. Get Presigned URL
@@ -96,18 +99,23 @@ export function UploadVersionDialog({
             });
 
             if (result.success) {
+                toast.success("New version uploaded successfully", { id: toastId });
                 setOpen(false);
                 setSelectedFile(null);
                 setChangeDescription("");
                 setUploadProgress("idle");
                 router.refresh();
             } else {
-                setError(result.error || "Failed to save version");
+                const msg = result.error || "Failed to save version";
+                setError(msg);
+                toast.error(msg, { id: toastId });
                 setUploadProgress("error");
             }
         } catch (err) {
             console.error(err);
-            setError(err instanceof Error ? err.message : "An unexpected error occurred");
+            const msg = err instanceof Error ? err.message : "An unexpected error occurred";
+            setError(msg);
+            toast.error(msg, { id: toastId });
             setUploadProgress("error");
         } finally {
             setIsSubmitting(false);

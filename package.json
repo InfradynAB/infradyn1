@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.954.0",
+    "@aws-sdk/client-textract": "^3.956.0",
     "@aws-sdk/s3-request-presigner": "^3.954.0",
     "@hookform/resolvers": "^5.2.2",
     "@neondatabase/serverless": "^1.0.2",
@@ -58,6 +59,7 @@
     "lucide-react": "^0.556.0",
     "next": "16.0.10",
     "next-themes": "^0.4.6",
+    "openai": "^6.15.0",
     "pg": "^8.16.3",
     "prettier": "^3.7.4",
     "react": "19.2.0",

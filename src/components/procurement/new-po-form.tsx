@@ -33,6 +33,7 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 import { AddSupplierDialog } from "@/components/add-supplier-dialog";
+import { toast } from "sonner";
 
 // Form schema - uses coerce for HTML form inputs
 const formSchema = z.object({
@@ -79,8 +80,21 @@ export default function NewPurchaseOrderPage({
     const [fileUrl, setFileUrl] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploadProgress, setUploadProgress] = useState<
-        "idle" | "uploading" | "done" | "error"
+        "idle" | "uploading" | "extracting" | "done" | "error"
     >("idle");
+
+    // AI Extraction state
+    const [extractionStatus, setExtractionStatus] = useState<
+        "idle" | "extracting" | "success" | "error"
+    >("idle");
+    const [extractedFields, setExtractedFields] = useState<{
+        poNumber?: string;
+        vendorName?: string;
+        totalValue?: number;
+        currency?: string;
+        confidence?: number;
+    } | null>(null);
+    const [extractionError, setExtractionError] = useState<string | null>(null);
 
     const {
         register,
@@ -99,76 +113,146 @@ export default function NewPurchaseOrderPage({
     const selectedProjectId = watch("projectId");
     const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
-    // Handle file selection (just store locally, upload on submit)
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Handle file selection - upload immediately and trigger AI extraction
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+
         setSelectedFile(file);
-        setUploadProgress("done");
+        setExtractedFields(null);
+        setExtractionError(null);
+        setExtractionStatus("idle");
+
+        // Need a project selected to upload
+        if (!selectedProject) {
+            toast.warning("Please select a project first before uploading a document.");
+            e.target.value = ""; // Clear file input
+            setUploadProgress("idle");
+            return;
+        }
+
+        // Upload to S3 first
+        setUploadProgress("uploading");
+        try {
+            const contentType = file.type || "application/pdf";
+
+            const presignResponse = await fetch("/api/upload/presign", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    fileName: file.name,
+                    contentType,
+                    docType: "po",
+                    orgId: selectedProject.organizationId,
+                    projectId: selectedProject.id,
+                }),
+            });
+
+            if (!presignResponse.ok) {
+                throw new Error("Failed to get upload URL");
+            }
+
+            const { uploadUrl, fileUrl: s3FileUrl } = await presignResponse.json();
+
+            // Upload to S3
+            const uploadResponse = await fetch(uploadUrl, {
+                method: "PUT",
+                headers: { "Content-Type": contentType },
+                body: file,
+            });
+
+            if (!uploadResponse.ok) {
+                throw new Error("Failed to upload file to S3");
+            }
+
+            setFileUrl(s3FileUrl);
+            setUploadProgress("extracting");
+
+            // Trigger AI extraction
+            setExtractionStatus("extracting");
+            const extractionToast = toast.loading("AI is analyzing your document...");
+
+            try {
+                const extractResponse = await fetch("/api/po/extract", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ fileUrl: s3FileUrl }),
+                });
+
+                if (extractResponse.ok) {
+                    const extractResult = await extractResponse.json();
+                    if (extractResult.success && extractResult.data) {
+                        const data = extractResult.data;
+                        setExtractedFields({
+                            poNumber: data.poNumber,
+                            vendorName: data.vendorName,
+                            totalValue: data.totalValue,
+                            currency: data.currency,
+                            confidence: data.confidence,
+                        });
+
+                        // Pre-fill form fields
+                        if (data.poNumber) setValue("poNumber", data.poNumber);
+                        if (data.totalValue) setValue("totalValue", data.totalValue);
+                        if (data.currency) setValue("currency", data.currency);
+
+                        setExtractionStatus("success");
+                        toast.success("AI extraction complete!", { id: extractionToast });
+                    } else {
+                        const msg = extractResult.error || "Extraction returned no data";
+                        setExtractionError(msg);
+                        setExtractionStatus("error");
+                        toast.error(`AI Analysis: ${msg}`, { id: extractionToast });
+                    }
+                } else {
+                    const errorData = await extractResponse.json().catch(() => ({}));
+                    const msg = errorData.error || "AI extraction failed";
+                    setExtractionError(msg);
+                    setExtractionStatus("error");
+                    toast.error(`AI Analysis Failed: ${msg}`, { id: extractionToast });
+                }
+            } catch (err) {
+                console.error("Extraction API error:", err);
+                setExtractionError("Failed to reach extraction service");
+                setExtractionStatus("error");
+                toast.error("AI Analysis: Connection error", { id: extractionToast });
+            }
+
+            setUploadProgress("done");
+        } catch (error) {
+            console.error("Upload/extraction error:", error);
+            setUploadProgress("error");
+            setExtractionStatus("error");
+            setExtractionError(error instanceof Error ? error.message : "Upload failed");
+        }
     };
 
-    // Upload to S3 and create PO
+    // Create PO (file is already uploaded during handleFileChange)
     const onSubmit = async (data: FormData) => {
         setIsSubmitting(true);
         setSubmitError(null);
 
+        const toastId = toast.loading("Creating purchase order...");
+
         try {
-            let uploadedFileUrl: string | undefined;
-
-            // Upload file to S3 if selected
-            if (selectedFile && selectedProject) {
-                setUploadProgress("uploading");
-
-                const contentType = selectedFile.type || "application/pdf";
-
-                const presignResponse = await fetch("/api/upload/presign", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        fileName: selectedFile.name,
-                        contentType,
-                        docType: "po",
-                        orgId: selectedProject.organizationId,
-                        projectId: selectedProject.id,
-                    }),
-                });
-
-                if (!presignResponse.ok) {
-                    throw new Error("Failed to get upload URL");
-                }
-
-                const { uploadUrl, fileUrl: s3FileUrl } = await presignResponse.json();
-
-                // Upload to S3
-                const uploadResponse = await fetch(uploadUrl, {
-                    method: "PUT",
-                    headers: { "Content-Type": contentType },
-                    body: selectedFile,
-                });
-
-                if (!uploadResponse.ok) {
-                    throw new Error("Failed to upload file to S3");
-                }
-
-                uploadedFileUrl = s3FileUrl;
-                setFileUrl(s3FileUrl);
-            }
-
-            // Create PO
+            // Create PO with the already-uploaded file URL
             const result = await createPurchaseOrder({
                 ...data,
-                fileUrl: uploadedFileUrl || fileUrl || undefined,
+                fileUrl: fileUrl || undefined,
             });
 
             if (result.success) {
+                toast.success("Purchase order created successfully", { id: toastId });
                 router.push("/dashboard/procurement");
                 router.refresh();
             } else {
                 setSubmitError(result.error);
+                toast.error(result.error, { id: toastId });
             }
         } catch (error) {
-            setSubmitError(error instanceof Error ? error.message : "An unexpected error occurred");
-            setUploadProgress("error");
+            const message = error instanceof Error ? error.message : "An unexpected error occurred";
+            setSubmitError(message);
+            toast.error(message, { id: toastId });
         } finally {
             setIsSubmitting(false);
         }
@@ -224,6 +308,13 @@ export default function NewPurchaseOrderPage({
                                     <p className="text-sm">Uploading...</p>
                                 </div>
                             )}
+                            {uploadProgress === "extracting" && (
+                                <div className="flex flex-col items-center gap-2">
+                                    <SpinnerIcon className="h-8 w-8 animate-spin text-amber-500" />
+                                    <p className="text-sm text-amber-600 font-medium">Analyzing document with AI...</p>
+                                    <p className="text-xs text-muted-foreground">This may take a few seconds</p>
+                                </div>
+                            )}
                             {uploadProgress === "done" && (
                                 <div className="flex flex-col items-center gap-2 text-green-600">
                                     <CheckCircleIcon
@@ -231,15 +322,23 @@ export default function NewPurchaseOrderPage({
                                         className="h-8 w-8"
                                     />
                                     <p className="text-sm font-medium">
-                                        Upload complete
+                                        {extractionStatus === "success" ? "Upload & Analysis complete" : "Upload complete"}
                                     </p>
+                                    {extractionStatus === "success" && extractedFields?.confidence && (
+                                        <p className="text-xs text-muted-foreground">
+                                            AI Confidence: {Math.round(extractedFields.confidence * 100)}%
+                                        </p>
+                                    )}
                                     <Button
                                         type="button"
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => {
                                             setFileUrl(null);
+                                            setSelectedFile(null);
                                             setUploadProgress("idle");
+                                            setExtractedFields(null);
+                                            setExtractionStatus("idle");
                                         }}
                                     >
                                         Replace file
@@ -266,6 +365,22 @@ export default function NewPurchaseOrderPage({
                                 </div>
                             )}
                         </div>
+
+                        {/* AI Extraction Status Banner */}
+                        {extractionStatus === "success" && extractedFields && (
+                            <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                                <p className="text-sm text-green-700 dark:text-green-400 font-medium">
+                                    ✨ AI extracted PO details below. Please review and correct if needed.
+                                </p>
+                            </div>
+                        )}
+                        {extractionStatus === "error" && extractionError && (
+                            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                                <p className="text-sm text-amber-700 dark:text-amber-400">
+                                    ⚠️ {extractionError}
+                                </p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 

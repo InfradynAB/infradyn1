@@ -120,8 +120,17 @@ export async function createPurchaseOrder(
             success: true,
             data: { id: newPO.id, poNumber: newPO.poNumber },
         };
-    } catch (error) {
+    } catch (error: any) {
         console.error("[createPurchaseOrder] Error:", error);
+
+        // Handle unique constraint violation (PG code 23505)
+        if (error.code === '23505' || error.constraint === 'po_number_idx') {
+            return {
+                success: false,
+                error: `A Purchase Order with number "${input.poNumber}" already exists for this project.`,
+            };
+        }
+
         return { success: false, error: "Failed to create purchase order" };
     }
 }
