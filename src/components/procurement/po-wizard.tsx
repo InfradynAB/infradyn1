@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { createPurchaseOrder } from "@/lib/actions/procurement";
+import { createPurchaseOrder, updatePurchaseOrder } from "@/lib/actions/procurement";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -93,15 +93,34 @@ interface SupplierOption {
     name: string;
 }
 
+interface POInitialData {
+    id: string;
+    projectId: string;
+    supplierId: string;
+    poNumber: string;
+    totalValue: number;
+    currency: string;
+    scope?: string | null;
+    paymentTerms?: string | null;
+    incoterms?: string | null;
+    retentionPercentage?: number | null;
+    milestones?: any[];
+    boqItems?: any[];
+}
+
 export default function POWizard({
     projects,
     suppliers,
+    initialData,
+    mode = "create",
 }: {
     projects: ProjectOption[];
     suppliers: SupplierOption[];
+    initialData?: POInitialData;
+    mode?: "create" | "edit";
 }) {
     const router = useRouter();
-    const [currentStep, setCurrentStep] = useState<WizardStep>("upload");
+    const [currentStep, setCurrentStep] = useState<WizardStep>(mode === "edit" ? "details" : "upload");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // File upload state
@@ -114,8 +133,20 @@ export default function POWizard({
     const [extractedData, setExtractedData] = useState<any>(null);
 
     // Milestones & BOQ state
-    const [milestones, setMilestones] = useState<MilestoneData[]>([]);
-    const [boqItems, setBOQItems] = useState<BOQItemWithROS[]>([]);
+    const [milestones, setMilestones] = useState<MilestoneData[]>(
+        initialData?.milestones?.map((m) => ({
+            ...m,
+            paymentPercentage: Number(m.paymentPercentage),
+        })) || []
+    );
+    const [boqItems, setBOQItems] = useState<BOQItemWithROS[]>(
+        initialData?.boqItems?.map((b) => ({
+            ...b,
+            quantity: Number(b.quantity),
+            unitPrice: Number(b.unitPrice),
+            totalPrice: Number(b.totalPrice),
+        })) || []
+    );
     const [submitError, setSubmitError] = useState<string | null>(null);
 
     const {
@@ -127,7 +158,17 @@ export default function POWizard({
     } = useForm<FormData>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(formSchema) as any,
-        defaultValues: {
+        defaultValues: initialData ? {
+            projectId: initialData.projectId,
+            supplierId: initialData.supplierId,
+            poNumber: initialData.poNumber,
+            totalValue: Number(initialData.totalValue),
+            currency: initialData.currency,
+            scope: initialData.scope || "",
+            paymentTerms: initialData.paymentTerms || "",
+            incoterms: initialData.incoterms || "",
+            retentionPercentage: Number(initialData.retentionPercentage || 0),
+        } : {
             currency: "USD",
             retentionPercentage: 0,
         },
@@ -266,25 +307,35 @@ export default function POWizard({
     const onSubmit = async (data: FormData) => {
         setIsSubmitting(true);
         setSubmitError(null);
-        const submitToast = toast.loading("Creating purchase order...");
+        const submitToast = toast.loading(mode === "edit" ? "Updating purchase order..." : "Creating purchase order...");
 
         try {
-            const result = await createPurchaseOrder({
-                ...data,
-                fileUrl: fileUrl || undefined,
-            });
+            let result;
+            if (mode === "edit" && initialData) {
+                result = await updatePurchaseOrder({
+                    ...data,
+                    id: initialData.id,
+                    milestones,
+                    boqItems,
+                });
+            } else {
+                result = await createPurchaseOrder({
+                    ...data,
+                    fileUrl: fileUrl || undefined,
+                });
+            }
 
             if (result.success) {
-                toast.success("Purchase order created!", { id: submitToast });
-                router.push("/dashboard/procurement");
+                toast.success(mode === "edit" ? "Purchase order updated!" : "Purchase order created!", { id: submitToast });
+                router.push(mode === "edit" ? `/dashboard/procurement/${initialData?.id}` : "/dashboard/procurement");
                 router.refresh();
             } else {
                 setSubmitError(result.error);
                 toast.error(result.error, { id: submitToast });
             }
         } catch (error) {
-            setSubmitError("Failed to create purchase order. Please try again.");
-            toast.error("Failed to create purchase order", { id: submitToast });
+            setSubmitError(`Failed to ${mode === "edit" ? "update" : "create"} purchase order. Please try again.`);
+            toast.error(`Failed to ${mode === "edit" ? "update" : "create"} purchase order`, { id: submitToast });
         } finally {
             setIsSubmitting(false);
         }
@@ -550,10 +601,10 @@ export default function POWizard({
                             {isSubmitting ? (
                                 <>
                                     <SpinnerIcon className="h-4 w-4 mr-2 animate-spin" />
-                                    Creating...
+                                    {mode === "edit" ? "Updating..." : "Creating..."}
                                 </>
                             ) : (
-                                "Publish PO"
+                                mode === "edit" ? "Save Changes" : "Publish PO"
                             )}
                         </Button>
                     ) : (

@@ -68,6 +68,8 @@ function EmptyState() {
     );
 }
 
+import { POActions } from "@/components/procurement/po-actions";
+
 // PO List Table
 async function POList() {
     const result = await listPurchaseOrders();
@@ -96,14 +98,19 @@ async function POList() {
                     <TableHead className="text-right">Value</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Updated</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {purchaseOrders.map((po: any) => (
                     <TableRow key={po.id} className="group">
                         <TableCell className="font-medium">
-                            {po.poNumber}
+                            <Link
+                                href={`/dashboard/procurement/${po.id}`}
+                                className="hover:underline text-primary"
+                            >
+                                {po.poNumber}
+                            </Link>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                             {po.project?.name || "—"}
@@ -127,17 +134,8 @@ async function POList() {
                                 addSuffix: true,
                             })}
                         </TableCell>
-                        <TableCell>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                asChild
-                                className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                                <Link href={`/dashboard/procurement/${po.id}`}>
-                                    <ArrowRightIcon className="h-4 w-4" />
-                                </Link>
-                            </Button>
+                        <TableCell className="text-right">
+                            <POActions poId={po.id} poNumber={po.poNumber} />
                         </TableCell>
                     </TableRow>
                 ))}

@@ -27,10 +27,17 @@ import {
     UploadSimpleIcon,
     FileTextIcon,
     ClockIcon,
+    PencilSimpleIcon,
+    TrashIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { format } from "date-fns";
 import { UploadVersionDialog } from "@/components/procurement/upload-version-dialog";
 import { ImportBOQDialog } from "@/components/procurement/import-boq-dialog";
+import { DeletePOButton } from "@/components/procurement/delete-po-button";
+import {
+    extractS3KeyFromUrl,
+    getDownloadPresignedUrl
+} from "@/lib/services/s3";
 
 // Status badge colors
 const statusColors: Record<string, string> = {
@@ -61,7 +68,27 @@ export default async function PODetailPage({ params }: PageProps) {
     }
 
     const po = result.data;
-    const latestVersion = po.versions?.[0];
+
+    // Process all versions to include presigned URLs in parallel
+    const versionsWithUrls = await Promise.all(
+        (po.versions || []).map(async (v: any) => {
+            let downloadUrl = v.fileUrl;
+            if (v.fileUrl) {
+                const key = extractS3KeyFromUrl(v.fileUrl);
+                if (key) {
+                    try {
+                        downloadUrl = await getDownloadPresignedUrl(key);
+                    } catch (e) {
+                        console.error(`Failed to generate presigned URL for version ${v.versionNumber}:`, e);
+                    }
+                }
+            }
+            return { ...v, downloadUrl };
+        })
+    );
+
+    const latestVersion = versionsWithUrls[0];
+    const downloadUrl = latestVersion?.downloadUrl;
 
     return (
         <div className="space-y-6">
@@ -91,10 +118,10 @@ export default async function PODetailPage({ params }: PageProps) {
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    {latestVersion?.fileUrl && (
+                    {downloadUrl && (
                         <Button variant="outline" asChild>
                             <a
-                                href={latestVersion.fileUrl}
+                                href={downloadUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
                             >
@@ -103,12 +130,19 @@ export default async function PODetailPage({ params }: PageProps) {
                             </a>
                         </Button>
                     )}
+                    <Button variant="outline" asChild>
+                        <Link href={`/dashboard/procurement/${po.id}/edit`}>
+                            <PencilSimpleIcon className="mr-2 h-4 w-4" />
+                            Edit PO
+                        </Link>
+                    </Button>
                     <UploadVersionDialog
                         purchaseOrderId={po.id}
                         organizationId={po.organizationId}
                         projectId={po.projectId}
                         nextVersionNumber={(latestVersion?.versionNumber || 0) + 1}
                     />
+                    <DeletePOButton poId={po.id} poNumber={po.poNumber} />
                 </div>
             </div>
 
@@ -308,7 +342,7 @@ export default async function PODetailPage({ params }: PageProps) {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                {po.versions?.map((version: any) => (
+                                {versionsWithUrls.map((version: any) => (
                                     <div
                                         key={version.id}
                                         className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
@@ -335,14 +369,14 @@ export default async function PODetailPage({ params }: PageProps) {
                                                     "MMM d, yyyy"
                                                 )}
                                             </div>
-                                            {version.fileUrl && (
+                                            {version.downloadUrl && (
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
                                                     asChild
                                                 >
                                                     <a
-                                                        href={version.fileUrl}
+                                                        href={version.downloadUrl}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                     >

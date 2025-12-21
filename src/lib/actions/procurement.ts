@@ -7,14 +7,18 @@ import {
     poVersion,
     project,
     document,
+    milestone,
+    boqItem,
 } from "@/db/schema";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import {
     createPOSchema,
+    updatePOSchema,
     updatePOVersionSchema,
     type CreatePOInput,
+    type UpdatePOInput,
     type UpdatePOVersionInput,
 } from "@/lib/schemas/procurement";
 
@@ -139,6 +143,96 @@ export async function createPurchaseOrder(
         }
 
         return { success: false, error: "Failed to create purchase order" };
+    }
+}
+
+/**
+ * Update an existing Purchase Order
+ */
+export async function updatePurchaseOrder(
+    input: UpdatePOInput
+): Promise<ActionResult> {
+    try {
+        await getAuthenticatedUser();
+
+        // Validate input
+        const validated = updatePOSchema.safeParse(input);
+        if (!validated.success) {
+            return {
+                success: false,
+                error: "Validation failed",
+                details: validated.error.flatten().fieldErrors as Record<string, string[]>,
+            };
+        }
+
+        const { id, milestones, boqItems, ...poData } = validated.data;
+
+        // Use a transaction for atomic updates
+        await db.transaction(async (tx) => {
+            // 1. Update core PO fields
+            if (Object.keys(poData).length > 0) {
+                await tx
+                    .update(purchaseOrder)
+                    .set({
+                        ...poData,
+                        totalValue: poData.totalValue?.toString(),
+                        retentionPercentage: poData.retentionPercentage?.toString(),
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(purchaseOrder.id, id));
+            }
+
+            // 2. Sync Milestones
+            if (milestones) {
+                // For simplicity in this workflow, we'll replace milestones
+                // A better approach would be to diff them, but since this is a wizard flow
+                // where the whole state is sent, replacing is safer and easier.
+                await tx.delete(milestone).where(eq(milestone.purchaseOrderId, id));
+
+                if (milestones.length > 0) {
+                    await tx.insert(milestone).values(
+                        milestones.map((m) => ({
+                            purchaseOrderId: id,
+                            title: m.title,
+                            description: m.description,
+                            expectedDate: m.expectedDate ? new Date(m.expectedDate) : null,
+                            paymentPercentage: m.paymentPercentage.toString(),
+                            sequenceOrder: m.sequenceOrder,
+                        }))
+                    );
+                }
+            }
+
+            // 3. Sync BOQ Items
+            if (boqItems) {
+                await tx.delete(boqItem).where(eq(boqItem.purchaseOrderId, id));
+
+                if (boqItems.length > 0) {
+                    await tx.insert(boqItem).values(
+                        boqItems.map((b) => ({
+                            purchaseOrderId: id,
+                            itemNumber: b.itemNumber,
+                            description: b.description,
+                            unit: b.unit,
+                            quantity: b.quantity.toString(),
+                            unitPrice: b.unitPrice.toString(),
+                            totalPrice: b.totalPrice.toString(),
+                            rosDate: b.rosDate ? new Date(b.rosDate) : null,
+                            isCritical: b.isCritical,
+                            rosStatus: b.rosStatus,
+                        }))
+                    );
+                }
+            }
+        });
+
+        revalidatePath(`/dashboard/procurement/${id}`);
+        revalidatePath("/dashboard/procurement");
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("[updatePurchaseOrder] Error:", error);
+        return { success: false, error: "Failed to update purchase order" };
     }
 }
 

@@ -84,3 +84,20 @@ export function generateS3Key(
     const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
     return `${orgId}/${projectId}/${docType}/${timestamp}-${sanitizedFileName}`;
 }
+
+/**
+ * Extracts the S3 Key from a full S3 URL
+ */
+export function extractS3KeyFromUrl(url: string): string | null {
+    try {
+        const urlObj = new URL(url);
+        // For s3.amazonaws.com URLs, the path starts with /
+        // We remove the leading slash to get the key
+        return urlObj.pathname.startsWith("/")
+            ? urlObj.pathname.slice(1)
+            : urlObj.pathname;
+    } catch (e) {
+        console.error("Error parsing S3 URL:", e);
+        return null;
+    }
+}
