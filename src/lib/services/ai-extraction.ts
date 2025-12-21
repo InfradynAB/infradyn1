@@ -2,6 +2,7 @@ import {
     TextractClient,
     StartDocumentTextDetectionCommand,
     GetDocumentTextDetectionCommand,
+    DetectDocumentTextCommand,
 } from "@aws-sdk/client-textract";
 import OpenAI from "openai";
 
@@ -69,10 +70,43 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Extract text from a PDF/Image using AWS Textract (async API for PDF support)
- * Note: For S3 objects, we need the bucket and key
+ * Extract text from a single-page image using AWS Textract (Synchronous API)
  */
-export async function extractTextWithTextract(
+async function extractTextWithTextractSync(
+    s3Bucket: string,
+    s3Key: string
+): Promise<{ success: boolean; text?: string; error?: string }> {
+    try {
+        console.log(`[Textract] Starting sync text detection: s3://${s3Bucket}/${s3Key}`);
+
+        const command = new DetectDocumentTextCommand({
+            Document: {
+                S3Object: {
+                    Bucket: s3Bucket,
+                    Name: s3Key,
+                },
+            },
+        });
+
+        const response = await textractClient.send(command);
+
+        const extractedText = (response.Blocks || [])
+            .filter((block) => block.BlockType === "LINE")
+            .map((block) => block.Text)
+            .join("\n");
+
+        console.log(`[Textract] Sync extraction complete: ${extractedText.length} characters`);
+        return { success: true, text: extractedText };
+    } catch (error: any) {
+        console.error("[Textract Sync] Error:", error);
+        return { success: false, error: error.message || "Sync extraction failed" };
+    }
+}
+
+/**
+ * Extract text from a multi-page PDF using AWS Textract (Asynchronous API)
+ */
+async function extractTextWithTextractAsync(
     s3Bucket: string,
     s3Key: string
 ): Promise<{ success: boolean; text?: string; error?: string }> {
@@ -160,7 +194,30 @@ export async function extractTextWithTextract(
 
         return { success: true, text: extractedText };
     } catch (error: any) {
-        console.error("[Textract] Error:", error);
+        console.error("[Textract Async] Error:", error);
+        return { success: false, error: error.message || "Async extraction failed" };
+    }
+}
+
+/**
+ * Extract text from a PDF/Image using AWS Textract
+ * Automatically handles JPG/PNG using sync API and PDF using async API.
+ */
+export async function extractTextWithTextract(
+    s3Bucket: string,
+    s3Key: string
+): Promise<{ success: boolean; text?: string; error?: string }> {
+    try {
+        const extension = s3Key.split('.').pop()?.toLowerCase();
+        const isImage = ["png", "jpg", "jpeg"].includes(extension || "");
+
+        if (isImage) {
+            return await extractTextWithTextractSync(s3Bucket, s3Key);
+        } else {
+            return await extractTextWithTextractAsync(s3Bucket, s3Key);
+        }
+    } catch (error: any) {
+        console.error("[Textract Entry] Error:", error);
 
         let message = "Textract extraction failed";
         if (error.__type === "SubscriptionRequiredException") {
