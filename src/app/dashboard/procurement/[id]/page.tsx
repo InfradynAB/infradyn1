@@ -121,7 +121,7 @@ export default async function PODetailPage({ params }: PageProps) {
                     <CardContent>
                         <div className="text-2xl font-bold font-mono">
                             {po.currency}{" "}
-                            {Number(po.totalValue).toLocaleString()}
+                            {Number(po.totalValue ?? 0).toLocaleString()}
                         </div>
                     </CardContent>
                 </Card>
@@ -201,7 +201,7 @@ export default async function PODetailPage({ params }: PageProps) {
                                     Total Value
                                 </p>
                                 <p className="font-medium font-mono">
-                                    {Number(po.totalValue).toLocaleString()}
+                                    {Number(po.totalValue ?? 0).toLocaleString()}
                                 </p>
                             </div>
                             <div>
@@ -266,17 +266,17 @@ export default async function PODetailPage({ params }: PageProps) {
                                                 </TableCell>
                                                 <TableCell className="text-right font-mono">
                                                     {Number(
-                                                        item.quantity
+                                                        item.quantity ?? 0
                                                     ).toLocaleString()}
                                                 </TableCell>
                                                 <TableCell className="text-right font-mono">
                                                     {Number(
-                                                        item.unitPrice
+                                                        item.unitPrice ?? 0
                                                     ).toLocaleString()}
                                                 </TableCell>
                                                 <TableCell className="text-right font-mono">
                                                     {Number(
-                                                        item.totalPrice
+                                                        item.totalPrice ?? 0
                                                     ).toLocaleString()}
                                                 </TableCell>
                                             </TableRow>

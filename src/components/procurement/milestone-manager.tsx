@@ -238,8 +238,8 @@ export function MilestoneManager({
                                                 <p className="text-xs text-muted-foreground font-mono">
                                                     {currency}{" "}
                                                     {(
-                                                        (totalValue *
-                                                            milestone.paymentPercentage) /
+                                                        ((totalValue ?? 0) *
+                                                            (milestone.paymentPercentage ?? 0)) /
                                                         100
                                                     ).toLocaleString()}
                                                 </p>

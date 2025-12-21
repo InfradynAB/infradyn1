@@ -82,7 +82,7 @@ async function ProjectList() {
                             {project.budget && (
                                 <div className="flex items-center gap-2">
                                     <CurrencyDollarIcon className="h-4 w-4" />
-                                    <span>Budget: ${Number(project.budget).toLocaleString()}</span>
+                                    <span>Budget: ${Number(project.budget ?? 0).toLocaleString()}</span>
                                 </div>
                             )}
                         </div>

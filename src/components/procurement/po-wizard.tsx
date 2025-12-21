@@ -530,7 +530,7 @@ export default function POWizard({
                             </CardHeader>
                             <CardContent className="space-y-2">
                                 <p><strong>PO Number:</strong> {watch("poNumber")}</p>
-                                <p><strong>Total Value:</strong> {currency} {totalValue?.toLocaleString()}</p>
+                                <p><strong>Total Value:</strong> {currency} {(totalValue ?? 0).toLocaleString()}</p>
                                 <p><strong>Milestones:</strong> {milestones.length}</p>
                                 <p><strong>BOQ Items:</strong> {boqItems.length}</p>
                             </CardContent>

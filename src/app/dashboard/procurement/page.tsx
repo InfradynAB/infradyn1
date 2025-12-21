@@ -112,7 +112,7 @@ async function POList() {
                             {po.supplier?.name || "—"}
                         </TableCell>
                         <TableCell className="text-right font-mono">
-                            {po.currency} {Number(po.totalValue).toLocaleString()}
+                            {po.currency} {Number(po.totalValue ?? 0).toLocaleString()}
                         </TableCell>
                         <TableCell>
                             <Badge
