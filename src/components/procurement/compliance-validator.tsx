@@ -125,7 +125,7 @@ function runValidation(data: ComplianceData): ComplianceRule[] {
             severity: "critical",
             status: diff <= tolerance ? "pass" : "fail",
             message: diff > tolerance
-                ? `BOQ total (${boqTotal.toLocaleString()}) does not match PO total (${data.totalValue.toLocaleString()}). Please add or edit items in the BOQ step.`
+                ? `BOQ total (${(boqTotal ?? 0).toLocaleString()}) does not match PO total (${(data.totalValue ?? 0).toLocaleString()}). Please add or edit items in the BOQ step.`
                 : undefined,
             targetStep: "boq",
         });

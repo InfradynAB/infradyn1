@@ -178,7 +178,7 @@ export function ROSManager({ boqItems, onChange, currency = "USD" }: ROSManagerP
                         <div className="text-right">
                             <p className="text-xs text-muted-foreground">BOQ Total</p>
                             <p className="font-mono font-bold text-lg">
-                                {currency} {boqTotal.toLocaleString()}
+                                {currency} {(boqTotal ?? 0).toLocaleString()}
                             </p>
                         </div>
                         <Button type="button" onClick={openAddDialog}>
@@ -295,10 +295,10 @@ export function ROSManager({ boqItems, onChange, currency = "USD" }: ROSManagerP
                                             {item.quantity}
                                         </TableCell>
                                         <TableCell className="text-right font-mono text-sm">
-                                            {item.unitPrice.toLocaleString()}
+                                            {(item.unitPrice ?? 0).toLocaleString()}
                                         </TableCell>
                                         <TableCell className="text-right font-mono text-sm font-medium">
-                                            {item.totalPrice.toLocaleString()}
+                                            {(item.totalPrice ?? 0).toLocaleString()}
                                         </TableCell>
                                         <TableCell>
                                             <Input

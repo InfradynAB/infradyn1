@@ -524,13 +524,13 @@ export function ImportBOQDialog({ purchaseOrderId }: ImportBOQDialogProps) {
                                                 </TableCell>
                                                 <TableCell>{row.unit}</TableCell>
                                                 <TableCell className="text-right font-mono">
-                                                    {row.quantity.toLocaleString()}
+                                                    {(row.quantity ?? 0).toLocaleString()}
                                                 </TableCell>
                                                 <TableCell className="text-right font-mono">
-                                                    {row.unitPrice.toLocaleString()}
+                                                    {(row.unitPrice ?? 0).toLocaleString()}
                                                 </TableCell>
                                                 <TableCell className="text-right font-mono">
-                                                    {row.totalPrice.toLocaleString()}
+                                                    {(row.totalPrice ?? 0).toLocaleString()}
                                                 </TableCell>
                                             </TableRow>
                                         ))}
