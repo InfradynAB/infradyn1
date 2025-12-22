@@ -22,14 +22,20 @@ async function getEditData(id: string) {
         return null;
     }
 
-    // Fetch projects and suppliers for dropdowns
+    // Fetch projects and suppliers filtered by user's organization
     const [projects, suppliers] = await Promise.all([
         db.query.project.findMany({
-            where: eq(project.isDeleted, false),
+            where: and(
+                eq(project.organizationId, session.user.organizationId as any),
+                eq(project.isDeleted, false)
+            ),
             columns: { id: true, name: true, organizationId: true, currency: true },
         }),
         db.query.supplier.findMany({
-            where: eq(supplier.isDeleted, false),
+            where: and(
+                eq(supplier.organizationId, session.user.organizationId as any),
+                eq(supplier.isDeleted, false)
+            ),
             columns: { id: true, name: true },
         }),
     ]);

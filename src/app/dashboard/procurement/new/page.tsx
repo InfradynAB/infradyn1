@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import db from "@/db/drizzle";
 import { project, supplier } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import POWizard from "@/components/procurement/po-wizard";
 
 async function getFormData() {
@@ -15,14 +15,20 @@ async function getFormData() {
         redirect("/sign-in");
     }
 
-    // Fetch projects (with orgId and currency) and suppliers for dropdowns
+    // Fetch projects and suppliers filtered by user's organization
     const [projects, suppliers] = await Promise.all([
         db.query.project.findMany({
-            where: eq(project.isDeleted, false),
+            where: and(
+                eq(project.organizationId, session.user.organizationId as any),
+                eq(project.isDeleted, false)
+            ),
             columns: { id: true, name: true, organizationId: true, currency: true },
         }),
         db.query.supplier.findMany({
-            where: eq(supplier.isDeleted, false),
+            where: and(
+                eq(supplier.organizationId, session.user.organizationId as any),
+                eq(supplier.isDeleted, false)
+            ),
             columns: { id: true, name: true },
         }),
     ]);

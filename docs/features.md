@@ -34,7 +34,7 @@ This allows weekly demos and prevents bottlenecks.
 
 ## Phase 2 — Procurement Foundations
 
-### Feature 3 — PO Upload & Storage (No AI)
+### Feature 3 — PO U/.pload & Storage (No AI)
 - **Goal:** Basic document upload and storage with metadata.
 - **Includes:** Upload PO PDF, store in S3, capture metadata (PO number, vendor, value, currency), versioning.
 - **Independent**

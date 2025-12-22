@@ -14,6 +14,20 @@ export const auth = betterAuth({
         provider: "pg",
         // schema: {...} // Optional: Pass schema if needed, but CLI generation is preferred
     }),
+    user: {
+        additionalFields: {
+            organizationId: {
+                type: "string"
+            },
+            role: {
+                type: "string"
+            }
+        }
+    },
+    session: {
+        expiresIn: 60 * 60 * 24 * 7, // 1 week
+        updateAge: 60 * 60 * 24, // 1 day
+    },
     emailAndPassword: {
         enabled: true,
         async sendResetPassword(data: { user: { email: string; name: string }; url: string }) {

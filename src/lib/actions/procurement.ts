@@ -44,7 +44,11 @@ async function getAuthenticatedUser() {
         throw new Error("Unauthorized");
     }
 
-    return session.user;
+    // Explicitly cast or extract the custom fields we mapped in auth.ts
+    return session.user as typeof session.user & {
+        organizationId: string;
+        role: string
+    };
 }
 
 // ============================================================================
@@ -171,7 +175,7 @@ export async function updatePurchaseOrder(
         await db.transaction(async (tx) => {
             // 1. Update core PO fields
             if (Object.keys(poData).length > 0) {
-                await tx
+                const [updatedPO] = await tx
                     .update(purchaseOrder)
                     .set({
                         ...poData,
@@ -179,7 +183,17 @@ export async function updatePurchaseOrder(
                         retentionPercentage: poData.retentionPercentage?.toString(),
                         updatedAt: new Date(),
                     })
-                    .where(eq(purchaseOrder.id, id));
+                    .where(
+                        and(
+                            eq(purchaseOrder.id, id),
+                            eq(purchaseOrder.organizationId, (await getAuthenticatedUser()).organizationId)
+                        )
+                    )
+                    .returning({ id: purchaseOrder.id });
+
+                if (!updatedPO) {
+                    throw new Error("Purchase order not found or unauthorized");
+                }
             }
 
             // 2. Sync Milestones
@@ -244,16 +258,19 @@ export async function listPurchaseOrders(filters?: {
     status?: string;
 }): Promise<ActionResult<typeof purchaseOrder.$inferSelect[]>> {
     try {
-        await getAuthenticatedUser();
+        const user = await getAuthenticatedUser();
 
-        const conditions = [];
+        const conditions = [
+            eq(purchaseOrder.organizationId, user.organizationId),
+            eq(purchaseOrder.isDeleted, false)
+        ];
+
         if (filters?.projectId) {
             conditions.push(eq(purchaseOrder.projectId, filters.projectId));
         }
         if (filters?.status) {
             conditions.push(eq(purchaseOrder.status, filters.status));
         }
-        conditions.push(eq(purchaseOrder.isDeleted, false));
 
         const pos = await db.query.purchaseOrder.findMany({
             where: conditions.length > 0 ? and(...conditions) : undefined,
@@ -282,10 +299,14 @@ export async function getPurchaseOrder(
     id: string
 ): Promise<ActionResult<typeof purchaseOrder.$inferSelect & { versions: typeof poVersion.$inferSelect[] }>> {
     try {
-        await getAuthenticatedUser();
+        const user = await getAuthenticatedUser();
 
         const po = await db.query.purchaseOrder.findFirst({
-            where: and(eq(purchaseOrder.id, id), eq(purchaseOrder.isDeleted, false)),
+            where: and(
+                eq(purchaseOrder.id, id),
+                eq(purchaseOrder.organizationId, user.organizationId),
+                eq(purchaseOrder.isDeleted, false)
+            ),
             with: {
                 project: true,
                 supplier: true,
@@ -344,11 +365,18 @@ export async function addPOVersion(
             fileUrl,
         });
 
-        // Get PO for document linking
+        // Get PO for document linking and ownership check
         const po = await db.query.purchaseOrder.findFirst({
-            where: eq(purchaseOrder.id, purchaseOrderId),
+            where: and(
+                eq(purchaseOrder.id, purchaseOrderId),
+                eq(purchaseOrder.organizationId, user.organizationId)
+            ),
             with: { project: true },
         });
+
+        if (!po) {
+            return { success: false, error: "Purchase order not found or unauthorized" };
+        }
 
         if (po) {
             await db.insert(document).values({
@@ -387,12 +415,22 @@ export async function updatePOStatus(
     status: "DRAFT" | "ACTIVE" | "COMPLETED" | "CANCELLED"
 ): Promise<ActionResult> {
     try {
-        await getAuthenticatedUser();
+        const user = await getAuthenticatedUser();
 
-        await db
+        const [updatedPO] = await db
             .update(purchaseOrder)
             .set({ status, updatedAt: new Date() })
-            .where(eq(purchaseOrder.id, id));
+            .where(
+                and(
+                    eq(purchaseOrder.id, id),
+                    eq(purchaseOrder.organizationId, user.organizationId)
+                )
+            )
+            .returning({ id: purchaseOrder.id });
+
+        if (!updatedPO) {
+            return { success: false, error: "Purchase order not found or unauthorized" };
+        }
 
         revalidatePath(`/dashboard/procurement/${id}`);
         revalidatePath("/dashboard/procurement");
@@ -409,12 +447,22 @@ export async function updatePOStatus(
  */
 export async function deletePurchaseOrder(id: string): Promise<ActionResult> {
     try {
-        await getAuthenticatedUser();
+        const user = await getAuthenticatedUser();
 
-        await db
+        const [updatedPO] = await db
             .update(purchaseOrder)
             .set({ isDeleted: true, updatedAt: new Date() })
-            .where(eq(purchaseOrder.id, id));
+            .where(
+                and(
+                    eq(purchaseOrder.id, id),
+                    eq(purchaseOrder.organizationId, user.organizationId)
+                )
+            )
+            .returning({ id: purchaseOrder.id });
+
+        if (!updatedPO) {
+            return { success: false, error: "Purchase order not found or unauthorized" };
+        }
 
         revalidatePath("/dashboard/procurement");
 
