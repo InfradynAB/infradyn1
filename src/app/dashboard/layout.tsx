@@ -40,11 +40,12 @@ export default async function DashboardLayout({
         name: session.user.name,
         email: session.user.email,
         image: session.user.image,
+        role: session.user.role, // Pass role for sidebar logic
     } : null;
 
     return (
         <SidebarProvider>
-            <AppSidebar />
+            <AppSidebar user={user} />
             <SidebarInset>
                 <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4">
                     <div className="flex items-center gap-2">

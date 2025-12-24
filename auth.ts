@@ -21,6 +21,9 @@ export const auth = betterAuth({
             },
             role: {
                 type: "string"
+            },
+            supplierId: {
+                type: "string"
             }
         }
     },

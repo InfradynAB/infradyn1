@@ -429,7 +429,7 @@ export async function addPOVersion(
  */
 export async function updatePOStatus(
     id: string,
-    status: "DRAFT" | "ACTIVE" | "COMPLETED" | "CANCELLED"
+    status: "DRAFT" | "ISSUED" | "ACCEPTED" | "REJECTED" | "ACTIVE" | "COMPLETED" | "CANCELLED"
 ): Promise<ActionResult> {
     try {
         const user = await getAuthenticatedUser();

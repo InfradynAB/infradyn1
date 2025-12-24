@@ -59,51 +59,60 @@ export function InviteClient({
     const emailMismatch = isLoggedIn && currentUserEmail && currentUserEmail !== inviteEmail;
 
     return (
-        <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
-                <div className="flex justify-center mb-4">
-                    <CheckCircle className="h-12 w-12 text-primary" weight="fill" />
+        <Card className="w-full max-w-md border-none shadow-2xl bg-card/60 backdrop-blur-xl overflow-hidden ring-1 ring-white/10">
+            <CardHeader className="text-center pt-8">
+                <div className="flex justify-center mb-6">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                        <CheckCircle className="h-10 w-10" weight="duotone" />
+                    </div>
                 </div>
-                <CardTitle>Join {organizationName}</CardTitle>
-                <CardDescription>
-                    You have been invited to join <strong>{organizationName}</strong> as a <strong>{role}</strong>.
+                <CardTitle className="text-2xl font-black">Ready to Join?</CardTitle>
+                <CardDescription className="text-base font-medium">
+                    Activate your account and join the workspace.
                 </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6 px-8">
                 {emailMismatch && (
-                    <div className="bg-yellow-500/15 text-yellow-600 p-3 rounded-md text-sm mb-4 border border-yellow-200">
-                        Warning: You are logged in as <strong>{currentUserEmail}</strong>, but this invite was sent to <strong>{inviteEmail}</strong>.
+                    <div className="bg-amber-500/10 text-amber-600 p-4 rounded-xl text-sm border border-amber-500/20 flex items-start gap-3">
+                        <CircleNotch className="h-5 w-5 rotate-45 shrink-0" weight="bold" />
+                        <span>
+                            Warning: You are logged in as <strong>{currentUserEmail}</strong>, but this invite was sent to <strong>{inviteEmail}</strong>.
+                        </span>
                     </div>
                 )}
 
                 {!isLoggedIn ? (
-                    <InviteAuthForm email={inviteEmail} onSuccess={onAuthSuccess} />
+                    <div className="bg-muted/30 p-6 rounded-2xl border border-muted/50">
+                        <InviteAuthForm email={inviteEmail} onSuccess={onAuthSuccess} />
+                    </div>
                 ) : (
-                    <p className="text-center text-sm text-muted-foreground">
-                        Click below to accept this invitation.
-                    </p>
+                    <div className="text-center bg-blue-500/5 p-6 rounded-2xl border border-blue-500/10">
+                        <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Authenticated</p>
+                        <p className="font-bold text-lg">{currentUserEmail}</p>
+                    </div>
                 )}
             </CardContent>
 
             {isLoggedIn && (
-                <CardFooter className="flex flex-col gap-2">
+                <CardFooter className="flex flex-col gap-3 px-8 pb-8">
                     <Button
-                        className="w-full"
-                        size="lg"
+                        className="w-full h-14 rounded-xl font-black text-lg bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
                         onClick={handleAccept}
                         disabled={isPending}
                     >
                         {isPending ? (
                             <>
-                                <CircleNotch className="mr-2 h-4 w-4 animate-spin" />
-                                Joining...
+                                <CircleNotch className="mr-2 h-6 w-6 animate-spin" />
+                                Setting up...
                             </>
                         ) : (
-                            "Accept Invitation"
+                            "Accept & Start"
                         )}
                     </Button>
                     <Link href="/dashboard" className="w-full">
-                        <Button variant="ghost" className="w-full" disabled={isPending}>Cancel</Button>
+                        <Button variant="ghost" className="w-full h-12 rounded-xl text-muted-foreground font-bold hover:bg-transparent hover:text-foreground" disabled={isPending}>
+                            Decline invitation
+                        </Button>
                     </Link>
                 </CardFooter>
             )}

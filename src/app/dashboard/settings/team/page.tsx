@@ -6,8 +6,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { Badge } from "@/components/ui/badge";
 import { InviteMemberDialog } from "@/components/invite-member-dialog"; // Extracting client logic
+import { getSuppliers } from "@/lib/actions/supplier";
 
 export default async function TeamSettingsPage() {
+    const suppliers = await getSuppliers();
+
     return (
         <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
@@ -15,7 +18,9 @@ export default async function TeamSettingsPage() {
                     <h1 className="text-3xl font-bold">Team</h1>
                     <p className="text-muted-foreground">Manage members and invitations.</p>
                 </div>
-                <InviteMemberDialog />
+                <div className="flex gap-2">
+                    <InviteMemberDialog suppliers={suppliers} />
+                </div>
             </div>
 
             <Suspense fallback={<p>Loading team...</p>}>

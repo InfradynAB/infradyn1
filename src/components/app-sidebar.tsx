@@ -47,20 +47,41 @@ const items = [
     },
 ]
 
-export function AppSidebar() {
+const supplierItems = [
+    {
+        title: "Dashboard",
+        url: "/dashboard/supplier",
+        icon: HouseIcon,
+    },
+    {
+        title: "My POs",
+        url: "/dashboard/supplier/pos", // Or just link to dashboard if it lists them
+        icon: FileTextIcon,
+    },
+    {
+        title: "Profile & Compliance",
+        url: "/dashboard/supplier/onboarding",
+        icon: TruckIcon,
+    },
+]
+
+export function AppSidebar({ user }: { user?: { role: string } | null }) {
+    const isSupplier = user?.role === "SUPPLIER";
+    const menuItems = isSupplier ? supplierItems : items;
+
     return (
         <Sidebar collapsible="icon">
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <a href="#">
+                            <a href={isSupplier ? "/dashboard/supplier" : "/dashboard"}>
                                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                                     <Hexagon weight="fill" className="size-4" />
                                 </div>
                                 <div className="flex flex-col gap-0.5 leading-none">
                                     <span className="font-semibold tracking-tight">Infradyn</span>
-                                    <span className="text-[10px] text-muted-foreground tracking-widest uppercase">Materials</span>
+                                    <span className="text-[10px] text-muted-foreground tracking-widest uppercase">{isSupplier ? "Supplier Portal" : "Materials"}</span>
                                 </div>
                             </a>
                         </SidebarMenuButton>
@@ -72,7 +93,7 @@ export function AppSidebar() {
                     <SidebarGroupLabel>Platform</SidebarGroupLabel>
                     <SidebarGroupContent>
                         <SidebarMenu>
-                            {items.map((item) => (
+                            {menuItems.map((item) => (
                                 <SidebarMenuItem key={item.title}>
                                     <SidebarMenuButton asChild tooltip={item.title}>
                                         <a href={item.url}>

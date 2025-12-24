@@ -1,7 +1,7 @@
 'use server';
 
 import db from "../../../db/drizzle";
-import { invitation, member, organization } from "../../../db/schema";
+import { invitation, member, organization, supplier, user } from "../../../db/schema";
 import { auth } from "../../../auth";
 import { headers } from "next/headers";
 import { eq, and, inArray } from "drizzle-orm";
@@ -84,6 +84,7 @@ export async function inviteMember(formData: FormData) {
 
     const email = formData.get("email") as string;
     const role = formData.get("role") as string || "MEMBER";
+    const supplierId = formData.get("supplierId") as string;
 
     if (!email) {
         return { success: false, error: "Email is required" };
@@ -121,7 +122,8 @@ export async function inviteMember(formData: FormData) {
             role,
             token,
             expiresAt,
-            status: "PENDING"
+            status: "PENDING",
+            supplierId: supplierId || null
         });
 
         const inviteUrl = `${process.env.BETTER_AUTH_URL}/invite/${token}`;
@@ -206,6 +208,21 @@ export async function acceptInvitation(token: string) {
         await db.update(invitation)
             .set({ status: "ACCEPTED" })
             .where(eq(invitation.id, invite.id));
+
+        // 5. Handle Supplier Linking if applicable
+        if (invite.role === "SUPPLIER" && invite.supplierId) {
+            await db.update(supplier)
+                .set({
+                    userId: session.user.id,
+                    status: 'ONBOARDING'
+                })
+                .where(eq(supplier.id, invite.supplierId))
+
+            // Optional: Update user.supplierId for direct access
+            await db.update(user)
+                .set({ supplierId: invite.supplierId })
+                .where(eq(user.id, session.user.id));
+        }
 
         return { success: true };
 

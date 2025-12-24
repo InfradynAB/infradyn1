@@ -58,6 +58,8 @@ export const invitation = pgTable('invitation', {
     token: text('token').notNull().unique(),
     expiresAt: timestamp('expires_at').notNull(),
     status: text('status').default('PENDING').notNull(), // PENDING, ACCEPTED, EXPIRED
+    // Phase 3B: Link invite to supplier
+    supplierId: uuid('supplier_id').references(() => supplier.id),
 });
 
 // Merged User Table (Better Auth + App Fields)
@@ -75,6 +77,9 @@ export const user = pgTable('user', {
     passwordHash: text('password_hash'),
     phone: text('phone'),
     role: userRoleEnum('role').default('PM').notNull(),
+    // Phase 3B: Link user to supplier
+    supplierId: uuid('supplier_id'),
+
 
     // Timestamps
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -148,6 +153,11 @@ export const supplier = pgTable('supplier', {
     taxId: text('tax_id'),
     userId: text('user_id').references(() => user.id),
     status: text('status').default('INACTIVE').notNull(), // INACTIVE, ONBOARDING, ACTIVE, SUSPENDED
+    // Phase 3B: Onboarding fields
+    industry: text('industry'),
+    services: text('services'), // JSON string or comma-separated
+    readinessScore: numeric('readiness_score').default('0'),
+    isVerified: boolean('is_verified').default(false),
 });
 
 export const supplierDocument = pgTable('supplier_document', {
@@ -470,6 +480,7 @@ export const memberRelations = relations(member, ({ one }) => ({
 
 export const invitationRelations = relations(invitation, ({ one }) => ({
     organization: one(organization, { fields: [invitation.organizationId], references: [organization.id] }),
+    supplier: one(supplier, { fields: [invitation.supplierId], references: [supplier.id] }),
 }));
 
 export const projectRelations = relations(project, ({ one, many }) => ({
@@ -481,6 +492,7 @@ export const projectRelations = relations(project, ({ one, many }) => ({
 
 export const userRelations = relations(user, ({ one, many }) => ({
     organization: one(organization, { fields: [user.organizationId], references: [organization.id] }), // Legacy direct link
+    supplier: one(supplier, { fields: [user.supplierId], references: [supplier.id] }),
     memberships: many(member), // New Org memberships
     projectMemberships: many(projectUser),
     sessions: many(session),
@@ -511,6 +523,7 @@ export const purchaseOrderRelations = relations(purchaseOrder, ({ one, many }) =
     milestones: many(milestone),
     shipments: many(shipment),
     invoices: many(invoice),
+    organization: one(organization, { fields: [purchaseOrder.organizationId], references: [organization.id] }),
 }));
 
 export const poVersionRelations = relations(poVersion, ({ one }) => ({

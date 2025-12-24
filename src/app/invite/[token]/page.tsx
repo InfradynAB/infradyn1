@@ -9,6 +9,8 @@ import { InviteClient } from "@/components/invite/invite-client";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 
+import { InviteHero } from "@/components/invite/invite-hero";
+
 // This is a public page, but validation happens in server action
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
 
@@ -31,20 +33,22 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
 
     if (isInvalid) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-muted/50">
-                <Card className="w-full max-w-md">
-                    <CardHeader className="text-center">
-                        <div className="flex justify-center mb-4">
-                            <XCircle className="h-12 w-12 text-destructive" />
+            <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950 p-6">
+                <Card className="w-full max-w-md border-none shadow-2xl bg-card/60 backdrop-blur-md overflow-hidden">
+                    <CardHeader className="text-center pt-10">
+                        <div className="flex justify-center mb-6">
+                            <div className="h-20 w-20 rounded-full bg-destructive/10 flex items-center justify-center text-destructive">
+                                <XCircle className="h-12 w-12" />
+                            </div>
                         </div>
-                        <CardTitle>Invalid Invitation</CardTitle>
-                        <CardDescription>
-                            This link is invalid, expired, or has already been used.
+                        <CardTitle className="text-2xl font-black">Link Expired</CardTitle>
+                        <CardDescription className="text-base pt-2">
+                            This invitation link is invalid, reached its expiry, or has already been used to activate an account.
                         </CardDescription>
                     </CardHeader>
-                    <CardFooter className="flex justify-center">
+                    <CardFooter className="flex justify-center pb-10">
                         <Link href="/dashboard">
-                            <Button variant="secondary">Go to Dashboard</Button>
+                            <Button variant="secondary" className="h-12 px-8 rounded-xl font-bold">Return to Dashboard</Button>
                         </Link>
                     </CardFooter>
                 </Card>
@@ -54,15 +58,27 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
 
     // Pass serializable data to client component
     return (
-        <div className="flex items-center justify-center min-h-screen bg-muted/50">
-            <InviteClient
-                token={token}
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden py-20 px-6">
+            <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+                <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px]" />
+                <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-500/10 rounded-full blur-[100px]" />
+            </div>
+
+            <InviteHero
                 organizationName={invite.organization.name}
                 role={invite.role}
-                inviteEmail={invite.email}
-                isLoggedIn={!!session?.user}
-                currentUserEmail={session?.user?.email}
             />
+
+            <div className="w-full max-w-md animate-in slide-in-from-bottom-8 duration-700 delay-150">
+                <InviteClient
+                    token={token}
+                    organizationName={invite.organization.name}
+                    role={invite.role}
+                    inviteEmail={invite.email}
+                    isLoggedIn={!!session?.user}
+                    currentUserEmail={session?.user?.email}
+                />
+            </div>
         </div>
     );
 }

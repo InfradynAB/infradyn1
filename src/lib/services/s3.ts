@@ -101,3 +101,24 @@ export function extractS3KeyFromUrl(url: string): string | null {
         return null;
     }
 }
+
+export async function uploadFile(
+    key: string,
+    body: Buffer | Uint8Array | Blob | string,
+    contentType: string
+): Promise<string> {
+    const command = new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+    });
+
+    try {
+        await s3Client.send(command);
+        return `https://${BUCKET_NAME}.s3.${region}.amazonaws.com/${key}`;
+    } catch (error) {
+        console.error("Error uploading file to S3:", error);
+        throw new Error("Could not upload file");
+    }
+}
