@@ -58,13 +58,23 @@ export async function createOrganization(formData: FormData) {
 
         // 5. Revalidate & Redirect
         revalidatePath("/dashboard/org");
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-        if (error.code === "23505") { // Unique constraint violation (postgres)
-            return { error: "An organization with this slug already exists." };
+        // Log for internal debugging
+        console.error("Error creating organization:", error);
+
+        // Check for unique constraint violation (PostgreSQL code 23505)
+        // Neon/Drizzle errors can be wrapped or have the code on a 'cause' property
+        const isDuplicate =
+            error.code === "23505" ||
+            error.cause?.code === "23505" ||
+            error.message?.toLowerCase().includes("unique constraint") ||
+            error.cause?.message?.toLowerCase().includes("unique constraint");
+
+        if (isDuplicate) {
+            return { error: "An organization with this slug already exists. Please try a different slug." };
         }
-        console.error("Failed to create org:", error);
-        return { error: "Failed to create organization." };
+
+        return { error: "Failed to create organization. Please try again later." };
     }
 
     return { success: true, slug };

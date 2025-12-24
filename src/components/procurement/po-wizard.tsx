@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import { MilestoneManager, type MilestoneData } from "./milestone-manager";
 import { ROSManager, type BOQItemWithROS } from "./ros-manager";
 import { ComplianceValidator, runValidation } from "./compliance-validator";
+import { CreateSupplierDialog } from "./create-supplier-dialog";
 
 // Steps in the wizard
 type WizardStep = "upload" | "details" | "milestones" | "boq" | "review";
@@ -148,6 +149,9 @@ export default function POWizard({
         })) || []
     );
     const [submitError, setSubmitError] = useState<string | null>(null);
+
+    // Dynamic supplier list for inline creation
+    const [localSuppliers, setLocalSuppliers] = useState<SupplierOption[]>(suppliers);
 
     const {
         register,
@@ -301,6 +305,12 @@ export default function POWizard({
         if (prevIndex >= 0) {
             setCurrentStep(STEPS[prevIndex].id);
         }
+    };
+
+    const handleSupplierCreated = (newSupplier: SupplierOption) => {
+        setLocalSuppliers((prev) => [...prev, newSupplier]);
+        setValue("supplierId", newSupplier.id);
+        router.refresh(); // Update server-side data for other components
     };
 
     // Submit
@@ -484,13 +494,23 @@ export default function POWizard({
                         <CardContent className="space-y-4">
                             <div className="grid md:grid-cols-2 gap-4">
                                 <div>
-                                    <Label>Supplier *</Label>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <Label>Supplier *</Label>
+                                        <CreateSupplierDialog
+                                            onSuccess={handleSupplierCreated}
+                                            trigger={
+                                                <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs">
+                                                    + Add New
+                                                </Button>
+                                            }
+                                        />
+                                    </div>
                                     <Select onValueChange={(v) => setValue("supplierId", v)} value={watch("supplierId")}>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Select supplier" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {suppliers.map((s) => (
+                                            {localSuppliers.map((s) => (
                                                 <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                                             ))}
                                         </SelectContent>

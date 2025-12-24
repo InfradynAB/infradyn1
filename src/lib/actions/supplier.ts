@@ -4,17 +4,17 @@ import db from "@/db/drizzle";
 import { supplier, member } from "@/db/schema";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as XLSX from 'xlsx';
 
-// Helper to get user's first organization from membership
-async function getUserOrgId(userId: string): Promise<string | null> {
-    const membership = await db.query.member.findFirst({
+// Helper to get all organization IDs for the user
+async function getUserOrganizationIds(userId: string): Promise<string[]> {
+    const memberships = await db.query.member.findMany({
         where: eq(member.userId, userId),
         columns: { organizationId: true }
     });
-    return membership?.organizationId || null;
+    return memberships.map(m => m.organizationId);
 }
 
 export async function getSuppliers() {
@@ -26,12 +26,12 @@ export async function getSuppliers() {
         return [];
     }
 
-    const orgId = await getUserOrgId(session.user.id);
-    if (!orgId) {
+    const orgIds = await getUserOrganizationIds(session.user.id);
+    if (orgIds.length === 0) {
         return [];
     }
 
-    return await db.select().from(supplier).where(eq(supplier.organizationId, orgId));
+    return await db.select().from(supplier).where(inArray(supplier.organizationId, orgIds));
 }
 
 export async function importSuppliers(formData: FormData) {
@@ -43,7 +43,8 @@ export async function importSuppliers(formData: FormData) {
         return { success: false, error: "Unauthorized: No session" };
     }
 
-    const orgId = await getUserOrgId(session.user.id);
+    const orgIds = await getUserOrganizationIds(session.user.id);
+    const orgId = orgIds[0];
     if (!orgId) {
         return { success: false, error: "Unauthorized: You must be a member of an organization first." };
     }
@@ -107,7 +108,8 @@ export async function createSupplier(input: CreateSupplierInput) {
         return { success: false, error: "Unauthorized" };
     }
 
-    const orgId = await getUserOrgId(session.user.id);
+    const orgIds = await getUserOrganizationIds(session.user.id);
+    const orgId = orgIds[0];
     if (!orgId) {
         return { success: false, error: "You must be a member of an organization first." };
     }

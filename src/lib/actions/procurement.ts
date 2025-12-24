@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import db from "@/db/drizzle";
 import {
     purchaseOrder,
@@ -49,6 +49,17 @@ async function getAuthenticatedUser() {
         organizationId: string;
         role: string
     };
+}
+
+/**
+ * Get all organization IDs for the user
+ */
+async function getUserOrganizationIds(userId: string): Promise<string[]> {
+    const memberships = await db.query.member.findMany({
+        where: (members, { eq }) => eq(members.userId, userId),
+        columns: { organizationId: true }
+    });
+    return memberships.map(m => m.organizationId);
 }
 
 // ============================================================================
@@ -186,7 +197,7 @@ export async function updatePurchaseOrder(
                     .where(
                         and(
                             eq(purchaseOrder.id, id),
-                            eq(purchaseOrder.organizationId, (await getAuthenticatedUser()).organizationId)
+                            inArray(purchaseOrder.organizationId, await getUserOrganizationIds((await getAuthenticatedUser()).id))
                         )
                     )
                     .returning({ id: purchaseOrder.id });
@@ -260,8 +271,10 @@ export async function listPurchaseOrders(filters?: {
     try {
         const user = await getAuthenticatedUser();
 
+        const organizationIds = await getUserOrganizationIds(user.id);
+
         const conditions = [
-            eq(purchaseOrder.organizationId, user.organizationId),
+            inArray(purchaseOrder.organizationId, organizationIds),
             eq(purchaseOrder.isDeleted, false)
         ];
 
@@ -301,10 +314,12 @@ export async function getPurchaseOrder(
     try {
         const user = await getAuthenticatedUser();
 
+        const organizationIds = await getUserOrganizationIds(user.id);
+
         const po = await db.query.purchaseOrder.findFirst({
             where: and(
                 eq(purchaseOrder.id, id),
-                eq(purchaseOrder.organizationId, user.organizationId),
+                inArray(purchaseOrder.organizationId, organizationIds),
                 eq(purchaseOrder.isDeleted, false)
             ),
             with: {
@@ -365,11 +380,13 @@ export async function addPOVersion(
             fileUrl,
         });
 
+        const organizationIds = await getUserOrganizationIds(user.id);
+
         // Get PO for document linking and ownership check
         const po = await db.query.purchaseOrder.findFirst({
             where: and(
                 eq(purchaseOrder.id, purchaseOrderId),
-                eq(purchaseOrder.organizationId, user.organizationId)
+                inArray(purchaseOrder.organizationId, organizationIds)
             ),
             with: { project: true },
         });
@@ -423,7 +440,7 @@ export async function updatePOStatus(
             .where(
                 and(
                     eq(purchaseOrder.id, id),
-                    eq(purchaseOrder.organizationId, user.organizationId)
+                    inArray(purchaseOrder.organizationId, await getUserOrganizationIds(user.id))
                 )
             )
             .returning({ id: purchaseOrder.id });
@@ -455,7 +472,7 @@ export async function deletePurchaseOrder(id: string): Promise<ActionResult> {
             .where(
                 and(
                     eq(purchaseOrder.id, id),
-                    eq(purchaseOrder.organizationId, user.organizationId)
+                    inArray(purchaseOrder.organizationId, await getUserOrganizationIds(user.id))
                 )
             )
             .returning({ id: purchaseOrder.id });
