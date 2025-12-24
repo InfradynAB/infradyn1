@@ -4,7 +4,7 @@ import db from "../../../db/drizzle";
 import { invitation, member, organization } from "../../../db/schema";
 import { auth } from "../../../auth";
 import { headers } from "next/headers";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { Resend } from "resend";
 import { revalidatePath } from "next/cache";
 import { render } from "@react-email/render";
@@ -12,13 +12,13 @@ import InvitationEmail from "@/emails/invitation-email";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Helper to get user's first organization from membership
-async function getUserOrgId(userId: string): Promise<string | null> {
-    const membership = await db.query.member.findFirst({
+// Helper to get all organization IDs for the user
+async function getUserOrganizationIds(userId: string): Promise<string[]> {
+    const memberships = await db.query.member.findMany({
         where: eq(member.userId, userId),
         columns: { organizationId: true }
     });
-    return membership?.organizationId || null;
+    return memberships.map(m => m.organizationId);
 }
 
 export async function getTeamMembers() {
@@ -30,13 +30,13 @@ export async function getTeamMembers() {
         return [];
     }
 
-    const orgId = await getUserOrgId(session.user.id);
-    if (!orgId) {
+    const orgIds = await getUserOrganizationIds(session.user.id);
+    if (orgIds.length === 0) {
         return [];
     }
 
     const members = await db.query.member.findMany({
-        where: eq(member.organizationId, orgId),
+        where: inArray(member.organizationId, orgIds),
         with: {
             user: true
         }
@@ -54,14 +54,14 @@ export async function getPendingInvitations() {
         return [];
     }
 
-    const orgId = await getUserOrgId(session.user.id);
-    if (!orgId) {
+    const orgIds = await getUserOrganizationIds(session.user.id);
+    if (orgIds.length === 0) {
         return [];
     }
 
     return await db.select().from(invitation).where(
         and(
-            eq(invitation.organizationId, orgId),
+            inArray(invitation.organizationId, orgIds),
             eq(invitation.status, "PENDING")
         )
     );
@@ -76,7 +76,8 @@ export async function inviteMember(formData: FormData) {
         return { success: false, error: "Unauthorized: No session" };
     }
 
-    const orgId = await getUserOrgId(session.user.id);
+    const orgIds = await getUserOrganizationIds(session.user.id);
+    const orgId = orgIds[0];
     if (!orgId) {
         return { success: false, error: "Unauthorized: You must be a member of an organization to invite others." };
     }
@@ -135,12 +136,19 @@ export async function inviteMember(formData: FormData) {
         );
 
         const result = await resend.emails.send({
-            from: "Infradyn <onboarding@resend.dev>", // Replace with your domain in Prod
+            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
             to: email,
             subject: `Join ${orgName} on Infradyn`,
             html: emailHtml
         });
 
+        if (result.error) {
+            console.error("[INVITE] Resend Error:", result.error);
+            return {
+                success: false,
+                error: `Failed to send email: ${result.error.message || "Unknown error"}`
+            };
+        }
 
         revalidatePath("/dashboard/settings/team");
         return { success: true };

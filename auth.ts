@@ -54,17 +54,9 @@ export const auth = betterAuth({
     plugins: [
         emailOTP({
             async sendVerificationOTP({ email, otp, type }) {
-                console.log("[EMAIL OTP] sendVerificationOTP called");
-                console.log("[EMAIL OTP] Email:", email);
-                console.log("[EMAIL OTP] OTP:", otp);
-                console.log("[EMAIL OTP] Type:", type);
-                console.log("[EMAIL OTP] RESEND_API_KEY exists:", !!process.env.RESEND_API_KEY);
-                console.log("[EMAIL OTP] FROM_EMAIL:", process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev");
-
                 try {
                     // Reuse existing OtpEmail template
                     const emailHtml = await render(OtpEmail({ otp }));
-                    console.log("[EMAIL OTP] Email HTML rendered successfully");
 
                     const result = await resend.emails.send({
                         from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
@@ -72,8 +64,6 @@ export const auth = betterAuth({
                         subject: "Verify your email address",
                         html: emailHtml,
                     });
-
-                    console.log("[EMAIL OTP] Resend API response:", JSON.stringify(result, null, 2));
                 } catch (error) {
                     console.error("[EMAIL OTP] Error sending email:", error);
                     throw error;
