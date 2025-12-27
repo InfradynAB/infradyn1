@@ -20,6 +20,7 @@ import {
 import Link from "next/link";
 import { verifySupplierDocument, approveSupplierReadiness } from "@/lib/actions/compliance";
 import { revalidatePath } from "next/cache";
+import { extractS3KeyFromUrl, getDownloadPresignedUrl } from "@/lib/services/s3";
 
 interface SupplierDetailPageProps {
     params: { id: string };
@@ -41,6 +42,22 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
 
     const isVerified = supplierRecord.status === 'ACTIVE';
     const readiness = Number(supplierRecord.readinessScore) || 0;
+
+    // Enhance documents with signed URLs
+    const enhancedDocuments = await Promise.all(
+        supplierRecord.documents.map(async (doc) => {
+            const key = extractS3KeyFromUrl(doc.fileUrl);
+            let signedUrl = doc.fileUrl;
+            if (key) {
+                try {
+                    signedUrl = await getDownloadPresignedUrl(key);
+                } catch (e) {
+                    console.error("Signed URL error:", e);
+                }
+            }
+            return { ...doc, signedUrl };
+        })
+    );
 
     return (
         <div className="flex flex-col gap-8 pb-10 max-w-5xl mx-auto">
@@ -109,7 +126,7 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
                                 </div>
                             ) : (
                                 <div className="grid gap-4">
-                                    {supplierRecord.documents.map((doc) => (
+                                    {enhancedDocuments.map((doc) => (
                                         <div key={doc.id} className="flex items-center justify-between p-5 bg-muted/30 rounded-2xl border border-muted/50 group hover:border-primary/30 transition-all">
                                             <div className="flex items-center gap-4">
                                                 <div className="h-12 w-12 rounded-xl bg-white/50 backdrop-blur-sm flex items-center justify-center text-primary shadow-sm">
@@ -118,7 +135,7 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
                                                 <div>
                                                     <div className="font-bold text-lg capitalize">{doc.documentType.replace('_', ' ')}</div>
                                                     <a
-                                                        href={doc.fileUrl}
+                                                        href={doc.signedUrl}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="text-xs font-black text-blue-600 hover:underline uppercase tracking-widest"
