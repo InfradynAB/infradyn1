@@ -5,10 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { updateSupplierProfile, uploadSupplierDocument } from "@/lib/actions/compliance";
 import { toast } from "sonner";
-import { CircleNotchIcon, UploadIcon, CheckCircleIcon, XCircleIcon, ArrowRightIcon, ArrowLeftIcon, IdentificationCardIcon, FileArrowUpIcon, ShieldCheckIcon } from "@phosphor-icons/react";
+import {
+    CircleNotchIcon,
+    UploadIcon,
+    CheckCircleIcon,
+    ArrowRightIcon,
+    ArrowLeftIcon,
+    FileArrowUpIcon,
+    ShieldCheckIcon,
+    BuildingsIcon,
+    SealCheckIcon,
+    EnvelopeSimpleIcon
+} from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 
 interface SupplierData {
@@ -23,9 +35,9 @@ interface SupplierData {
 }
 
 const REQUIRED_DOCS = [
-    { type: "tax_id", label: "Tax Identification Number", description: "Your official tax registration certificate." },
-    { type: "insurance", label: "Liability Insurance", description: "Current public liability insurance policy." },
-    { type: "iso_cert", label: "ISO 9001 Certificate", description: "Quality management system certification." }
+    { type: "tax_id", label: "Tax Identification", description: "Official tax registration and KRA compliance." },
+    { type: "insurance", label: "Liability Insurance", description: "Current public liability and professional indemnity." },
+    { type: "iso_cert", label: "Quality Certification", description: "ISO 9001 or relevant industry standards." }
 ];
 
 export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
@@ -42,11 +54,11 @@ export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
         const result = await updateSupplierProfile(formData);
 
         if (result.success) {
-            toast.success("Profile updated");
+            toast.success("Identity profile established");
             setStep(2);
             router.refresh();
         } else {
-            toast.error(result.error || "Failed to update profile");
+            toast.error(result.error || "Profile update failed");
         }
         setIsProfileSaving(false);
     }
@@ -61,10 +73,10 @@ export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
         const result = await uploadSupplierDocument(formData);
 
         if (result.success) {
-            toast.success("Document uploaded");
+            toast.success("Credential synchronization successful");
             router.refresh();
         } else {
-            toast.error(result.error || "Failed to upload document");
+            toast.error(result.error || "Synchronization failure");
         }
         setUploadingDoc(null);
     }
@@ -78,70 +90,87 @@ export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
     const allDocsUploaded = REQUIRED_DOCS.every(doc => getDocStatus(doc.type) === "UPLOADED");
 
     return (
-        <div className="max-w-3xl mx-auto space-y-10 py-10">
-            {/* Step Indicator */}
-            <div className="relative flex justify-between items-center px-2">
-                <div className="absolute top-1/2 left-0 w-full h-0.5 bg-muted -translate-y-1/2 -z-10" />
-                <div
-                    className="absolute top-1/2 left-0 h-0.5 bg-primary -translate-y-1/2 -z-10 transition-all duration-500 ease-in-out"
-                    style={{ width: `${((step - 1) / 2) * 100}%` }}
-                />
-
-                {[1, 2, 3].map((s) => (
-                    <div
-                        key={s}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center border-4 transition-all duration-300 ${step >= s ? "bg-primary border-primary text-primary-foreground shadow-lg scale-110" : "bg-background border-muted text-muted-foreground"
-                            }`}
-                    >
-                        {step > s ? <CheckCircleIcon weight="bold" /> : <span className="text-sm font-bold">{s}</span>}
-                    </div>
-                ))}
+        <div className="max-w-4xl mx-auto space-y-12 py-10 px-4">
+            {/* Step Indicator - Premium Style */}
+            <div className="flex flex-col items-center space-y-4">
+                <div className="relative flex items-center gap-4 px-6 py-2 bg-muted/30 rounded-full border border-muted/50 backdrop-blur-sm">
+                    {[1, 2, 3].map((s) => (
+                        <div key={s} className="flex items-center">
+                            <div
+                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-500 ${step >= s
+                                        ? "bg-slate-900 text-white shadow-lg"
+                                        : "bg-white/50 text-muted-foreground"
+                                    }`}
+                            >
+                                {step > s ? <SealCheckIcon weight="fill" className="h-5 w-5" /> : <span className="text-xs font-black">{s}</span>}
+                            </div>
+                            {s < 3 && (
+                                <div className={`w-12 h-1 mx-2 rounded-full transition-all duration-700 ${step > s ? "bg-slate-900" : "bg-muted/50"}`} />
+                            )}
+                        </div>
+                    ))}
+                </div>
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                    Step {step} of 3: {step === 1 ? "Organization Identity" : step === 2 ? "Credential Ledger" : "Verification Complete"}
+                </div>
             </div>
 
-            <div className="space-y-6">
+            <div className="transition-all duration-500 ease-in-out">
                 {step === 1 && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <Card className="border-none shadow-xl bg-card/60 backdrop-blur-md overflow-hidden">
-                            <div className="h-2 bg-blue-500" />
-                            <CardHeader className="pt-8 px-8">
-                                <div className="p-3 w-fit rounded-2xl bg-blue-500/10 text-blue-500 mb-4">
-                                    <IdentificationCardIcon className="h-8 w-8" weight="duotone" />
+                    <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+                        <Card className="border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.1)] bg-card/60 backdrop-blur-xl overflow-hidden ring-1 ring-white/20">
+                            <div className="h-2 bg-gradient-to-r from-blue-600 to-indigo-600" />
+                            <CardHeader className="pt-10 px-10">
+                                <div className="p-4 w-fit rounded-2xl bg-blue-500/10 text-blue-600 mb-6 group-hover:scale-110 transition-transform">
+                                    <BuildingsIcon className="h-10 w-10" weight="duotone" />
                                 </div>
-                                <CardTitle className="text-3xl font-bold tracking-tight">Business Profile</CardTitle>
-                                <CardDescription className="text-lg">Tell us about your company and the expertise you bring.</CardDescription>
+                                <CardTitle className="text-4xl font-black tracking-tighter">Business Identity</CardTitle>
+                                <CardDescription className="text-xl font-medium leading-relaxed opacity-80">
+                                    Establish your presence in the Infradyn supply chain.
+                                </CardDescription>
                             </CardHeader>
                             <form onSubmit={handleProfileSubmit}>
-                                <CardContent className="space-y-6 px-8 py-8">
-                                    <div className="grid gap-3">
-                                        <Label htmlFor="industry" className="text-base font-semibold">Industry / Sector</Label>
+                                <CardContent className="space-y-8 px-10 py-10">
+                                    <div className="grid gap-4">
+                                        <Label htmlFor="industry" className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Industry Sector focus</Label>
                                         <Input
                                             id="industry"
                                             name="industry"
                                             defaultValue={supplier.industry || ""}
-                                            placeholder="e.g. Construction Materials, Electrical, Plumbing"
-                                            className="h-12 text-base px-4 bg-muted/30 border-muted focus:border-primary transition-all rounded-xl"
+                                            placeholder="e.g. Civil Engineering, HVAC Systems"
+                                            className="h-16 text-xl p-6 bg-muted/20 border-muted/50 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all rounded-3xl font-bold"
                                             required
                                         />
                                     </div>
-                                    <div className="grid gap-3">
-                                        <Label htmlFor="services" className="text-base font-semibold">Products & Services</Label>
+                                    <div className="grid gap-4">
+                                        <Label htmlFor="services" className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Capability Statement</Label>
                                         <Textarea
                                             id="services"
                                             name="services"
                                             defaultValue={supplier.services || ""}
-                                            placeholder="Briefly list your core products or specialized services..."
-                                            className="min-h-[140px] text-base px-4 py-3 bg-muted/30 border-muted focus:border-primary transition-all rounded-xl resize-none"
+                                            placeholder="Synthesize your core products and specialization in 2-3 sentences..."
+                                            className="min-h-[180px] text-xl p-6 bg-muted/20 border-muted/50 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all rounded-3xl font-medium resize-none leading-relaxed"
                                             required
                                         />
-                                        <p className="text-sm text-muted-foreground flex items-center gap-1.5 opacity-70">
-                                            This helps project managers find you for relevant bids.
+                                        <p className="text-xs text-muted-foreground font-black uppercase tracking-wider flex items-center gap-2 opacity-60">
+                                            <ShieldCheckIcon className="h-4 w-4" />
+                                            Used for Project Matching Analytics
                                         </p>
                                     </div>
                                 </CardContent>
-                                <CardFooter className="px-8 pb-8 flex justify-end">
-                                    <Button type="submit" disabled={isProfileSaving} className="h-12 px-8 rounded-xl font-bold text-base bg-blue-600 hover:bg-blue-700 transition-all shadow-lg hover:shadow-blue-500/20">
-                                        {isProfileSaving ? <CircleNotchIcon className="mr-2 h-5 w-5 animate-spin" /> : "Continue to Materials"}
-                                        {!isProfileSaving && <ArrowRightIcon className="ml-2 h-4 w-4" />}
+                                <CardFooter className="px-10 pb-10 flex justify-end">
+                                    <Button type="submit" disabled={isProfileSaving} className="h-16 px-12 rounded-2xl font-black text-lg bg-slate-900 hover:bg-slate-800 transition-all shadow-2xl hover:scale-[1.02] active:scale-[0.98]">
+                                        {isProfileSaving ? (
+                                            <>
+                                                <CircleNotchIcon className="mr-3 h-6 w-6 animate-spin" />
+                                                Persisting...
+                                            </>
+                                        ) : (
+                                            <>
+                                                Initialize Profiles
+                                                <ArrowRightIcon className="ml-3 h-5 w-5" weight="bold" />
+                                            </>
+                                        )}
                                     </Button>
                                 </CardFooter>
                             </form>
@@ -150,32 +179,41 @@ export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
                 )}
 
                 {step === 2 && (
-                    <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-                        <Card className="border-none shadow-xl bg-card/60 backdrop-blur-md overflow-hidden">
-                            <div className="h-2 bg-amber-500" />
-                            <CardHeader className="pt-8 px-8">
-                                <div className="p-3 w-fit rounded-2xl bg-amber-500/10 text-amber-500 mb-4">
-                                    <FileArrowUpIcon className="h-8 w-8" weight="duotone" />
+                    <div className="animate-in fade-in slide-in-from-right-8 duration-700">
+                        <Card className="border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.1)] bg-card/60 backdrop-blur-xl overflow-hidden ring-1 ring-white/20">
+                            <div className="h-2 bg-gradient-to-r from-amber-500 to-orange-500" />
+                            <CardHeader className="pt-10 px-10">
+                                <div className="p-4 w-fit rounded-2xl bg-amber-500/10 text-amber-600 mb-6">
+                                    <FileArrowUpIcon className="h-10 w-10" weight="duotone" />
                                 </div>
-                                <CardTitle className="text-3xl font-bold tracking-tight">Compliance & Qualification</CardTitle>
-                                <CardDescription className="text-lg">Upload your official credentials to verify your business status.</CardDescription>
+                                <CardTitle className="text-4xl font-black tracking-tighter">Credential Vault</CardTitle>
+                                <CardDescription className="text-xl font-medium leading-relaxed opacity-80">
+                                    Securely synchronize your compliance documentation.
+                                </CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-6 px-8 py-8">
+                            <CardContent className="space-y-6 px-10 py-10">
                                 {REQUIRED_DOCS.map(doc => {
                                     const status = getDocStatus(doc.type);
                                     const isUploading = uploadingDoc === doc.type;
 
                                     return (
-                                        <div key={doc.type} className={`group flex flex-col md:flex-row md:items-center justify-between p-6 border-2 rounded-2xl transition-all duration-300 ${status === "UPLOADED" ? "border-green-500/20 bg-green-500/5 shadow-inner" : "border-muted/50 hover:border-amber-500/30 bg-muted/5"
+                                        <div key={doc.type} className={`group flex items-center justify-between p-8 border-2 rounded-3xl transition-all duration-500 ${status === "UPLOADED"
+                                                ? "border-green-500/20 bg-green-500/5 shadow-inner"
+                                                : "border-muted/50 hover:border-amber-500/30 bg-muted/5"
                                             }`}>
-                                            <div className="space-y-1 mb-4 md:mb-0">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-bold text-lg">{doc.label}</span>
-                                                    {status === "UPLOADED" && <CheckCircleIcon className="h-5 w-5 text-green-500 animate-in zoom-in-50" weight="fill" />}
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="font-black text-2xl tracking-tighter">{doc.label}</span>
+                                                    {status === "UPLOADED" && (
+                                                        <Badge className="bg-green-500 text-white border-none px-2 py-0 animate-in zoom-in-50">
+                                                            <CheckCircleIcon className="h-4 w-4" weight="fill" />
+                                                        </Badge>
+
+                                                    )}
                                                 </div>
-                                                <p className="text-sm text-muted-foreground max-w-sm">{doc.description}</p>
+                                                <p className="text-base font-medium text-muted-foreground max-w-sm">{doc.description}</p>
                                             </div>
-                                            <div className="shrink-0">
+                                            <div>
                                                 <input
                                                     type="file"
                                                     id={`upload-${doc.type}`}
@@ -189,18 +227,20 @@ export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
                                                 />
                                                 <Button
                                                     variant={status === "UPLOADED" ? "secondary" : "default"}
-                                                    className={`h-11 px-6 rounded-xl font-semibold transition-all shadow-sm ${status === "UPLOADED" ? "bg-white text-slate-800" : "bg-slate-900 text-white hover:bg-slate-800"
+                                                    className={`h-14 px-8 rounded-2xl font-black transition-all ${status === "UPLOADED"
+                                                            ? "bg-white/80 hover:bg-white text-slate-900 border border-slate-200"
+                                                            : "bg-slate-900 text-white hover:bg-slate-800"
                                                         }`}
                                                     disabled={isUploading}
                                                     onClick={() => document.getElementById(`upload-${doc.type}`)?.click()}
                                                 >
                                                     {isUploading ? (
-                                                        <CircleNotchIcon className="h-5 w-5 animate-spin" />
+                                                        <CircleNotchIcon className="h-6 w-6 animate-spin" />
                                                     ) : status === "UPLOADED" ? (
-                                                        "Replace Document"
+                                                        "Update Entry"
                                                     ) : (
                                                         <>
-                                                            <UploadIcon className="mr-2 h-4 w-4" />
+                                                            <UploadIcon className="mr-3 h-5 w-5" weight="bold" />
                                                             Upload PDF
                                                         </>
                                                     )}
@@ -210,22 +250,22 @@ export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
                                     );
                                 })}
                             </CardContent>
-                            <CardFooter className="px-8 pb-8 flex justify-between">
+                            <CardFooter className="px-10 pb-10 flex justify-between gap-4">
                                 <Button
                                     variant="ghost"
                                     onClick={() => setStep(1)}
-                                    className="h-12 px-6 rounded-xl font-semibold text-muted-foreground hover:text-foreground"
+                                    className="h-16 px-8 rounded-2xl font-black text-muted-foreground hover:text-foreground hover:bg-muted/30"
                                 >
-                                    <ArrowLeftIcon className="mr-2 h-4 w-4" />
-                                    Back to Profile
+                                    <ArrowLeftIcon className="mr-3 h-5 w-5" weight="bold" />
+                                    Prior Step
                                 </Button>
                                 <Button
                                     disabled={!allDocsUploaded}
                                     onClick={() => setStep(3)}
-                                    className="h-12 px-8 rounded-xl font-bold text-base bg-amber-600 hover:bg-amber-700 transition-all shadow-lg"
+                                    className="h-16 px-12 rounded-2xl font-black text-lg bg-slate-900 hover:bg-slate-800 transition-all shadow-2xl disabled:opacity-30"
                                 >
-                                    Complete Verification
-                                    <ArrowRightIcon className="ml-2 h-4 w-4" />
+                                    Final Verification
+                                    <ArrowRightIcon className="ml-3 h-5 w-5" weight="bold" />
                                 </Button>
                             </CardFooter>
                         </Card>
@@ -233,31 +273,31 @@ export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
                 )}
 
                 {step === 3 && (
-                    <div className="animate-in fade-in zoom-in-95 duration-700">
-                        <Card className="border-none shadow-2xl bg-card/60 backdrop-blur-md overflow-hidden text-center py-16 px-10">
-                            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500" />
-                            <div className="flex justify-center mb-8">
-                                <div className="h-32 w-32 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 animate-pulse">
-                                    <ShieldCheckIcon className="h-20 w-20" weight="duotone" />
+                    <div className="animate-in fade-in zoom-in-95 duration-1000">
+                        <Card className="border-none shadow-[0_48px_96px_-12px_rgba(0,0,0,0.15)] bg-card/60 backdrop-blur-xl overflow-hidden text-center py-20 px-12 ring-2 ring-green-500/10">
+                            <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-blue-500 via-indigo-600 to-green-500" />
+                            <div className="flex justify-center mb-10">
+                                <div className="h-40 w-40 rounded-full bg-green-500/10 flex items-center justify-center text-green-600 animate-pulse ring-1 ring-green-500/20">
+                                    <ShieldCheckIcon className="h-24 w-24" weight="duotone" />
                                 </div>
                             </div>
-                            <h2 className="text-4xl font-black tracking-tight mb-4">You&apos;re All Set!</h2>
-                            <p className="text-xl text-muted-foreground max-w-md mx-auto mb-10 leading-relaxed">
-                                Your profile is complete and your verification documents have been received. Project managers can now assign you to active projects.
+                            <h2 className="text-5xl font-black tracking-tighter mb-6">Synchronization Complete</h2>
+                            <p className="text-2xl font-medium text-muted-foreground max-w-2xl mx-auto mb-14 leading-relaxed opacity-80">
+                                Your organization is now queued for Project Manager audit. Once verified, you will receive full access to project tenders and material tracking.
                             </p>
-                            <div className="flex flex-col sm:flex-row justify-center gap-4">
+                            <div className="flex flex-col sm:flex-row justify-center gap-6">
                                 <Button
-                                    className="h-14 px-10 rounded-2xl font-black text-lg bg-slate-900 text-white hover:bg-slate-800 shadow-xl transition-all"
+                                    className="h-20 px-14 rounded-3xl font-black text-2xl bg-slate-900 text-white hover:bg-slate-800 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)] transition-all hover:scale-[1.05] active:scale-[0.98]"
                                     onClick={() => router.push("/dashboard/supplier")}
                                 >
-                                    Go to My Dashboard
+                                    Access Terminal
                                 </Button>
                                 <Button
                                     variant="outline"
-                                    className="h-14 px-10 rounded-2xl font-black text-lg border-2"
+                                    className="h-20 px-14 rounded-3xl font-black text-2xl border-2 hover:bg-muted/30"
                                     onClick={() => setStep(2)}
                                 >
-                                    Review Documents
+                                    Audit Vault
                                 </Button>
                             </div>
                         </Card>
@@ -265,9 +305,16 @@ export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
                 )}
             </div>
 
-            <p className="text-center text-sm text-muted-foreground opacity-50 px-8">
-                By completing this onboarding, you agree to our supplier code of conduct and verification standards.
-            </p>
+            <div className="flex justify-center gap-8 opacity-40 px-8">
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                    <ShieldCheckIcon className="h-4 w-4" />
+                    AES-256 Encrypted
+                </div>
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                    <CheckCircleIcon className="h-4 w-4" />
+                    GDPR Compliant
+                </div>
+            </div>
         </div>
     );
 }

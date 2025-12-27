@@ -227,18 +227,23 @@ export async function acceptInvitation(token: string) {
 
     // 3. Add to Members
     try {
+        // Update User Role Globally
+        await db.update(user)
+            .set({ role: invite.role as any })
+            .where(eq(user.id, session.user.id));
+
+        // 4. Add to Members
         await db.insert(member).values({
             organizationId: invite.organizationId,
             userId: session.user.id,
             role: invite.role as any,
         });
-
-        // 4. Update Invitation Status
+        // 5. Update Invitation Status
         await db.update(invitation)
             .set({ status: "ACCEPTED" })
             .where(eq(invitation.id, invite.id));
 
-        // 5. Handle Supplier Linking if applicable
+        // 6. Handle Supplier Linking if applicable
         if (invite.role === "SUPPLIER" && invite.supplierId) {
             await db.update(supplier)
                 .set({
@@ -247,13 +252,13 @@ export async function acceptInvitation(token: string) {
                 })
                 .where(eq(supplier.id, invite.supplierId))
 
-            // Optional: Update user.supplierId for direct access
+            // Update user.supplierId for direct access
             await db.update(user)
                 .set({ supplierId: invite.supplierId })
                 .where(eq(user.id, session.user.id));
         }
 
-        return { success: true };
+        return { success: true, role: invite.role };
 
     } catch (error) {
         console.error("Accept Invite Error:", error);

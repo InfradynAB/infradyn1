@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { ImportSupplierDialog } from "@/components/import-supplier-dialog";
 import { AddSupplierDialog } from "@/components/add-supplier-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import Link from "next/link";
 
 export default async function SuppliersPage() {
     return (
@@ -75,7 +76,7 @@ async function SuppliersList() {
                                 return (
                                     <TableRow key={s.id} className="group transition-colors hover:bg-muted/30 border-muted/40">
                                         <TableCell className="py-6">
-                                            <div className="flex items-center gap-3">
+                                            <Link href={`/dashboard/suppliers/${s.id}`} className="flex items-center gap-3">
                                                 <div className="h-10 w-10 rounded-xl bg-primary/5 text-primary flex items-center justify-center font-bold">
                                                     {s.name.substring(0, 2).toUpperCase()}
                                                 </div>
@@ -83,7 +84,7 @@ async function SuppliersList() {
                                                     <div className="font-bold text-base leading-none mb-1 group-hover:text-primary transition-colors">{s.name}</div>
                                                     <div className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">Tax ID: {s.taxId || "Not set"}</div>
                                                 </div>
-                                            </div>
+                                            </Link>
                                         </TableCell>
                                         <TableCell>
                                             <div className="text-sm font-medium">{s.contactEmail || "-"}</div>

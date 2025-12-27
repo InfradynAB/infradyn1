@@ -38,7 +38,11 @@ export function InviteClient({
                 const result = await acceptInvitation(token);
                 if (result.success) {
                     toast.success("Invitation accepted! Redirecting...");
-                    router.push("/dashboard");
+                    if (result.role === "SUPPLIER") {
+                        router.push("/dashboard/supplier/onboarding");
+                    } else {
+                        router.push("/dashboard");
+                    }
                 } else {
                     toast.error(result.error || "Failed to accept invitation.");
                 }

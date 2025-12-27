@@ -551,8 +551,93 @@ export const evidenceBundleRelations = relations(evidenceBundle, ({ one, many })
     files: many(evidenceFile),
 }));
 
+export const supplierDocumentRelations = relations(supplierDocument, ({ one }) => ({
+    supplier: one(supplier, { fields: [supplierDocument.supplierId], references: [supplier.id] }),
+}));
+
+export const projectUserRelations = relations(projectUser, ({ one }) => ({
+    project: one(project, { fields: [projectUser.projectId], references: [project.id] }),
+    user: one(user, { fields: [projectUser.userId], references: [user.id] }),
+}));
+
+export const documentRelations = relations(document, ({ one, many }) => ({
+    organization: one(organization, { fields: [document.organizationId], references: [organization.id] }),
+    project: one(project, { fields: [document.projectId], references: [project.id] }),
+    uploader: one(user, { fields: [document.uploadedBy], references: [user.id] }),
+    extractions: many(documentExtraction),
+}));
+
 export const invoiceRelations = relations(invoice, ({ one, many }) => ({
     supplier: one(supplier, { fields: [invoice.supplierId], references: [supplier.id] }),
     purchaseOrder: one(purchaseOrder, { fields: [invoice.purchaseOrderId], references: [purchaseOrder.id] }),
     items: many(invoiceItem),
+}));
+
+export const invoiceItemRelations = relations(invoiceItem, ({ one }) => ({
+    invoice: one(invoice, { fields: [invoiceItem.invoiceId], references: [invoice.id] }),
+    boqItem: one(boqItem, { fields: [invoiceItem.boqItemId], references: [boqItem.id] }),
+}));
+
+export const shipmentRelations = relations(shipment, ({ one, many }) => ({
+    purchaseOrder: one(purchaseOrder, { fields: [shipment.purchaseOrderId], references: [purchaseOrder.id] }),
+    packingLists: many(packingList),
+}));
+
+export const packingListRelations = relations(packingList, ({ one }) => ({
+    shipment: one(shipment, { fields: [packingList.shipmentId], references: [shipment.id] }),
+    document: one(document, { fields: [packingList.documentId], references: [document.id] }),
+}));
+
+export const deliveryRelations = relations(delivery, ({ one, many }) => ({
+    project: one(project, { fields: [delivery.projectId], references: [project.id] }),
+    purchaseOrder: one(purchaseOrder, { fields: [delivery.purchaseOrderId], references: [purchaseOrder.id] }),
+    receiver: one(user, { fields: [delivery.receivedBy], references: [user.id] }),
+    items: many(deliveryItem),
+}));
+
+export const deliveryItemRelations = relations(deliveryItem, ({ one }) => ({
+    delivery: one(delivery, { fields: [deliveryItem.deliveryId], references: [delivery.id] }),
+    boqItem: one(boqItem, { fields: [deliveryItem.boqItemId], references: [boqItem.id] }),
+}));
+
+export const evidenceFileRelations = relations(evidenceFile, ({ one }) => ({
+    bundle: one(evidenceBundle, { fields: [evidenceFile.evidenceBundleId], references: [evidenceBundle.id] }),
+    document: one(document, { fields: [evidenceFile.documentId], references: [document.id] }),
+}));
+
+export const conflictRecordRelations = relations(conflictRecord, ({ one }) => ({
+    project: one(project, { fields: [conflictRecord.projectId], references: [project.id] }),
+    purchaseOrder: one(purchaseOrder, { fields: [conflictRecord.purchaseOrderId], references: [purchaseOrder.id] }),
+    milestone: one(milestone, { fields: [conflictRecord.milestoneId], references: [milestone.id] }),
+    assignee: one(user, { fields: [conflictRecord.assignedTo], references: [user.id] }),
+}));
+
+export const notificationRelations = relations(notification, ({ one }) => ({
+    user: one(user, { fields: [notification.userId], references: [user.id] }),
+}));
+
+export const deviceSessionRelations = relations(deviceSession, ({ one, many }) => ({
+    user: one(user, { fields: [deviceSession.userId], references: [user.id] }),
+    syncQueues: many(syncQueue),
+}));
+
+export const syncQueueRelations = relations(syncQueue, ({ one }) => ({
+    deviceSession: one(deviceSession, { fields: [syncQueue.deviceSessionId], references: [deviceSession.id] }),
+}));
+
+export const auditLogRelations = relations(auditLog, ({ one }) => ({
+    user: one(user, { fields: [auditLog.userId], references: [user.id] }),
+}));
+
+export const integrationKeyRelations = relations(integrationKey, ({ one }) => ({
+    project: one(project, { fields: [integrationKey.projectId], references: [project.id] }),
+}));
+
+export const riskProfileRelations = relations(riskProfile, ({ one }) => ({
+    supplier: one(supplier, { fields: [riskProfile.supplierId], references: [supplier.id] }),
+    purchaseOrder: one(purchaseOrder, { fields: [riskProfile.purchaseOrderId], references: [purchaseOrder.id] }),
+}));
+
+export const confidenceScoreRelations = relations(confidenceScore, ({ one }) => ({
+    progressRecord: one(progressRecord, { fields: [confidenceScore.progressRecordId], references: [progressRecord.id] }),
 }));
