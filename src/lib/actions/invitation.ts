@@ -67,6 +67,91 @@ export async function getPendingInvitations() {
     );
 }
 
+/**
+ * Core invitation logic reusable by other actions
+ */
+export async function performInvitation({
+    orgId,
+    email,
+    role,
+    supplierId,
+    inviterName
+}: {
+    orgId: string;
+    email: string;
+    role: string;
+    supplierId?: string;
+    inviterName: string;
+}) {
+    // Check if already invited
+    const existingInvite = await db.query.invitation.findFirst({
+        where: and(
+            eq(invitation.organizationId, orgId),
+            eq(invitation.email, email),
+            eq(invitation.status, "PENDING")
+        )
+    });
+
+    if (existingInvite) {
+        return { success: false, error: "Invitation already pending for this email." };
+    }
+
+    const token = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    // Fetch org name for the email
+    const org = await db.query.organization.findFirst({
+        where: eq(organization.id, orgId),
+        columns: { name: true }
+    });
+
+    const orgName = org?.name || "Infradyn Organization";
+
+    try {
+        await db.insert(invitation).values({
+            organizationId: orgId,
+            email,
+            role,
+            token,
+            expiresAt,
+            status: "PENDING",
+            supplierId: supplierId || null
+        });
+
+        const inviteUrl = `${process.env.BETTER_AUTH_URL}/invite/${token}`;
+
+        const emailHtml = await render(
+            InvitationEmail({
+                organizationName: orgName,
+                role: role,
+                inviteLink: inviteUrl,
+                inviterName: inviterName
+            })
+        );
+
+        const result = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+            to: email,
+            subject: `Join ${orgName} on Infradyn`,
+            html: emailHtml
+        });
+
+        if (result.error) {
+            console.error("[INVITE] Resend Error:", result.error);
+            return {
+                success: false,
+                error: `Failed to send email: ${result.error.message || "Unknown error"}`
+            };
+        }
+
+        return { success: true };
+
+    } catch (error) {
+        console.error("[INVITE] Error:", error);
+        return { success: false, error: "Failed to send invitation" };
+    }
+}
+
 export async function inviteMember(formData: FormData) {
     const session = await auth.api.getSession({
         headers: await headers()
@@ -90,75 +175,19 @@ export async function inviteMember(formData: FormData) {
         return { success: false, error: "Email is required" };
     }
 
-    // Check if already invited
-    const existingInvite = await db.query.invitation.findFirst({
-        where: and(
-            eq(invitation.organizationId, orgId),
-            eq(invitation.email, email),
-            eq(invitation.status, "PENDING")
-        )
+    const result = await performInvitation({
+        orgId,
+        email,
+        role,
+        supplierId,
+        inviterName: session.user.name || "A team member"
     });
 
-    if (existingInvite) {
-        return { success: false, error: "Invitation already pending for this email." };
-    }
-
-    const token = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-    // Fetch org name for the email
-    const org = await db.query.organization.findFirst({
-        where: eq(organization.id, orgId),
-        columns: { name: true }
-    });
-
-
-    const orgName = org?.name || "Infradyn Organization";
-
-    try {
-        await db.insert(invitation).values({
-            organizationId: orgId,
-            email,
-            role,
-            token,
-            expiresAt,
-            status: "PENDING",
-            supplierId: supplierId || null
-        });
-
-        const inviteUrl = `${process.env.BETTER_AUTH_URL}/invite/${token}`;
-
-        const emailHtml = await render(
-            InvitationEmail({
-                organizationName: orgName,
-                role: role,
-                inviteLink: inviteUrl,
-                inviterName: session.user.name || "A team member"
-            })
-        );
-
-        const result = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
-            to: email,
-            subject: `Join ${orgName} on Infradyn`,
-            html: emailHtml
-        });
-
-        if (result.error) {
-            console.error("[INVITE] Resend Error:", result.error);
-            return {
-                success: false,
-                error: `Failed to send email: ${result.error.message || "Unknown error"}`
-            };
-        }
-
+    if (result.success) {
         revalidatePath("/dashboard/settings/team");
-        return { success: true };
-
-    } catch (error) {
-        console.error("[INVITE] Error:", error);
-        return { success: false, error: "Failed to send invitation" };
     }
+
+    return result;
 }
 
 export async function revokeInvitation(invitationId: string) {

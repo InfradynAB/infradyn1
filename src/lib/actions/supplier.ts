@@ -89,11 +89,14 @@ export async function importSuppliers(formData: FormData) {
     }
 }
 
+import { performInvitation } from "./invitation";
+
 // Schema for creating a single supplier
 interface CreateSupplierInput {
     name: string;
     contactEmail?: string;
     taxId?: string;
+    inviteNow?: boolean;
 }
 
 /**
@@ -118,19 +121,42 @@ export async function createSupplier(input: CreateSupplierInput) {
         return { success: false, error: "Supplier name is required" };
     }
 
+    const trimmedEmail = input.contactEmail?.trim();
+
     try {
         const [newSupplier] = await db.insert(supplier).values({
             organizationId: orgId,
             name: input.name.trim(),
-            contactEmail: input.contactEmail?.trim() || null,
+            contactEmail: trimmedEmail || null,
             taxId: input.taxId?.trim() || null,
             status: 'INACTIVE',
         }).returning();
 
+        // Automatically invite if email is provided
+        if (trimmedEmail) {
+            const inviteResult = await performInvitation({
+                orgId,
+                email: trimmedEmail,
+                role: "SUPPLIER",
+                supplierId: newSupplier.id,
+                inviterName: session.user.name || "A team member"
+            });
+
+            if (!inviteResult.success) {
+                // We created the supplier but failed to invite. 
+                // Return success but with a warning.
+                return {
+                    success: true,
+                    supplier: newSupplier,
+                    warning: `Supplier created, but invitation failed: ${inviteResult.error}`
+                };
+            }
+        }
+
         revalidatePath("/dashboard/suppliers");
         revalidatePath("/dashboard/procurement/new");
 
-        return { success: true, supplier: newSupplier };
+        return { success: true, supplier: newSupplier, invited: !!trimmedEmail };
     } catch (error) {
         console.error("[createSupplier] Error:", error);
         return { success: false, error: "Failed to create supplier" };

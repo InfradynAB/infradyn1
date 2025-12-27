@@ -16,6 +16,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { PlusIcon, SpinnerGap } from "@phosphor-icons/react/dist/ssr";
+import { toast } from "sonner";
 
 interface AddSupplierDialogProps {
     trigger?: React.ReactNode;
@@ -38,12 +39,19 @@ export function AddSupplierDialog({ trigger }: AddSupplierDialogProps) {
 
         try {
             const result = await createSupplier({
-                name,
-                contactEmail: email || undefined,
-                taxId: taxId || undefined,
+                name: name.trim(),
+                contactEmail: email.trim() || undefined,
+                taxId: taxId.trim() || undefined,
             });
 
             if (result.success) {
+                if (result.warning) {
+                    toast.warning(result.warning);
+                } else if (result.invited) {
+                    toast.success("Supplier created & invitation sent!");
+                } else {
+                    toast.success("Supplier created successfully");
+                }
                 setOpen(false);
                 setName("");
                 setEmail("");
@@ -52,8 +60,8 @@ export function AddSupplierDialog({ trigger }: AddSupplierDialogProps) {
             } else {
                 setError(result.error || "An error occurred");
             }
-        } catch {
-            setError("An unexpected error occurred");
+        } catch (err: any) {
+            setError(err.message || "An unexpected error occurred");
         } finally {
             setIsSubmitting(false);
         }
@@ -72,9 +80,9 @@ export function AddSupplierDialog({ trigger }: AddSupplierDialogProps) {
             <DialogContent className="sm:max-w-[425px]">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
-                        <DialogTitle>Add New Supplier</DialogTitle>
+                        <DialogTitle>Add & Invite Supplier</DialogTitle>
                         <DialogDescription>
-                            Enter the supplier details. You can always edit these later.
+                            Create this supplier in your registry. If you provide an email, an invitation will be sent automatically.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -89,7 +97,7 @@ export function AddSupplierDialog({ trigger }: AddSupplierDialogProps) {
                             />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="email">Contact Email</Label>
+                            <Label htmlFor="email">Representative Email</Label>
                             <Input
                                 id="email"
                                 type="email"
@@ -97,9 +105,12 @@ export function AddSupplierDialog({ trigger }: AddSupplierDialogProps) {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
+                            <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">
+                                Required to trigger auto-invitation
+                            </p>
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="taxId">Tax ID</Label>
+                            <Label htmlFor="taxId">Tax ID (Optional)</Label>
                             <Input
                                 id="taxId"
                                 placeholder="e.g. KRA1234567A"
@@ -108,7 +119,7 @@ export function AddSupplierDialog({ trigger }: AddSupplierDialogProps) {
                             />
                         </div>
                         {error && (
-                            <div className="bg-destructive/10 text-destructive px-3 py-2 rounded text-sm">
+                            <div className="bg-destructive/10 text-destructive px-3 py-2 rounded text-sm font-medium">
                                 {error}
                             </div>
                         )}
@@ -125,10 +136,10 @@ export function AddSupplierDialog({ trigger }: AddSupplierDialogProps) {
                             {isSubmitting ? (
                                 <>
                                     <SpinnerGap className="mr-2 h-4 w-4 animate-spin" />
-                                    Adding...
+                                    Creating...
                                 </>
                             ) : (
-                                "Add Supplier"
+                                "Create & Invite"
                             )}
                         </Button>
                     </DialogFooter>
