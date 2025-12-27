@@ -98,8 +98,8 @@ export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
                         <div key={s} className="flex items-center">
                             <div
                                 className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-500 ${step >= s
-                                        ? "bg-slate-900 text-white shadow-lg"
-                                        : "bg-white/50 text-muted-foreground"
+                                    ? "bg-slate-900 text-white shadow-lg"
+                                    : "bg-white/50 text-muted-foreground"
                                     }`}
                             >
                                 {step > s ? <SealCheckIcon weight="fill" className="h-5 w-5" /> : <span className="text-xs font-black">{s}</span>}
@@ -119,7 +119,7 @@ export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
                 {step === 1 && (
                     <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
                         <Card className="border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.1)] bg-card/60 backdrop-blur-xl overflow-hidden ring-1 ring-white/20">
-                            <div className="h-2 bg-gradient-to-r from-blue-600 to-indigo-600" />
+                            <div className="h-2 bg-blue-600" />
                             <CardHeader className="pt-10 px-10">
                                 <div className="p-4 w-fit rounded-2xl bg-blue-500/10 text-blue-600 mb-6 group-hover:scale-110 transition-transform">
                                     <BuildingsIcon className="h-10 w-10" weight="duotone" />
@@ -181,7 +181,7 @@ export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
                 {step === 2 && (
                     <div className="animate-in fade-in slide-in-from-right-8 duration-700">
                         <Card className="border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.1)] bg-card/60 backdrop-blur-xl overflow-hidden ring-1 ring-white/20">
-                            <div className="h-2 bg-gradient-to-r from-amber-500 to-orange-500" />
+                            <div className="h-2 bg-amber-500" />
                             <CardHeader className="pt-10 px-10">
                                 <div className="p-4 w-fit rounded-2xl bg-amber-500/10 text-amber-600 mb-6">
                                     <FileArrowUpIcon className="h-10 w-10" weight="duotone" />
@@ -198,8 +198,8 @@ export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
 
                                     return (
                                         <div key={doc.type} className={`group flex items-center justify-between p-8 border-2 rounded-3xl transition-all duration-500 ${status === "UPLOADED"
-                                                ? "border-green-500/20 bg-green-500/5 shadow-inner"
-                                                : "border-muted/50 hover:border-amber-500/30 bg-muted/5"
+                                            ? "border-green-500/20 bg-green-500/5 shadow-inner"
+                                            : "border-muted/50 hover:border-amber-500/30 bg-muted/5"
                                             }`}>
                                             <div className="space-y-2">
                                                 <div className="flex items-center gap-3">
@@ -228,8 +228,8 @@ export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
                                                 <Button
                                                     variant={status === "UPLOADED" ? "secondary" : "default"}
                                                     className={`h-14 px-8 rounded-2xl font-black transition-all ${status === "UPLOADED"
-                                                            ? "bg-white/80 hover:bg-white text-slate-900 border border-slate-200"
-                                                            : "bg-slate-900 text-white hover:bg-slate-800"
+                                                        ? "bg-white/80 hover:bg-white text-slate-900 border border-slate-200"
+                                                        : "bg-slate-900 text-white hover:bg-slate-800"
                                                         }`}
                                                     disabled={isUploading}
                                                     onClick={() => document.getElementById(`upload-${doc.type}`)?.click()}
@@ -275,7 +275,7 @@ export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
                 {step === 3 && (
                     <div className="animate-in fade-in zoom-in-95 duration-1000">
                         <Card className="border-none shadow-[0_48px_96px_-12px_rgba(0,0,0,0.15)] bg-card/60 backdrop-blur-xl overflow-hidden text-center py-20 px-12 ring-2 ring-green-500/10">
-                            <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-blue-500 via-indigo-600 to-green-500" />
+                            <div className="absolute top-0 left-0 w-full h-3 bg-blue-600" />
                             <div className="flex justify-center mb-10">
                                 <div className="h-40 w-40 rounded-full bg-green-500/10 flex items-center justify-center text-green-600 animate-pulse ring-1 ring-green-500/20">
                                     <ShieldCheckIcon className="h-24 w-24" weight="duotone" />

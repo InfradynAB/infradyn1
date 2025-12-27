@@ -18,6 +18,8 @@ import {
     CheckIcon,
     XIcon,
 } from "@phosphor-icons/react/dist/ssr";
+import { toast } from "sonner";
+import { Progress } from "@/components/ui/progress";
 
 export interface MilestoneData {
     id?: string;
@@ -98,8 +100,38 @@ export function MilestoneManager({
 
     const saveEdit = () => {
         if (editingIndex === null || !editForm) return;
+
+        const currentTotalOther = milestones.reduce((sum, m, i) => i === editingIndex ? sum : sum + m.paymentPercentage, 0);
+        const newTotal = currentTotalOther + editForm.paymentPercentage;
+
+        if (newTotal > 100) {
+            toast.error(`Total percentage cannot exceed 100%. Currently at ${newTotal}%`, {
+                description: "Manual adjustment required to balance."
+            });
+            return;
+        }
+
         const updated = [...milestones];
         updated[editingIndex] = editForm;
+
+        // Auto-balance logic for remaining milestones
+        if (newTotal < 100 && editingIndex < milestones.length - 1) {
+            const remainingTarget = 100 - newTotal;
+            const subsequentMilestones = updated.slice(editingIndex + 1);
+            const currentSubsequentTotal = subsequentMilestones.reduce((sum, m) => sum + m.paymentPercentage, 0);
+
+            if (currentSubsequentTotal > 0) {
+                // Pro-rata distribution
+                const factor = remainingTarget / currentSubsequentTotal;
+                for (let i = editingIndex + 1; i < updated.length; i++) {
+                    updated[i].paymentPercentage = Math.round((updated[i].paymentPercentage * factor) * 100) / 100;
+                }
+            } else {
+                // If subsequent are 0, just dump it in the next one
+                updated[editingIndex + 1].paymentPercentage = remainingTarget;
+            }
+        }
+
         onChange(updated);
         setEditingIndex(null);
         setEditForm(null);
@@ -269,22 +301,39 @@ export function MilestoneManager({
                         ))}
 
                         {/* Total */}
-                        <div className="flex justify-end pt-2 border-t">
-                            <div
-                                className={`text-sm font-medium ${totalPercentage === 100
-                                        ? "text-green-600"
-                                        : totalPercentage > 100
-                                            ? "text-destructive"
-                                            : "text-amber-600"
-                                    }`}
-                            >
-                                Total: {totalPercentage}%
-                                {totalPercentage !== 100 && (
-                                    <span className="ml-2 text-xs">
-                                        (should equal 100%)
-                                    </span>
+                        <div className="pt-4 border-t space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Budget Allocation</p>
+                                    <div
+                                        className={`text-lg font-black ${totalPercentage === 100
+                                            ? "text-green-600"
+                                            : totalPercentage > 100
+                                                ? "text-destructive"
+                                                : "text-amber-600"
+                                            }`}
+                                    >
+                                        Total: {totalPercentage}%
+                                        {totalPercentage !== 100 && (
+                                            <span className="ml-2 text-[10px] font-bold uppercase tracking-tighter">
+                                                (Must equal 100%)
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                {totalValue > 0 && (
+                                    <div className="text-right">
+                                        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Projected Spend</p>
+                                        <p className="text-lg font-black">{currency} {totalValue.toLocaleString()}</p>
+                                    </div>
                                 )}
                             </div>
+                            <Progress
+                                value={totalPercentage}
+                                className={`h-2 rounded-full bg-muted shadow-inner ${totalPercentage > 100 ? "bg-red-100" : ""}`}
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                style={{ "--progress-foreground": totalPercentage === 100 ? "#10b981" : totalPercentage > 100 ? "#ef4444" : "#f59e0b" } as any}
+                            />
                         </div>
                     </>
                 )}

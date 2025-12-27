@@ -55,7 +55,7 @@ export function InviteSupplierUserDialog({ supplierId, supplierName, trigger }: 
                 )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-md border-none shadow-2xl bg-card/70 backdrop-blur-xl ring-1 ring-white/10 overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-500" />
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-blue-500" />
 
                 <DialogHeader className="pt-4">
                     <div className="mx-auto h-16 w-16 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600 mb-4">

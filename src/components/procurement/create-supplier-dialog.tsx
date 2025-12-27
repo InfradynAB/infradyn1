@@ -69,7 +69,7 @@ export function CreateSupplierDialog({ onSuccess, trigger }: CreateSupplierDialo
                 )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-md border-none shadow-2xl bg-card/70 backdrop-blur-xl ring-1 ring-white/10 overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-500" />
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-blue-500" />
 
                 <DialogHeader className="pt-4">
                     <DialogTitle className="text-2xl font-black tracking-tight">Add & Invite Supplier</DialogTitle>

@@ -38,6 +38,8 @@ import { MilestoneManager, type MilestoneData } from "./milestone-manager";
 import { ROSManager, type BOQItemWithROS } from "./ros-manager";
 import { ComplianceValidator, runValidation } from "./compliance-validator";
 import { CreateSupplierDialog } from "./create-supplier-dialog";
+import { Progress } from "@/components/ui/progress";
+import { FileArrowUpIcon, FilesIcon } from "@phosphor-icons/react/dist/ssr";
 
 // Steps in the wizard
 type WizardStep = "upload" | "details" | "milestones" | "boq" | "review";
@@ -133,6 +135,11 @@ export default function POWizard({
     const [extractionStatus, setExtractionStatus] = useState<"idle" | "extracting" | "success" | "error">("idle");
     const [extractedData, setExtractedData] = useState<any>(null);
 
+    // Milestone file state
+    const [milestoneFile, setMilestoneFile] = useState<File | null>(null);
+    const [milestoneFileUrl, setMilestoneFileUrl] = useState<string | null>(null);
+    const [simulatedProgress, setSimulatedProgress] = useState(0);
+
     // Milestones & BOQ state
     const [milestones, setMilestones] = useState<MilestoneData[]>(
         initialData?.milestones?.map((m) => ({
@@ -186,110 +193,161 @@ export default function POWizard({
     const currentStepIndex = STEPS.findIndex((s) => s.id === currentStep);
 
     // Handle file upload and AI extraction
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setSelectedFile(file);
-        setUploadProgress("idle");
-        setExtractionStatus("idle");
-
+    const processUploads = async (poFile: File, msFile?: File | null) => {
         if (!selectedProject) {
             toast.warning("Please select a project first");
-            e.target.value = "";
             return;
         }
 
         setUploadProgress("uploading");
-        const uploadToast = toast.loading("Uploading document...");
+        setExtractionStatus("extracting");
+        setSimulatedProgress(0);
+
+        // Psychological loading bar simulation
+        const progressInterval = setInterval(() => {
+            setSimulatedProgress((prev) => {
+                if (prev < 40) return prev + 2; // Fast at first
+                if (prev < 85) return prev + 0.5; // Slower during analysis
+                if (prev < 98) return prev + 0.1; // Very slow at the end
+                return prev;
+            });
+        }, 100);
 
         try {
-            const contentType = file.type || "application/pdf";
-            const presignResponse = await fetch("/api/upload/presign", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    fileName: file.name,
-                    contentType,
-                    docType: "po",
-                    orgId: selectedProject.organizationId,
-                    projectId: selectedProject.id,
-                }),
-            });
+            // 1. Upload PO
+            const poData = await uploadAndPresign(poFile, "po");
+            setFileUrl(poData.fileUrl);
 
-            if (!presignResponse.ok) throw new Error("Failed to get upload URL");
+            // 2. Upload Milestone file if exists
+            let msFileUrl = null;
+            if (msFile) {
+                const msData = await uploadAndPresign(msFile, "boq"); // Using boq type for general docs
+                msFileUrl = msData.fileUrl;
+                setMilestoneFileUrl(msFileUrl);
+            }
 
-            const { uploadUrl, fileUrl: s3FileUrl } = await presignResponse.json();
+            setSimulatedProgress(40); // Jump to 40% after uploads
 
-            const uploadResponse = await fetch(uploadUrl, {
-                method: "PUT",
-                headers: { "Content-Type": contentType },
-                body: file,
-            });
+            // 3. Parallel Extraction
+            const extractionPromises = [
+                fetch("/api/po/extract", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ fileUrl: poData.fileUrl }),
+                }).then(r => r.json())
+            ];
 
-            if (!uploadResponse.ok) throw new Error("Failed to upload file");
+            if (msFileUrl) {
+                extractionPromises.push(
+                    fetch("/api/milestones/extract", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ fileUrl: msFileUrl }),
+                    }).then(r => r.json())
+                );
+            }
 
-            setFileUrl(s3FileUrl);
-            toast.success("Document uploaded", { id: uploadToast });
-            setUploadProgress("extracting");
+            const results = await Promise.all(extractionPromises);
+            const poResult = results[0];
+            const msResult = results[1];
 
-            // AI Extraction
-            const extractToast = toast.loading("AI analyzing document...");
-            setExtractionStatus("extracting");
+            if (poResult.success && poResult.data) {
+                const data = poResult.data;
+                setExtractedData(data);
 
-            const extractResponse = await fetch("/api/po/extract", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ fileUrl: s3FileUrl }),
-            });
+                // Pre-fill form fields
+                if (data.poNumber) setValue("poNumber", data.poNumber);
+                if (data.totalValue) setValue("totalValue", data.totalValue);
+                if (data.currency) setValue("currency", data.currency);
+                if (data.scope) setValue("scope", data.scope);
+                if (data.paymentTerms) setValue("paymentTerms", data.paymentTerms);
+                if (data.incoterms) setValue("incoterms", data.incoterms);
+                if (data.retentionPercentage) setValue("retentionPercentage", data.retentionPercentage);
 
-            if (extractResponse.ok) {
-                const result = await extractResponse.json();
-                if (result.success && result.data) {
-                    setExtractedData(result.data);
-
-                    // Pre-fill form fields
-                    if (result.data.poNumber) setValue("poNumber", result.data.poNumber);
-                    if (result.data.totalValue) setValue("totalValue", result.data.totalValue);
-                    if (result.data.currency) setValue("currency", result.data.currency);
-                    if (result.data.scope) setValue("scope", result.data.scope);
-                    if (result.data.paymentTerms) setValue("paymentTerms", result.data.paymentTerms);
-                    if (result.data.incoterms) setValue("incoterms", result.data.incoterms);
-                    if (result.data.retentionPercentage) setValue("retentionPercentage", result.data.retentionPercentage);
-
-                    // Pre-fill milestones
-                    if (result.data.milestones?.length > 0) {
-                        setMilestones(result.data.milestones.map((m: any, i: number) => ({
-                            ...m,
-                            sequenceOrder: i,
-                        })));
-                    }
-
-                    // Pre-fill BOQ items
-                    if (result.data.boqItems?.length > 0) {
-                        setBOQItems(result.data.boqItems.map((b: any) => ({
-                            ...b,
-                            isCritical: false,
-                            rosStatus: "NOT_SET" as const,
-                        })));
-                    }
-
-                    setExtractionStatus("success");
-                    toast.success(`AI extraction: ${Math.round(result.data.confidence * 100)}% confidence`, { id: extractToast });
-                } else {
-                    throw new Error(result.error || "Extraction failed");
+                // Milestones: Prioritize secondary file if provided
+                if (msResult?.success && msResult.milestones?.length > 0) {
+                    setMilestones(msResult.milestones.map((m: any, i: number) => ({
+                        ...m,
+                        sequenceOrder: i,
+                    })));
+                    toast.success("Milestones extracted from secondary document");
+                } else if (data.milestones?.length > 0) {
+                    setMilestones(data.milestones.map((m: any, i: number) => ({
+                        ...m,
+                        sequenceOrder: i,
+                    })));
                 }
+
+                // BOQ
+                if (data.boqItems?.length > 0) {
+                    setBOQItems(data.boqItems.map((b: any) => ({
+                        ...b,
+                        isCritical: false,
+                        rosStatus: "NOT_SET" as const,
+                    })));
+                }
+
+                setExtractionStatus("success");
+                setSimulatedProgress(100);
+                toast.success("Intelligence analysis complete");
             } else {
-                throw new Error("AI extraction failed");
+                throw new Error(poResult.error || "Extraction failed");
             }
 
             setUploadProgress("done");
         } catch (error) {
             console.error(error);
-            toast.error(error instanceof Error ? error.message : "Upload failed");
+            toast.error(error instanceof Error ? error.message : "Analysis failed");
             setUploadProgress("error");
             setExtractionStatus("error");
+        } finally {
+            clearInterval(progressInterval);
         }
+    };
+
+    const uploadAndPresign = async (file: File, type: string) => {
+        const contentType = file.type || "application/octet-stream";
+        const presignResponse = await fetch("/api/upload/presign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                fileName: file.name,
+                contentType,
+                docType: type,
+                orgId: selectedProject?.organizationId,
+                projectId: selectedProject?.id,
+            }),
+        });
+
+        if (!presignResponse.ok) throw new Error(`Failed to get upload URL for ${file.name}`);
+        const { uploadUrl, fileUrl } = await presignResponse.json();
+
+        const uploadResponse = await fetch(uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": contentType },
+            body: file,
+        });
+
+        if (!uploadResponse.ok) throw new Error(`Failed to upload ${file.name}`);
+        return { fileUrl };
+    };
+
+    const handlePOFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) setSelectedFile(file);
+    };
+
+    const handleMSFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) setMilestoneFile(file);
+    };
+
+    const startAnalysis = () => {
+        if (!selectedFile) {
+            toast.error("Please select a primary PO document");
+            return;
+        }
+        processUploads(selectedFile, milestoneFile);
     };
 
     // Navigation
@@ -422,19 +480,24 @@ export default function POWizard({
             <form onSubmit={handleSubmit(onSubmit)}>
                 {/* Step 1: Upload */}
                 {currentStep === "upload" && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Upload PO Document</CardTitle>
-                            <CardDescription>
-                                Upload a PDF and let AI extract the data automatically
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {/* Project Selection */}
-                            <div className="grid gap-2">
-                                <Label>Project *</Label>
+                    <Card className="border-none shadow-xl bg-card overflow-hidden">
+                        <div className="h-1 bg-blue-500" />
+                        <CardHeader className="space-y-4">
+                            <div>
+                                <CardTitle className="text-2xl font-black">Procurement Intake</CardTitle>
+                                <CardDescription className="font-medium">
+                                    Upload your documents and let our AI handle the data extraction.
+                                </CardDescription>
+                            </div>
+
+                            {/* Project Selection Moved Up */}
+                            <div className="p-4 bg-muted/30 rounded-2xl border border-muted/50 space-y-3">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                                    <FilesIcon weight="fill" className="h-4 w-4" />
+                                    Assign to Project
+                                </Label>
                                 <Select onValueChange={(v) => setValue("projectId", v)} value={watch("projectId")}>
-                                    <SelectTrigger>
+                                    <SelectTrigger className="h-12 rounded-xl border-muted-foreground/20 bg-background/50 font-bold">
                                         <SelectValue placeholder="Select a project" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -444,42 +507,98 @@ export default function POWizard({
                                     </SelectContent>
                                 </Select>
                             </div>
+                        </CardHeader>
 
-                            {/* File Upload */}
-                            <div className="border-2 border-dashed rounded-lg p-8 text-center">
-                                {uploadProgress === "idle" && (
-                                    <>
-                                        <UploadSimpleIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                                        <Input
-                                            type="file"
-                                            accept=".pdf,application/pdf"
-                                            onChange={handleFileChange}
-                                            className="max-w-xs mx-auto"
-                                        />
-                                    </>
-                                )}
-                                {uploadProgress === "uploading" && (
-                                    <div className="flex flex-col items-center gap-2">
-                                        <SpinnerIcon className="h-8 w-8 animate-spin text-primary" />
-                                        <p>Uploading...</p>
+                        <CardContent className="space-y-6">
+                            <div className="grid md:grid-cols-2 gap-6">
+                                {/* PO Upload */}
+                                <div className={`relative p-8 rounded-3xl border-2 border-dashed transition-all group ${selectedFile ? 'border-green-500/50 bg-green-500/5' : 'border-muted-foreground/20 hover:border-primary/50 bg-muted/20'}`}>
+                                    <input
+                                        type="file"
+                                        id="po-upload"
+                                        accept=".pdf,application/pdf"
+                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                        onChange={handlePOFileChange}
+                                        disabled={uploadProgress !== "idle" && uploadProgress !== "error"}
+                                    />
+                                    <div className="flex flex-col items-center text-center space-y-3">
+                                        <div className={`h-16 w-16 rounded-2xl flex items-center justify-center transition-all ${selectedFile ? 'bg-green-500 text-white' : 'bg-background shadow-md text-muted-foreground group-hover:scale-110'}`}>
+                                            <FileArrowUpIcon className="h-8 w-8" weight="duotone" />
+                                        </div>
+                                        <div>
+                                            <p className="font-black text-sm">Primary PO PDF</p>
+                                            <p className="text-xs text-muted-foreground mt-1 truncate max-w-[200px]">
+                                                {selectedFile ? selectedFile.name : "Mandatory document"}
+                                            </p>
+                                        </div>
                                     </div>
-                                )}
-                                {uploadProgress === "extracting" && (
-                                    <div className="flex flex-col items-center gap-2">
-                                        <SpinnerIcon className="h-8 w-8 animate-spin text-primary" />
-                                        <p>AI analyzing document...</p>
+                                </div>
+
+                                {/* Milestone Upload */}
+                                <div className={`relative p-8 rounded-3xl border-2 border-dashed transition-all group ${milestoneFile ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-muted-foreground/20 hover:border-indigo-500/50 bg-muted/20'}`}>
+                                    <input
+                                        type="file"
+                                        id="ms-upload"
+                                        accept=".pdf,application/pdf,.xlsx,.xls,.csv"
+                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                        onChange={handleMSFileChange}
+                                        disabled={uploadProgress !== "idle" && uploadProgress !== "error"}
+                                    />
+                                    <div className="flex flex-col items-center text-center space-y-3">
+                                        <div className={`h-16 w-16 rounded-2xl flex items-center justify-center transition-all ${milestoneFile ? 'bg-indigo-500 text-white' : 'bg-background shadow-md text-muted-foreground group-hover:scale-110'}`}>
+                                            <FilesIcon className="h-8 w-8" weight="duotone" />
+                                        </div>
+                                        <div>
+                                            <p className="font-black text-sm">Milestones (Optional)</p>
+                                            <p className="text-xs text-muted-foreground mt-1 truncate max-w-[200px]">
+                                                {milestoneFile ? milestoneFile.name : "Excel or PDF"}
+                                            </p>
+                                        </div>
                                     </div>
-                                )}
-                                {uploadProgress === "done" && (
-                                    <div className="flex flex-col items-center gap-2 text-green-600">
-                                        <CheckCircleIcon weight="fill" className="h-8 w-8" />
-                                        <p>Upload & Analysis Complete</p>
-                                        {extractedData?.confidence && (
-                                            <p className="text-sm">Confidence: {Math.round(extractedData.confidence * 100)}%</p>
-                                        )}
-                                    </div>
-                                )}
+                                </div>
                             </div>
+
+                            {/* Progress Area */}
+                            {(uploadProgress === "uploading" || uploadProgress === "extracting") && (
+                                <div className="space-y-4 p-6 bg-muted/30 rounded-3xl border border-muted/50">
+                                    <div className="flex justify-between items-end mb-1">
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-black uppercase tracking-widest text-primary animate-pulse">
+                                                {uploadProgress === "uploading" ? "Broadcasting to Cloud..." : "AI Neural Processing..."}
+                                            </p>
+                                            <p className="text-xl font-black">Analyzing Document Intelligence</p>
+                                        </div>
+                                        <span className="text-2xl font-black">{Math.round(simulatedProgress)}%</span>
+                                    </div>
+                                    <Progress value={simulatedProgress} className="h-3 rounded-full bg-muted shadow-inner" />
+                                </div>
+                            )}
+
+                            {uploadProgress === "done" && (
+                                <div className="p-6 bg-green-500/10 rounded-3xl border border-green-500/20 flex items-center gap-4">
+                                    <div className="h-12 w-12 rounded-full bg-green-500 text-white flex items-center justify-center shadow-lg ring-4 ring-green-500/20">
+                                        <CheckCircleIcon weight="fill" className="h-7 w-7" />
+                                    </div>
+                                    <div>
+                                        <p className="font-black">Success! Intelligence Captured</p>
+                                        <p className="text-sm text-green-600 font-medium">Proceed to verify the extracted details.</p>
+                                    </div>
+                                    <Button onClick={goNext} className="ml-auto rounded-xl font-bold bg-green-600 hover:bg-green-700">
+                                        Verify Data
+                                    </Button>
+                                </div>
+                            )}
+
+                            {uploadProgress === "idle" && (
+                                <Button
+                                    onClick={startAnalysis}
+                                    disabled={!selectedFile || !watch("projectId")}
+                                    className="w-full h-16 rounded-2xl bg-slate-900 text-white hover:bg-slate-800 font-black text-lg shadow-xl group"
+                                >
+                                    Start AI Analysis
+                                    <ArrowRightIcon className="h-6 w-6 ml-2 group-hover:translate-x-1 transition-transform" />
+                                </Button>
+                            )}
                         </CardContent>
                     </Card>
                 )}

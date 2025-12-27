@@ -13,7 +13,7 @@ export default function HomePage() {
   return (
     <>
       <HomePageStructuredData />
-      <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-24 bg-gradient-to-br from-slate-900 to-slate-800">
+      <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-24 bg-slate-900">
         <div className="text-center space-y-4">
           <h1 className="text-5xl font-bold text-gray-100">
             Infradyn Materials Tracker

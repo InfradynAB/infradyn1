@@ -5,6 +5,8 @@ import {
     DetectDocumentTextCommand,
 } from "@aws-sdk/client-textract";
 import OpenAI from "openai";
+import * as XLSX from "xlsx";
+import { getFileBuffer, extractS3KeyFromUrl } from "./s3";
 
 // Initialize clients
 const textractClient = new TextractClient({
@@ -376,5 +378,141 @@ export async function extractPOFromS3(
             success: false,
             error: error instanceof Error ? error.message : "Extraction failed",
         };
+    }
+}
+
+/**
+ * Specialized milestone extraction from Excel
+ */
+export async function extractMilestonesFromExcel(buffer: Buffer): Promise<ExtractedMilestone[]> {
+    try {
+        const workbook = XLSX.read(buffer, { type: 'buffer' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+        // Basic heuristic to find milestone rows
+        // Look for rows that have a name/title and a percentage/amount
+        const milestones: ExtractedMilestone[] = [];
+
+        // Skip header if it looks like one
+        const startIndex = 1;
+
+        for (let i = startIndex; i < data.length; i++) {
+            const row = data[i];
+            if (!row || row.length < 2) continue;
+
+            const title = String(row[0] || "").trim();
+            let percentage = 0;
+
+            // Try to find a percentage in the row
+            for (const cell of row) {
+                if (typeof cell === 'number') {
+                    if (cell > 0 && cell <= 100) {
+                        percentage = cell;
+                    } else if (cell > 0 && cell <= 1) {
+                        // Handle decimals (0.2 -> 20%)
+                        percentage = cell * 100;
+                    }
+                }
+            }
+
+            if (title && percentage > 0) {
+                milestones.push({
+                    title,
+                    paymentPercentage: percentage,
+                    description: row[2] ? String(row[2]) : undefined,
+                    expectedDate: row[3] ? String(row[3]) : undefined
+                });
+            }
+        }
+
+        return milestones;
+    } catch (error) {
+        console.error("[Excel Extraction] Error:", error);
+        return [];
+    }
+}
+
+/**
+ * Specialized milestone extraction from PDF using GPT
+ */
+export async function extractMilestonesFromPDF(rawText: string): Promise<ExtractedMilestone[]> {
+    try {
+        const systemPrompt = `You are a specialist in extracting payment milestones from construction or procurement documents.
+Extract all payment milestones, delivery stages, or project phases. 
+Each milestone should have:
+- title: Name of the milestone
+- description: Brief description (optional)
+- expectedDate: Date in YYYY-MM-DD format (optional)
+- paymentPercentage: Payment % for this milestone (number)
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "milestones": [
+    {"title": "string", "description": "string or null", "expectedDate": "YYYY-MM-DD or null", "paymentPercentage": number}
+  ]
+}
+
+Ensure the percentages sum up to or represent the total contract value.`;
+
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: `Extract milestones from this text:\n\n${rawText.slice(0, 15000)}` },
+            ],
+            temperature: 0,
+            response_format: { type: "json_object" },
+        });
+
+        const content = response.choices[0]?.message?.content;
+        if (!content) return [];
+
+        const parsed = JSON.parse(content);
+        return (parsed.milestones || []).map((m: any) => ({
+            ...m,
+            paymentPercentage: Number(m.paymentPercentage) || 0
+        }));
+    } catch (error) {
+        console.error("[PDF Milestone GPT] Error:", error);
+        return [];
+    }
+}
+
+/**
+ * Generic entry point for milestone-only extraction (PDF or Excel)
+ */
+export async function extractMilestonesFromS3(fileUrl: string): Promise<{ success: boolean; milestones: ExtractedMilestone[]; error?: string }> {
+    try {
+        const key = extractS3KeyFromUrl(fileUrl);
+        if (!key) return { success: false, milestones: [], error: "Invalid S3 URL" };
+
+        const extension = key.split('.').pop()?.toLowerCase();
+
+        if (extension === 'xlsx' || extension === 'xls' || extension === 'csv') {
+            const buffer = await getFileBuffer(key);
+            const milestones = await extractMilestonesFromExcel(buffer);
+            return { success: true, milestones };
+        } else {
+            // Assume PDF/Image - use Textract + GPT
+            const urlPattern = /https:\/\/([^.]+)\.s3\.([^.]+)\.amazonaws\.com\/(.+)/;
+            const match = fileUrl.match(urlPattern);
+            if (!match) return { success: false, milestones: [], error: "Invalid S3 URL format" };
+
+            const [, bucket, , s3Key] = match;
+            const decodedKey = decodeURIComponent(s3Key);
+
+            const textractResult = await extractTextWithTextract(bucket, decodedKey);
+            if (!textractResult.success || !textractResult.text) {
+                return { success: false, milestones: [], error: textractResult.error };
+            }
+
+            const milestones = await extractMilestonesFromPDF(textractResult.text);
+            return { success: true, milestones };
+        }
+    } catch (error) {
+        console.error("[extractMilestonesFromS3] Error:", error);
+        return { success: false, milestones: [], error: "Extraction failed" };
     }
 }

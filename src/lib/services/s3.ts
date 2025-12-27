@@ -122,3 +122,27 @@ export async function uploadFile(
         throw new Error("Could not upload file");
     }
 }
+
+export async function getFileBuffer(key: string): Promise<Buffer> {
+    const command = new GetObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: key,
+    });
+
+    try {
+        const response = await s3Client.send(command);
+        const stream = response.Body as any;
+
+        if (!stream) throw new Error("No body in S3 response");
+
+        // Convert stream to buffer
+        const chunks: any[] = [];
+        for await (const chunk of stream) {
+            chunks.push(chunk);
+        }
+        return Buffer.concat(chunks);
+    } catch (error) {
+        console.error("Error fetching file buffer from S3:", error);
+        throw new Error("Could not retrieve file from storage");
+    }
+}
