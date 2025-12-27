@@ -1,12 +1,10 @@
 import {
     Body,
-    Button,
     Container,
     Head,
     Heading,
     Hr,
     Html,
-    Img,
     Link,
     Preview,
     Section,
@@ -32,7 +30,11 @@ export default function InvitationEmail({
 
     return (
         <Html>
-            <Head />
+            <Head>
+                <style>{`
+                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+                `}</style>
+            </Head>
             <Preview>{previewText}</Preview>
             <Tailwind
                 config={{
@@ -40,56 +42,69 @@ export default function InvitationEmail({
                         extend: {
                             colors: {
                                 primary: "#0F6157",
-                                accent: "#E14FE3",
-                                navy: "#0A1C27",
+                                accent: "#0066CC",
+                                navy: "#1d1d1f",
+                                muted: "#86868b",
                             },
                         },
                     },
                 }}
             >
-                <Body className="bg-gray-100 my-auto mx-auto font-sans text-navy">
-                    <Container className="border border-solid border-[#eaeaea] rounded my-[40px] mx-auto p-[20px] max-w-[465px] bg-white">
-                        <Section className="mt-[32px] mb-[32px] text-center">
-                            <div className="flex items-center justify-center gap-2 mb-4">
-                                <div className="inline-block bg-primary p-2 rounded-lg">
-                                    {/* Placeholder specific logo representation if image not available */}
-                                    <span className="text-white font-bold text-xl tracking-tight">I</span>
-                                </div>
-                                <span className="text-2xl font-bold tracking-tight text-primary align-middle ml-2">Infradyn</span>
-                            </div>
+                <Body className="bg-white my-0 mx-auto font-sans">
+                    {/* Main Content Area */}
+                    <Container className="max-w-[680px] mx-auto px-[40px] pt-[50px] pb-[40px]">
+                        {/* Logo */}
+                        <Section className="mb-[40px]">
+                            <Text className="text-primary text-[28px] font-bold tracking-tight m-0">
+                                Infradyn
+                            </Text>
                         </Section>
-                        <Heading className="text-black text-[24px] font-normal text-center p-0 my-[30px] mx-0">
-                            Join <strong>{organizationName}</strong>
+
+                        {/* Greeting */}
+                        <Heading className="text-navy text-[28px] font-semibold tracking-tight m-0 mb-[24px]">
+                            Hello {inviterName ? inviterName.split(' ')[0] : 'there'},
                         </Heading>
-                        <Text className="text-black text-[14px] leading-[24px]">
-                            Hello,
+
+                        {/* Body Copy */}
+                        <Text className="text-navy text-[17px] leading-[1.6] m-0 mb-[20px]">
+                            You've been invited to join <strong>{organizationName}</strong> on Infradyn as a <strong>{role.replace('_', ' ')}</strong>.
                         </Text>
-                        <Text className="text-black text-[14px] leading-[24px]">
-                            <strong>{inviterName}</strong> has invited you to join the <strong>{organizationName}</strong> organization on Infradyn as a <strong>{role}</strong>.
+
+                        <Text className="text-navy text-[17px] leading-[1.6] m-0 mb-[20px]">
+                            Infradyn is your all-in-one platform for materials tracking, procurement, and logistics management. Get started by accepting the invitation below.
                         </Text>
-                        <Text className="text-black text-[14px] leading-[24px]">
-                            Infradyn is your all-in-one platform for materials tracking, procurement, and logistics.
+
+                        {/* CTA Link - Apple style uses text links */}
+                        <Text className="text-navy text-[17px] leading-[1.6] m-0 mb-[40px]">
+                            To accept this invitation,{" "}
+                            <Link href={inviteLink} className="text-accent underline">
+                                sign in with your account
+                            </Link>.
                         </Text>
-                        <Section className="text-center mt-[32px] mb-[32px]">
-                            <Button
-                                className="bg-primary rounded text-white px-5 py-3 text-[14px] font-semibold no-underline text-center"
-                                href={inviteLink}
-                            >
-                                Accept Invitation
-                            </Button>
-                        </Section>
-                        <Text className="text-black text-[14px] leading-[24px]">
-                            or copy and paste this URL into your browser:{" "}
-                            <Link href={inviteLink} className="text-primary no-underline">
-                                {inviteLink}
-                            </Link>
+
+                        {/* Divider */}
+                        <Hr className="border-0 border-t border-solid border-[#d2d2d7] my-[32px]" />
+
+                        {/* Security Notice */}
+                        <Text className="text-muted text-[12px] leading-[1.5] m-0 mb-[20px]">
+                            This invitation was intended for you. If you were not expecting this invitation, you can safely ignore this email.
                         </Text>
-                        <Hr className="border border-solid border-[#eaeaea] my-[26px] mx-0 w-full" />
-                        <Text className="text-[#666666] text-[12px] leading-[24px]">
-                            This invitation was intended for you. If you were not expecting this invitation, you can ignore this email.
+
+                        <Text className="text-muted text-[12px] leading-[1.5] m-0">
+                            If the link above doesn't work, copy and paste this URL into your browser:
                         </Text>
-                        <Text className="text-[#666666] text-[12px] leading-[24px] text-center">
-                            Powered by <strong>Infradyn Materials Tracker</strong>
+                        <Text className="text-accent text-[12px] leading-[1.5] m-0 break-all">
+                            {inviteLink}
+                        </Text>
+                    </Container>
+
+                    {/* Footer */}
+                    <Container className="max-w-[680px] mx-auto bg-[#f5f5f7] px-[40px] py-[24px]">
+                        <Text className="text-muted text-[12px] leading-[1.5] m-0 text-center">
+                            © 2025 Infradyn. All rights reserved.
+                        </Text>
+                        <Text className="text-muted text-[12px] leading-[1.5] m-0 text-center">
+                            Materials Tracking & Procurement Platform
                         </Text>
                     </Container>
                 </Body>

@@ -1,6 +1,5 @@
 import {
     Body,
-    Button,
     Container,
     Head,
     Heading,
@@ -27,7 +26,11 @@ export default function ResetPasswordEmail({
 
     return (
         <Html>
-            <Head />
+            <Head>
+                <style>{`
+                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+                `}</style>
+            </Head>
             <Preview>{previewText}</Preview>
             <Tailwind
                 config={{
@@ -35,52 +38,69 @@ export default function ResetPasswordEmail({
                         extend: {
                             colors: {
                                 primary: "#0F6157",
-                                accent: "#E14FE3",
-                                navy: "#0A1C27",
+                                accent: "#0066CC",
+                                navy: "#1d1d1f",
+                                muted: "#86868b",
                             },
                         },
                     },
                 }}
             >
-                <Body className="bg-gray-100 my-auto mx-auto font-sans text-navy">
-                    <Container className="border border-solid border-[#eaeaea] rounded my-[40px] mx-auto p-[20px] max-w-[465px] bg-white">
-                        <Section className="mt-[32px] mb-[32px] text-center">
-                            <div className="flex items-center justify-center gap-2 mb-4">
-                                <div className="inline-block bg-primary p-2 rounded-lg">
-                                    <span className="text-white font-bold text-xl tracking-tight">I</span>
-                                </div>
-                                <span className="text-2xl font-bold tracking-tight text-primary align-middle ml-2">Infradyn</span>
-                            </div>
+                <Body className="bg-white my-0 mx-auto font-sans">
+                    {/* Main Content Area */}
+                    <Container className="max-w-[680px] mx-auto px-[40px] pt-[50px] pb-[40px]">
+                        {/* Logo */}
+                        <Section className="mb-[40px]">
+                            <Text className="text-primary text-[28px] font-bold tracking-tight m-0">
+                                Infradyn
+                            </Text>
                         </Section>
-                        <Heading className="text-black text-[24px] font-normal text-center p-0 my-[30px] mx-0">
-                            Reset your <strong>Password</strong>
-                        </Heading>
-                        <Text className="text-black text-[14px] leading-[24px]">
+
+                        {/* Greeting */}
+                        <Heading className="text-navy text-[28px] font-semibold tracking-tight m-0 mb-[24px]">
                             Hello {userName},
+                        </Heading>
+
+                        {/* Body Copy */}
+                        <Text className="text-navy text-[17px] leading-[1.6] m-0 mb-[20px]">
+                            We received a request to reset your password for your Infradyn account.
                         </Text>
-                        <Text className="text-black text-[14px] leading-[24px]">
-                            We received a request to reset your password for your Infradyn account. If you didn't make this request, you can safely ignore this email.
+
+                        <Text className="text-navy text-[17px] leading-[1.6] m-0 mb-[20px]">
+                            If you made this request, you can reset your password by clicking the link below. This link will expire in <strong>1 hour</strong>.
                         </Text>
-                        <Section className="text-center mt-[32px] mb-[32px]">
-                            <Button
-                                className="bg-primary rounded text-white px-5 py-3 text-[14px] font-semibold no-underline text-center"
-                                href={resetLink}
-                            >
-                                Reset Password
-                            </Button>
-                        </Section>
-                        <Text className="text-black text-[14px] leading-[24px]">
-                            or copy and paste this URL into your browser:{" "}
-                            <Link href={resetLink} className="text-primary no-underline">
-                                {resetLink}
-                            </Link>
+
+                        {/* CTA Link - Apple style uses text links */}
+                        <Text className="text-navy text-[17px] leading-[1.6] m-0 mb-[40px]">
+                            To reset your password,{" "}
+                            <Link href={resetLink} className="text-accent underline">
+                                click here to continue
+                            </Link>.
                         </Text>
-                        <Hr className="border border-solid border-[#eaeaea] my-[26px] mx-0 w-full" />
-                        <Text className="text-[#666666] text-[12px] leading-[24px]">
-                            This link will expire in 1 hour.
+
+                        {/* Divider */}
+                        <Hr className="border-0 border-t border-solid border-[#d2d2d7] my-[32px]" />
+
+                        {/* Security Notice */}
+                        <Text className="text-muted text-[12px] leading-[1.5] m-0 mb-[20px]">
+                            If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.
                         </Text>
-                        <Text className="text-[#666666] text-[12px] leading-[24px] text-center">
-                            Powered by <strong>Infradyn Materials Tracker</strong>
+
+                        <Text className="text-muted text-[12px] leading-[1.5] m-0">
+                            If the link above doesn't work, copy and paste this URL into your browser:
+                        </Text>
+                        <Text className="text-accent text-[12px] leading-[1.5] m-0 break-all">
+                            {resetLink}
+                        </Text>
+                    </Container>
+
+                    {/* Footer */}
+                    <Container className="max-w-[680px] mx-auto bg-[#f5f5f7] px-[40px] py-[24px]">
+                        <Text className="text-muted text-[12px] leading-[1.5] m-0 text-center">
+                            © 2025 Infradyn. All rights reserved.
+                        </Text>
+                        <Text className="text-muted text-[12px] leading-[1.5] m-0 text-center">
+                            Materials Tracking & Procurement Platform
                         </Text>
                     </Container>
                 </Body>
