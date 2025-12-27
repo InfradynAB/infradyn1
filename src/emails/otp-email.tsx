@@ -4,6 +4,7 @@ import {
     Head,
     Heading,
     Html,
+    Img,
     Preview,
     Section,
     Text,
@@ -43,9 +44,13 @@ export default function OtpEmail({ otp = "123456" }: OtpEmailProps) {
                     <Container className="max-w-[680px] mx-auto px-[40px] pt-[50px] pb-[40px]">
                         {/* Logo */}
                         <Section className="mb-[40px]">
-                            <Text className="text-primary text-[28px] font-bold tracking-tight m-0">
-                                Infradyn
-                            </Text>
+                            <Img
+                                src="https://materials.infradyn.com/logos/logo.png"
+                                width="140"
+                                height="auto"
+                                alt="Infradyn"
+                                className="m-0"
+                            />
                         </Section>
 
                         {/* Greeting */}

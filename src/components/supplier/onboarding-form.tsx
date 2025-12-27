@@ -35,9 +35,9 @@ interface SupplierData {
 }
 
 const REQUIRED_DOCS = [
-    { type: "tax_id", label: "Tax Identification", description: "Official tax registration and KRA compliance." },
+    { type: "tax_id", label: "Tax Identification", description: "Tax Certificate and/or Company Registration Certificate." },
     { type: "insurance", label: "Liability Insurance", description: "Current public liability and professional indemnity." },
-    { type: "iso_cert", label: "Quality Certification", description: "ISO 9001 or relevant industry standards." }
+    { type: "iso_cert", label: "Quality Certification", description: "ISO Certification or relevant industry standard." }
 ];
 
 export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
