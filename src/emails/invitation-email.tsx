@@ -1,5 +1,6 @@
 import {
     Body,
+    Button,
     Container,
     Head,
     Heading,
@@ -79,13 +80,15 @@ export default function InvitationEmail({
                             Infradyn is your all-in-one platform for materials tracking, procurement, and logistics management. Get started by accepting the invitation below.
                         </Text>
 
-                        {/* CTA Link - Apple style uses text links */}
-                        <Text className="text-navy text-[17px] leading-[1.6] m-0 mb-[40px]">
-                            To accept this invitation,{" "}
-                            <Link href={inviteLink} className="text-accent underline">
-                                sign in with your account
-                            </Link>.
-                        </Text>
+                        {/* CTA Button */}
+                        <Section className="text-center my-[32px]">
+                            <Button
+                                href={inviteLink}
+                                className="bg-[#0F6157] text-white text-[16px] font-semibold py-[14px] px-[32px] rounded-[8px] no-underline inline-block"
+                            >
+                                Accept Invitation
+                            </Button>
+                        </Section>
 
                         {/* Divider */}
                         <Hr className="border-0 border-t border-solid border-[#d2d2d7] my-[32px]" />

@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { CircleNotch, Eye, EyeSlash } from "@phosphor-icons/react";
+import { PasswordStrengthIndicator } from "@/components/ui/password-strength";
 
 interface InviteAuthFormProps {
     email: string; // Pre-filled and readonly
@@ -155,6 +156,7 @@ export function InviteAuthForm({ email, onSuccess }: InviteAuthFormProps) {
                                             </button>
                                         </div>
                                     </FormControl>
+                                    <PasswordStrengthIndicator password={field.value} />
                                     <FormMessage />
                                 </FormItem>
                             )}

@@ -19,6 +19,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CircleNotch, Eye, EyeSlash } from "@phosphor-icons/react";
+import { PasswordStrengthIndicator } from "@/components/ui/password-strength";
 
 const signUpSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
@@ -160,6 +161,7 @@ export function SignUpForm() {
                                             </Button>
                                         </div>
                                     </FormControl>
+                                    <PasswordStrengthIndicator password={field.value} />
                                     <FormMessage />
                                 </FormItem>
                             )}
