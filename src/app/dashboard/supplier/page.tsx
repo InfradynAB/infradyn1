@@ -76,14 +76,12 @@ export default async function SupplierDashboardPage() {
                             Manage your purchase orders, compliance documents, and track your project assignments in one place.
                         </p>
                         <div className="flex flex-wrap gap-4">
-                            {!supplierData.isVerified && (
-                                <Link href="/dashboard/supplier/onboarding">
-                                    <Button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-6 h-auto rounded-xl">
-                                        Complete Onboarding
-                                        <ArrowRight className="ml-2 h-4 w-4" />
-                                    </Button>
-                                </Link>
-                            )}
+                            <Link href="/dashboard/supplier/onboarding">
+                                <Button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-6 h-auto rounded-xl">
+                                    {supplierData.isVerified ? "Update Profile" : "Complete Onboarding"}
+                                    <ArrowRight className="ml-2 h-4 w-4" />
+                                </Button>
+                            </Link>
                             <Link href="/dashboard/supplier/pos">
                                 <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-semibold px-6 py-6 h-auto rounded-xl backdrop-blur-md">
                                     View All Orders
@@ -171,8 +169,8 @@ export default async function SupplierDashboardPage() {
                                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1">
                                                 <h3 className="font-bold text-lg leading-none">{po.poNumber}</h3>
                                                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow-sm ${po.status === 'ACCEPTED' ? 'bg-green-500/10 text-green-600 border-green-200/50' :
-                                                        po.status === 'ISSUED' || po.status === 'PENDING_RESPONSE' ? 'bg-amber-500/10 text-amber-600 border-amber-200/50 animate-pulse' :
-                                                            'bg-blue-500/10 text-blue-600 border-blue-200/50'
+                                                    po.status === 'ISSUED' || po.status === 'PENDING_RESPONSE' ? 'bg-amber-500/10 text-amber-600 border-amber-200/50 animate-pulse' :
+                                                        'bg-blue-500/10 text-blue-600 border-blue-200/50'
                                                     }`}>
                                                     {po.status.replace('_', ' ')}
                                                 </span>
