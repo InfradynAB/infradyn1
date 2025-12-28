@@ -28,6 +28,13 @@ export const organization = pgTable('organization', {
     logo: text('logo'),
     metadata: jsonb('metadata'),
     retentionPolicyDays: integer('retention_policy_days').default(365).notNull(),
+    // Admin Dashboard Fields
+    industry: text('industry'),
+    size: text('size'), // e.g., "1-10", "11-50", "51-200", "200+"
+    contactEmail: text('contact_email'),
+    description: text('description'),
+    phone: text('phone'),
+    website: text('website'),
 });
 
 export const member = pgTable('member', {
