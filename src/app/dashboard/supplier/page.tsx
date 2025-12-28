@@ -132,7 +132,7 @@ export default async function SupplierDashboardPage() {
                             <div className="flex flex-wrap gap-3">
                                 <Link href="/dashboard/supplier/onboarding">
                                     <Button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-5 h-auto rounded-xl">
-                                        {supplierData.isVerified ? "Update Profile" : "Complete Onboarding"}
+                                        {(supplierData.isVerified || Number(supplierData.readinessScore) >= 100) ? "Update Profile" : "Complete Onboarding"}
                                         <ArrowRight className="ml-2 h-4 w-4" />
                                     </Button>
                                 </Link>
@@ -219,9 +219,9 @@ export default async function SupplierDashboardPage() {
                                                 <div className="flex flex-wrap items-center gap-2 mb-1">
                                                     <h3 className="font-bold text-base">{po.poNumber}</h3>
                                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${po.status === 'ACCEPTED' ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400' :
-                                                            po.status === 'ISSUED' || po.status === 'PENDING_RESPONSE' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' :
-                                                                po.status === 'COMPLETED' ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' :
-                                                                    'bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-400'
+                                                        po.status === 'ISSUED' || po.status === 'PENDING_RESPONSE' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' :
+                                                            po.status === 'COMPLETED' ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' :
+                                                                'bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-400'
                                                         }`}>
                                                         {po.status.replace('_', ' ')}
                                                     </span>
