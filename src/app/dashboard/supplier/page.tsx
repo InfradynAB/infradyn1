@@ -20,10 +20,12 @@ import {
     CalendarCheck,
     Package,
     Briefcase,
+    UploadSimple,
 } from "@phosphor-icons/react/dist/ssr";
 import { ReadinessScore } from "@/components/supplier/readiness-score";
 import { SupplierStatsCard } from "@/components/supplier/supplier-stats-card";
 import { UpcomingMilestones } from "@/components/supplier/upcoming-milestones";
+import { ProgressUpdateSheetWrapper } from "@/components/supplier/progress-update-sheet-wrapper";
 
 export default async function SupplierDashboardPage() {
     const session = await auth.api.getSession({
@@ -136,6 +138,19 @@ export default async function SupplierDashboardPage() {
                                         <ArrowRight className="ml-2 h-4 w-4" />
                                     </Button>
                                 </Link>
+                                {pos.length > 0 && (
+                                    <ProgressUpdateSheetWrapper
+                                        purchaseOrders={pos.map(po => ({
+                                            id: po.id,
+                                            poNumber: po.poNumber,
+                                            milestones: po.milestones.map(m => ({
+                                                id: m.id,
+                                                title: m.title,
+                                                paymentPercentage: m.paymentPercentage,
+                                            })),
+                                        }))}
+                                    />
+                                )}
                                 <Link href="/dashboard/supplier/pos">
                                     <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-semibold px-5 py-5 h-auto rounded-xl backdrop-blur-md">
                                         View All Orders

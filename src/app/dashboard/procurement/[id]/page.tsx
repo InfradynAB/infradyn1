@@ -29,11 +29,18 @@ import {
     ClockIcon,
     PencilSimpleIcon,
     TrashIcon,
+    ChartLineUpIcon,
+    ImagesIcon,
+    WarningCircleIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { format } from "date-fns";
 import { UploadVersionDialog } from "@/components/procurement/upload-version-dialog";
 import { ImportBOQDialog } from "@/components/procurement/import-boq-dialog";
 import { DeletePOButton } from "@/components/procurement/delete-po-button";
+import { InternalProgressForm } from "@/components/procurement/internal-progress-form";
+import { POGallery } from "@/components/procurement/po-gallery";
+import { ConflictQueue } from "@/components/procurement/conflict-queue";
+import { TrustIndicator } from "@/components/shared/trust-indicator";
 import {
     extractS3KeyFromUrl,
     getDownloadPresignedUrl
@@ -185,6 +192,18 @@ export default async function PODetailPage({ params }: PageProps) {
             <Tabs defaultValue="overview" className="space-y-4">
                 <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="progress" className="gap-1.5">
+                        <ChartLineUpIcon className="h-4 w-4" />
+                        Progress
+                    </TabsTrigger>
+                    <TabsTrigger value="gallery" className="gap-1.5">
+                        <ImagesIcon className="h-4 w-4" />
+                        Gallery
+                    </TabsTrigger>
+                    <TabsTrigger value="conflicts" className="gap-1.5">
+                        <WarningCircleIcon className="h-4 w-4" />
+                        Conflicts
+                    </TabsTrigger>
                     <TabsTrigger value="boq">BOQ Items</TabsTrigger>
                     <TabsTrigger value="versions">Version History</TabsTrigger>
                 </TabsList>
@@ -251,6 +270,106 @@ export default async function PODetailPage({ params }: PageProps) {
                             </div>
                         </CardContent>
                     </Card>
+                </TabsContent>
+
+                {/* Progress Tab - Phase 4 */}
+                <TabsContent value="progress">
+                    <div className="grid gap-6 lg:grid-cols-2">
+                        {/* Internal Progress Form */}
+                        <InternalProgressForm
+                            purchaseOrderId={po.id}
+                            poNumber={po.poNumber}
+                            milestones={(po as any).milestones?.map((m: any) => ({
+                                id: m.id,
+                                title: m.title,
+                                paymentPercentage: m.paymentPercentage,
+                                currentProgress: m.progressRecords?.[0]?.percentComplete ? Number(m.progressRecords[0].percentComplete) : 0,
+                            })) || []}
+                            supplierName={(po as any).supplier?.name || "Supplier"}
+                        />
+
+                        {/* Progress History */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <ChartLineUpIcon className="h-5 w-5" />
+                                    Progress History
+                                </CardTitle>
+                                <CardDescription>Recent updates from supplier and internal teams</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    {(po as any).milestones?.flatMap((m: any) =>
+                                        m.progressRecords?.map((pr: any) => ({
+                                            ...pr,
+                                            milestoneTitle: m.title,
+                                        })) || []
+                                    ).slice(0, 10).map((record: any, index: number) => (
+                                        <div key={record.id || index} className="flex items-center gap-4 p-3 rounded-lg border">
+                                            <TrustIndicator level={record.trustLevel || "INTERNAL"} size="sm" showLabel={false} />
+                                            <div className="flex-1">
+                                                <p className="text-sm font-medium">{record.milestoneTitle}: {record.percentComplete}%</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {record.source} • {format(new Date(record.reportedDate), "MMM d, yyyy")}
+                                                </p>
+                                            </div>
+                                            {record.isForecast && (
+                                                <Badge variant="secondary">⚠ Forecast</Badge>
+                                            )}
+                                        </div>
+                                    )) || (
+                                            <p className="text-center text-muted-foreground py-8">No progress records yet</p>
+                                        )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </TabsContent>
+
+                {/* Gallery Tab - Phase 4 */}
+                <TabsContent value="gallery">
+                    <Card>
+                        <CardContent className="pt-6">
+                            <POGallery
+                                purchaseOrderId={po.id}
+                                poNumber={po.poNumber}
+                                media={(po as any).documents?.map((doc: any) => ({
+                                    id: doc.id,
+                                    fileName: doc.fileName,
+                                    fileUrl: doc.fileUrl,
+                                    mimeType: doc.mimeType,
+                                    documentType: doc.documentType,
+                                    uploadedAt: new Date(doc.createdAt),
+                                })) || []}
+                            />
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* Conflicts Tab - Phase 4 */}
+                <TabsContent value="conflicts">
+                    <ConflictQueue
+                        conflicts={(po as any).conflicts?.map((c: any) => ({
+                            id: c.id,
+                            type: c.type,
+                            state: c.state,
+                            deviationPercent: Number(c.deviationPercent),
+                            description: c.description,
+                            slaDeadline: c.slaDeadline ? new Date(c.slaDeadline) : undefined,
+                            createdAt: new Date(c.createdAt),
+                            escalationLevel: c.escalationLevel || 0,
+                            isCriticalPath: c.isCriticalPath || false,
+                            isFinancialMilestone: c.isFinancialMilestone || false,
+                            purchaseOrder: {
+                                id: po.id,
+                                poNumber: po.poNumber,
+                            },
+                            milestone: c.milestone ? {
+                                id: c.milestone.id,
+                                title: c.milestone.title,
+                            } : undefined,
+                        })) || []}
+                    />
                 </TabsContent>
 
                 {/* BOQ Tab */}

@@ -5,13 +5,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
-} from "@/components/ui/sheet";
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
     Form,
@@ -84,7 +84,7 @@ interface ProgressUpdateSheetProps {
 }
 
 /**
- * Supplier Progress Update Sheet
+ * Supplier Progress Update Dialog
  * Path A in the Dual-Path Ingestion system.
  * Allows suppliers to update milestone progress with photo/video evidence.
  */
@@ -154,30 +154,30 @@ export function ProgressUpdateSheet({
     }
 
     return (
-        <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
                 {trigger || (
                     <Button className="gap-2">
                         <UploadSimple className="h-4 w-4" />
                         Update Progress
                     </Button>
                 )}
-            </SheetTrigger>
-            <SheetContent className="sm:max-w-[480px] overflow-y-auto">
-                <SheetHeader className="mb-6">
-                    <SheetTitle className="flex items-center gap-3">
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-3">
                         <div className="p-2 rounded-xl bg-blue-500/10">
                             <CheckCircle className="h-6 w-6 text-blue-600" weight="duotone" />
                         </div>
                         Update Progress
-                    </SheetTitle>
-                    <SheetDescription>
+                    </DialogTitle>
+                    <DialogDescription>
                         Report your progress on <strong>{poNumber}</strong>. Upload photos or videos as evidence.
-                    </SheetDescription>
-                </SheetHeader>
+                    </DialogDescription>
+                </DialogHeader>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 mt-4">
                         {/* Milestone Selection */}
                         <FormField
                             control={form.control}
@@ -252,7 +252,7 @@ export function ProgressUpdateSheet({
                                         <Textarea
                                             placeholder="Any additional notes about this update..."
                                             className="resize-none"
-                                            rows={3}
+                                            rows={2}
                                             {...field}
                                         />
                                     </FormControl>
@@ -283,7 +283,7 @@ export function ProgressUpdateSheet({
                                         </SelectContent>
                                     </Select>
                                     <FormDescription>
-                                        This helps train our AI to auto-classify future uploads.
+                                        Helps train our AI to auto-classify future uploads.
                                     </FormDescription>
                                     <FormMessage />
                                 </FormItem>
@@ -297,28 +297,28 @@ export function ProgressUpdateSheet({
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    className="flex-1 h-20 flex-col gap-1"
+                                    className="flex-1 h-16 flex-col gap-1"
                                     onClick={() => document.getElementById("file-upload")?.click()}
                                 >
-                                    <Camera className="h-6 w-6" />
+                                    <Camera className="h-5 w-5" />
                                     <span className="text-xs">Photo</span>
                                 </Button>
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    className="flex-1 h-20 flex-col gap-1"
+                                    className="flex-1 h-16 flex-col gap-1"
                                     onClick={() => document.getElementById("file-upload")?.click()}
                                 >
-                                    <VideoCamera className="h-6 w-6" />
+                                    <VideoCamera className="h-5 w-5" />
                                     <span className="text-xs">Video</span>
                                 </Button>
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    className="flex-1 h-20 flex-col gap-1"
+                                    className="flex-1 h-16 flex-col gap-1"
                                     onClick={() => document.getElementById("file-upload")?.click()}
                                 >
-                                    <FileText className="h-6 w-6" />
+                                    <FileText className="h-5 w-5" />
                                     <span className="text-xs">Document</span>
                                 </Button>
                             </div>
@@ -333,7 +333,7 @@ export function ProgressUpdateSheet({
 
                             {/* Uploaded Files Preview */}
                             {uploadedFiles.length > 0 && (
-                                <div className="grid grid-cols-3 gap-2 mt-3">
+                                <div className="grid grid-cols-4 gap-2 mt-3">
                                     {uploadedFiles.map((file, index) => (
                                         <div
                                             key={index}
@@ -347,13 +347,13 @@ export function ProgressUpdateSheet({
                                                 />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center">
-                                                    <FileText className="h-8 w-8 text-muted-foreground" />
+                                                    <FileText className="h-6 w-6 text-muted-foreground" />
                                                 </div>
                                             )}
                                             <button
                                                 type="button"
                                                 onClick={() => removeFile(index)}
-                                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full h-5 w-5 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
                                                 ×
                                             </button>
@@ -370,7 +370,7 @@ export function ProgressUpdateSheet({
                         </div>
 
                         {/* Submit */}
-                        <div className="flex gap-3 pt-4">
+                        <div className="flex gap-3 pt-2">
                             <Button
                                 type="button"
                                 variant="outline"
@@ -386,7 +386,7 @@ export function ProgressUpdateSheet({
                         </div>
                     </form>
                 </Form>
-            </SheetContent>
-        </Sheet>
+            </DialogContent>
+        </Dialog>
     );
 }
