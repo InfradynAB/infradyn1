@@ -21,11 +21,13 @@ import {
     Package,
     Briefcase,
     UploadSimple,
+    ChartBar,
 } from "@phosphor-icons/react/dist/ssr";
 import { ReadinessScore } from "@/components/supplier/readiness-score";
 import { SupplierStatsCard } from "@/components/supplier/supplier-stats-card";
 import { UpcomingMilestones } from "@/components/supplier/upcoming-milestones";
 import { ProgressUpdateSheetWrapper } from "@/components/supplier/progress-update-sheet-wrapper";
+import { getSupplierPerformance } from "@/lib/actions/supplier-performance";
 
 export default async function SupplierDashboardPage() {
     const session = await auth.api.getSession({
@@ -103,6 +105,10 @@ export default async function SupplierDashboardPage() {
     const completedMilestones = allMilestones.filter(m => m.status === "COMPLETED").length;
     const totalMilestones = allMilestones.length;
 
+    // Fetch supplier performance metrics
+    const performanceResult = await getSupplierPerformance(supplierData.id);
+    const performance = performanceResult.success ? performanceResult.data : null;
+
     return (
         <div className="space-y-8 pb-10">
             {/* Premium Hero Section */}
@@ -158,6 +164,12 @@ export default async function SupplierDashboardPage() {
                                         View All Orders
                                     </Button>
                                 </Link>
+                                <Link href="#performance">
+                                    <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-semibold px-5 py-5 h-auto rounded-xl backdrop-blur-md gap-2">
+                                        <ChartBar className="h-4 w-4" />
+                                        My Performance
+                                    </Button>
+                                </Link>
                             </div>
                         </div>
 
@@ -203,6 +215,81 @@ export default async function SupplierDashboardPage() {
                     icon={<Briefcase className="h-12 w-12" weight="duotone" />}
                 />
             </div>
+
+            {/* Performance Metrics Section */}
+            {performance && (
+                <div id="performance" className="scroll-mt-8">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                            <ChartBar className="h-5 w-5 text-muted-foreground" />
+                            My Performance
+                        </h2>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <Card className="border">
+                            <CardContent className="pt-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm text-muted-foreground">Response Rate</span>
+                                    <span className={`text-2xl font-bold ${performance.responseRate >= 80 ? 'text-green-600' : performance.responseRate >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                                        {performance.responseRate.toFixed(0)}%
+                                    </span>
+                                </div>
+                                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all ${performance.responseRate >= 80 ? 'bg-green-500' : performance.responseRate >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
+                                        style={{ width: `${performance.responseRate}%` }}
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="border">
+                            <CardContent className="pt-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm text-muted-foreground">Accuracy</span>
+                                    <span className={`text-2xl font-bold ${performance.reportingAccuracy >= 80 ? 'text-green-600' : performance.reportingAccuracy >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                                        {performance.reportingAccuracy.toFixed(0)}%
+                                    </span>
+                                </div>
+                                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all ${performance.reportingAccuracy >= 80 ? 'bg-green-500' : performance.reportingAccuracy >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
+                                        style={{ width: `${performance.reportingAccuracy}%` }}
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="border">
+                            <CardContent className="pt-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm text-muted-foreground">Reliability</span>
+                                    <span className={`text-2xl font-bold ${performance.reliabilityScore >= 80 ? 'text-green-600' : performance.reliabilityScore >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                                        {performance.reliabilityScore.toFixed(0)}%
+                                    </span>
+                                </div>
+                                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all ${performance.reliabilityScore >= 80 ? 'bg-green-500' : performance.reliabilityScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
+                                        style={{ width: `${performance.reliabilityScore}%` }}
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="border">
+                            <CardContent className="pt-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm text-muted-foreground">Missed Updates</span>
+                                    <span className={`text-2xl font-bold ${performance.missedUpdates === 0 ? 'text-green-600' : performance.missedUpdates <= 2 ? 'text-amber-600' : 'text-red-600'}`}>
+                                        {performance.missedUpdates}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    {performance.missedUpdates > 3 ? '⚠️ Flagged for review' : 'Keep responding on time!'}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+            )}
 
             {/* Main Content Grid */}
             <div className="grid gap-6 lg:grid-cols-3">

@@ -1,0 +1,12 @@
+{
+    "crons": [
+        {
+            "path": "/api/cron/forecast",
+            "schedule": "0 0 * * *"
+        },
+        {
+            "path": "/api/cron/chase",
+            "schedule": "0 */4 * * *"
+        }
+    ]
+}
