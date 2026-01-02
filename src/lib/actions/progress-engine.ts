@@ -192,7 +192,7 @@ export async function processChaseQueue() {
                         title: `⚠️ ${riskLevel} Risk: ${conflict.milestone?.title}`,
                         message: `Conflict on PO ${conflict.purchaseOrder?.poNumber} requires attention. Deviation: ${conflict.deviationPercent}%`,
                         type: riskLevel === "HIGH" ? "URGENT" : "WARNING",
-                        linkUrl: `/dashboard/procurement/pos/${conflict.purchaseOrderId}`,
+                        linkUrl: `/dashboard/procurement/${conflict.purchaseOrderId}`,
                     });
                     remindersCreated++;
                 }

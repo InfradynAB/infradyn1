@@ -132,7 +132,7 @@ export async function sendEscalationNotification(input: SendEscalationInput) {
             supplierName: supplierData?.name || "Unknown Supplier",
             escalationLevel: input.escalationLevel,
             daysOverdue: input.daysOverdue,
-            dashboardUrl: `${APP_URL}/dashboard/procurement/pos/${poData.id}`,
+            dashboardUrl: `${APP_URL}/dashboard/procurement/${poData.id}`,
         };
 
         const email = await buildEscalationEmail(emailData);

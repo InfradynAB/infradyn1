@@ -282,7 +282,7 @@ export function SupplierHistoryTimeline({
                                                                     )}
                                                                     {item.poNumber && (
                                                                         <Link
-                                                                            href={`/dashboard/procurement/pos/${item.poNumber}`}
+                                                                            href={`/dashboard/procurement/${item.poNumber}`}
                                                                             className="flex items-center gap-1 hover:text-foreground"
                                                                         >
                                                                             {item.poNumber}

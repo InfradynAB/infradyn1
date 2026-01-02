@@ -40,6 +40,7 @@ import { DeletePOButton } from "@/components/procurement/delete-po-button";
 import { InternalProgressForm } from "@/components/procurement/internal-progress-form";
 import { POGallery } from "@/components/procurement/po-gallery";
 import { ConflictQueue } from "@/components/procurement/conflict-queue";
+import { ConflictResolver } from "@/components/procurement/conflict-resolver";
 import { TrustIndicator } from "@/components/shared/trust-indicator";
 import { getDocumentsByParentId } from "@/lib/actions/documents";
 import {
@@ -57,9 +58,10 @@ const statusColors: Record<string, string> = {
 
 interface PageProps {
     params: Promise<{ id: string }>;
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default async function PODetailPage({ params }: PageProps) {
+export default async function PODetailPage({ params, searchParams }: PageProps) {
     const session = await auth.api.getSession({
         headers: await headers(),
     });
@@ -531,6 +533,23 @@ export default async function PODetailPage({ params }: PageProps) {
                     </Card>
                 </TabsContent>
             </Tabs >
+            <ConflictResolver
+                conflicts={(po as any).conflicts?.map((c: any) => ({
+                    id: c.id,
+                    milestoneId: c.milestoneId || "",
+                    milestoneTitle: c.milestone?.title || "Unknown",
+                    purchaseOrderId: po.id,
+                    poNumber: po.poNumber,
+                    type: c.type,
+                    state: c.state,
+                    deviationPercent: Number(c.deviationPercent),
+                    description: c.description,
+                    createdAt: new Date(c.createdAt),
+                    isCriticalPath: c.isCriticalPath || false,
+                    isFinancialMilestone: c.isFinancialMilestone || false,
+                    escalationLevel: c.escalationLevel || 0,
+                })) || []}
+            />
         </div >
     );
 }

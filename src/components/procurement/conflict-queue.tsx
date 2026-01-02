@@ -212,7 +212,7 @@ export function ConflictQueue({ conflicts, onResolve, className }: ConflictQueue
 
                                             {/* Meta Info */}
                                             <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                                <Link href={`/dashboard/procurement/pos/${conflict.purchaseOrder.id}`} className="flex items-center gap-1 hover:text-foreground">
+                                                <Link href={`/dashboard/procurement/${conflict.purchaseOrder.id}`} className="flex items-center gap-1 hover:text-foreground">
                                                     <Package className="h-3.5 w-3.5" />
                                                     {conflict.purchaseOrder.poNumber}
                                                 </Link>
@@ -243,7 +243,7 @@ export function ConflictQueue({ conflicts, onResolve, className }: ConflictQueue
 
                                         {/* Actions */}
                                         <div className="shrink-0 flex flex-col gap-2">
-                                            <Link href={`/dashboard/procurement/pos/${conflict.purchaseOrder.id}?conflict=${conflict.id}`}>
+                                            <Link href={`/dashboard/procurement/${conflict.purchaseOrder.id}?conflict=${conflict.id}`}>
                                                 <Button size="sm" variant="outline" className="gap-1">
                                                     View <ArrowRight className="h-3.5 w-3.5" />
                                                 </Button>
