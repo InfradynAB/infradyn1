@@ -77,7 +77,7 @@ export async function deleteS3Object(key: string): Promise<void> {
 export function generateS3Key(
     orgId: string,
     projectId: string,
-    docType: "po" | "boq" | "invoice" | "packing-list",
+    docType: "po" | "boq" | "invoice" | "packing-list" | "evidence" | "progress" | "other",
     fileName: string
 ): string {
     const timestamp = Date.now();

@@ -543,6 +543,7 @@ export const purchaseOrderRelations = relations(purchaseOrder, ({ one, many }) =
     milestones: many(milestone),
     shipments: many(shipment),
     invoices: many(invoice),
+    conflicts: many(conflictRecord),
     organization: one(organization, { fields: [purchaseOrder.organizationId], references: [organization.id] }),
 }));
 

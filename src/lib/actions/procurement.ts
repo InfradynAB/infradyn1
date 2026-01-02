@@ -9,6 +9,8 @@ import {
     document,
     milestone,
     boqItem,
+    progressRecord,
+    conflictRecord,
 } from "@/db/schema";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
@@ -329,6 +331,18 @@ export async function getPurchaseOrder(
                     orderBy: desc(poVersion.versionNumber),
                 },
                 boqItems: true,
+                milestones: {
+                    with: {
+                        progressRecords: {
+                            orderBy: desc(progressRecord.reportedDate),
+                        },
+                    },
+                },
+                conflicts: {
+                    with: {
+                        milestone: true,
+                    },
+                },
             },
         });
 

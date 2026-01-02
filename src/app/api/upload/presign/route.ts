@@ -8,9 +8,10 @@ import { z } from "zod";
 const requestSchema = z.object({
     fileName: z.string().min(1),
     contentType: z.string().min(1),
-    docType: z.enum(["po", "boq", "invoice", "packing-list"]),
+    docType: z.enum(["po", "boq", "invoice", "packing-list", "evidence", "progress", "other"]),
     orgId: z.string().uuid(),
     projectId: z.string().uuid(),
+    parentId: z.string().uuid().optional(), // PO ID for document association
 });
 
 /**

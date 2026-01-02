@@ -143,6 +143,8 @@ export default async function SupplierDashboardPage() {
                                         purchaseOrders={pos.map(po => ({
                                             id: po.id,
                                             poNumber: po.poNumber,
+                                            organizationId: po.organizationId,
+                                            projectId: po.projectId,
                                             milestones: po.milestones.map(m => ({
                                                 id: m.id,
                                                 title: m.title,

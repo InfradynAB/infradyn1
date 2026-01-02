@@ -41,6 +41,7 @@ import { InternalProgressForm } from "@/components/procurement/internal-progress
 import { POGallery } from "@/components/procurement/po-gallery";
 import { ConflictQueue } from "@/components/procurement/conflict-queue";
 import { TrustIndicator } from "@/components/shared/trust-indicator";
+import { getDocumentsByParentId } from "@/lib/actions/documents";
 import {
     extractS3KeyFromUrl,
     getDownloadPresignedUrl
@@ -96,6 +97,25 @@ export default async function PODetailPage({ params }: PageProps) {
 
     const latestVersion = versionsWithUrls[0];
     const downloadUrl = latestVersion?.downloadUrl;
+
+    // Fetch documents for this PO (polymorphic relation) and generate presigned URLs
+    const docsResult = await getDocumentsByParentId(po.id, "PO");
+    const poDocuments = await Promise.all(
+        (docsResult.success ? docsResult.data : []).map(async (doc: any) => {
+            let presignedUrl = doc.fileUrl;
+            if (doc.fileUrl) {
+                const key = extractS3KeyFromUrl(doc.fileUrl);
+                if (key) {
+                    try {
+                        presignedUrl = await getDownloadPresignedUrl(key);
+                    } catch (e) {
+                        console.error(`Failed to generate presigned URL for ${doc.fileName}:`, e);
+                    }
+                }
+            }
+            return { ...doc, fileUrl: presignedUrl };
+        })
+    );
 
     return (
         <div className="space-y-6">
@@ -333,14 +353,14 @@ export default async function PODetailPage({ params }: PageProps) {
                             <POGallery
                                 purchaseOrderId={po.id}
                                 poNumber={po.poNumber}
-                                media={(po as any).documents?.map((doc: any) => ({
+                                media={poDocuments.map((doc: any) => ({
                                     id: doc.id,
                                     fileName: doc.fileName,
                                     fileUrl: doc.fileUrl,
                                     mimeType: doc.mimeType,
                                     documentType: doc.documentType,
                                     uploadedAt: new Date(doc.createdAt),
-                                })) || []}
+                                }))}
                             />
                         </CardContent>
                     </Card>

@@ -15,6 +15,8 @@ import { ProgressUpdateSheet } from "./progress-update-sheet";
 interface PurchaseOrderOption {
     id: string;
     poNumber: string;
+    organizationId: string;
+    projectId: string;
     milestones: {
         id: string;
         title: string;
@@ -43,6 +45,8 @@ export function ProgressUpdateSheetWrapper({ purchaseOrders }: ProgressUpdateShe
             <ProgressUpdateSheet
                 purchaseOrderId={selectedPO.id}
                 poNumber={selectedPO.poNumber}
+                organizationId={selectedPO.organizationId}
+                projectId={selectedPO.projectId}
                 milestones={selectedPO.milestones}
                 trigger={
                     <Button className="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-5 h-auto rounded-xl gap-2">
@@ -93,6 +97,8 @@ export function ProgressUpdateSheetWrapper({ purchaseOrders }: ProgressUpdateShe
                 <ProgressUpdateSheet
                     purchaseOrderId={selectedPO.id}
                     poNumber={selectedPO.poNumber}
+                    organizationId={selectedPO.organizationId}
+                    projectId={selectedPO.projectId}
                     milestones={selectedPO.milestones}
                     trigger={
                         <Button className="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-5 h-auto rounded-xl gap-2">

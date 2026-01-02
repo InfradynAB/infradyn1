@@ -78,6 +78,8 @@ interface Milestone {
 interface ProgressUpdateSheetProps {
     purchaseOrderId: string;
     poNumber: string;
+    organizationId: string;
+    projectId: string;
     milestones: Milestone[];
     onSuccess?: () => void;
     trigger?: React.ReactNode;
@@ -91,6 +93,8 @@ interface ProgressUpdateSheetProps {
 export function ProgressUpdateSheet({
     purchaseOrderId,
     poNumber,
+    organizationId,
+    projectId,
     milestones,
     onSuccess,
     trigger,
@@ -127,28 +131,81 @@ export function ProgressUpdateSheet({
     async function onSubmit(values: ProgressUpdateFormData) {
         startTransition(async () => {
             try {
-                // TODO: Implement submitSupplierProgress server action
-                // const result = await submitSupplierProgress({
-                //     purchaseOrderId,
-                //     milestoneId: values.milestoneId,
-                //     percentComplete: values.percentComplete,
-                //     comment: values.comment,
-                //     documentType: values.documentType,
-                //     files: uploadedFiles,
-                // });
+                // 1. Upload files to S3 and create document records
+                if (uploadedFiles.length > 0) {
+                    const { createDocument } = await import("@/lib/actions/documents");
 
-                // Placeholder success
-                await new Promise((resolve) => setTimeout(resolve, 1000));
+                    for (const file of uploadedFiles) {
+                        // Get presigned URL
+                        const presignRes = await fetch("/api/upload/presign", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                fileName: file.name,
+                                contentType: file.type,
+                                docType: "evidence",
+                                orgId: organizationId,
+                                projectId: projectId,
+                            }),
+                        });
+
+                        if (!presignRes.ok) {
+                            throw new Error("Failed to get upload URL");
+                        }
+
+                        const { uploadUrl, fileUrl } = await presignRes.json();
+
+                        // Upload to S3
+                        const uploadRes = await fetch(uploadUrl, {
+                            method: "PUT",
+                            headers: { "Content-Type": file.type },
+                            body: file,
+                        });
+
+                        if (!uploadRes.ok) {
+                            throw new Error(`Failed to upload ${file.name}`);
+                        }
+
+                        // Create document record
+                        await createDocument({
+                            organizationId,
+                            projectId,
+                            parentId: purchaseOrderId,
+                            parentType: "PO",
+                            fileName: file.name,
+                            fileUrl,
+                            mimeType: file.type,
+                            documentType: values.documentType as any || "EVIDENCE",
+                        });
+                    }
+                }
+
+                // 2. Submit progress update
+                const { submitProgress } = await import("@/lib/actions/progress-engine");
+
+                const result = await submitProgress({
+                    milestoneId: values.milestoneId,
+                    percentComplete: values.percentComplete,
+                    source: "SRP",
+                    comment: values.comment,
+                });
+
+                if (!result.success) {
+                    throw new Error(result.error || "Failed to save progress");
+                }
 
                 toast.success("Progress updated successfully!", {
-                    description: `${poNumber} milestone updated to ${values.percentComplete}%`,
+                    description: `${poNumber} updated to ${values.percentComplete}%` +
+                        (uploadedFiles.length > 0 ? ` with ${uploadedFiles.length} file(s)` : ""),
                 });
                 form.reset();
                 setUploadedFiles([]);
                 setOpen(false);
                 onSuccess?.();
-            } catch (error) {
-                toast.error("Failed to update progress");
+            } catch (error: any) {
+                toast.error("Failed to update progress", {
+                    description: error.message,
+                });
             }
         });
     }

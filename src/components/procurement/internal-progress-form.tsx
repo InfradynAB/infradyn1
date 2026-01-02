@@ -119,25 +119,29 @@ export function InternalProgressForm({
     async function onSubmit(values: InternalUpdateFormData) {
         startTransition(async () => {
             try {
-                // TODO: Implement submitInternalProgress server action
-                // const result = await submitInternalProgress({
-                //     purchaseOrderId,
-                //     milestoneId: values.milestoneId,
-                //     percentComplete: values.percentComplete,
-                //     source: values.source,
-                //     comment: values.comment,
-                // });
+                // Import and call the actual server action
+                const { submitProgress } = await import("@/lib/actions/progress-engine");
 
-                // Placeholder success
-                await new Promise((resolve) => setTimeout(resolve, 1000));
+                const result = await submitProgress({
+                    milestoneId: values.milestoneId,
+                    percentComplete: values.percentComplete,
+                    source: "IRP", // Internal Reported Progress
+                    comment: `[${values.source}] ${values.comment}`,
+                });
+
+                if (!result.success) {
+                    throw new Error(result.error || "Failed to save progress");
+                }
 
                 toast.success("Progress logged successfully!", {
                     description: `${poNumber} updated to ${values.percentComplete}%`,
                 });
                 form.reset();
                 onSuccess?.();
-            } catch (error) {
-                toast.error("Failed to log progress");
+            } catch (error: any) {
+                toast.error("Failed to log progress", {
+                    description: error.message,
+                });
             }
         });
     }
@@ -217,8 +221,8 @@ export function InternalProgressForm({
                                                     type="button"
                                                     onClick={() => field.onChange(option.value)}
                                                     className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${isSelected
-                                                            ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10"
-                                                            : "border-muted hover:border-muted-foreground/30"
+                                                        ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10"
+                                                        : "border-muted hover:border-muted-foreground/30"
                                                         }`}
                                                 >
                                                     <Icon className={`h-5 w-5 ${isSelected ? "text-blue-600" : "text-muted-foreground"}`} />

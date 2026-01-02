@@ -346,7 +346,7 @@ interface SubmitProgressInput {
     percentComplete: number;
     source: "SRP" | "IRP";
     comment?: string;
-    userId: string;
+    userId?: string; // Optional - will get from session if not provided
 }
 
 /**
@@ -354,6 +354,19 @@ interface SubmitProgressInput {
  */
 export async function submitProgress(input: SubmitProgressInput) {
     try {
+        // Get user from session if not provided
+        let userId = input.userId;
+        if (!userId) {
+            const { auth } = await import("@/auth");
+            const { headers } = await import("next/headers");
+            const session = await auth.api.getSession({ headers: await headers() });
+            userId = session?.user?.id;
+        }
+
+        if (!userId) {
+            return { success: false, error: "Not authenticated" };
+        }
+
         // Create progress record
         const [newRecord] = await db.insert(progressRecord).values({
             milestoneId: input.milestoneId,
@@ -361,7 +374,7 @@ export async function submitProgress(input: SubmitProgressInput) {
             percentComplete: input.percentComplete.toString(),
             comment: input.comment,
             reportedDate: new Date(),
-            reportedBy: input.userId,
+            reportedBy: userId,
             trustLevel: input.source === "SRP" ? "VERIFIED" : "INTERNAL",
             isForecast: false,
         }).returning();
