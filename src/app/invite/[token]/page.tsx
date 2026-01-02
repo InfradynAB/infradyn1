@@ -58,28 +58,20 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
 
     // Pass serializable data to client component
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden py-20 px-6">
-            <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-                <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px]" />
-                <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-500/10 rounded-full blur-[100px]" />
-            </div>
-
+        <main className="flex min-h-screen flex-col items-center justify-center p-8">
             <InviteHero
                 organizationName={invite.organization.name}
                 role={invite.role}
             />
-
-            <div className="w-full max-w-md animate-in slide-in-from-bottom-8 duration-700 delay-150">
-                <InviteClient
-                    token={token}
-                    organizationName={invite.organization.name}
-                    role={invite.role}
-                    inviteEmail={invite.email}
-                    isLoggedIn={!!session?.user}
-                    currentUserEmail={session?.user?.email}
-                />
-            </div>
-        </div>
+            <InviteClient
+                token={token}
+                organizationName={invite.organization.name}
+                role={invite.role}
+                inviteEmail={invite.email}
+                isLoggedIn={!!session?.user}
+                currentUserEmail={session?.user?.email}
+            />
+        </main>
     );
 }
 

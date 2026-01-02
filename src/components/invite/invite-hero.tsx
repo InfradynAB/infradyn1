@@ -9,28 +9,19 @@ interface InviteHeroProps {
 
 export function InviteHero({ organizationName, role }: InviteHeroProps) {
     return (
-        <div className="flex flex-col items-center text-center space-y-6 mb-8 mt-12 px-6">
-            <div className="relative">
-                <div className="h-24 w-24 rounded-[2rem] bg-blue-600 flex items-center justify-center text-white shadow-2xl animate-in zoom-in-50 duration-500">
-                    <BuildingsIcon className="h-12 w-12" weight="duotone" />
-                </div>
-                <div className="absolute -bottom-2 -right-2 h-10 w-10 rounded-2xl bg-white dark:bg-slate-900 shadow-lg flex items-center justify-center text-blue-500 border-2 border-slate-100 dark:border-slate-800">
-                    <ShieldCheckIcon className="h-6 w-6" weight="bold" />
-                </div>
-            </div>
-
-            <div className="space-y-2">
-                <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-foreground">
-                    Welcome to <br />
-                    <span className="text-blue-600 dark:text-blue-400">{organizationName}</span>
+        <div className="flex flex-col items-center text-center space-y-3 mb-6 px-4">
+            <div className="space-y-1">
+                <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                    Welcome to{" "}
+                    <span className="text-primary">{organizationName}</span>
                 </h1>
-                <p className="text-muted-foreground text-lg font-medium flex items-center justify-center gap-2">
-                    <UserCircleGearIcon className="h-5 w-5" />
-                    You&apos;ve been invited as a <span className="text-foreground font-bold uppercase tracking-wider text-sm">{role.replace('_', ' ')}</span>
+                <p className="text-muted-foreground text-sm flex items-center justify-center gap-1.5">
+                    <UserCircleGearIcon className="h-4 w-4" />
+                    You&apos;ve been invited as a <span className="text-foreground font-semibold uppercase text-xs">{role.replace('_', ' ')}</span>
                 </p>
             </div>
 
-            <div className="w-16 h-1 bg-muted-foreground/20 rounded-full" />
+            <div className="w-12 h-0.5 bg-muted-foreground/20 rounded-full" />
         </div>
     );
 }

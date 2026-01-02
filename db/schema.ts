@@ -4,12 +4,14 @@ import { relations, sql } from 'drizzle-orm';
 // --- ENUMS ---
 export const userRoleEnum = pgEnum('user_role', ['ADMIN', 'PM', 'SUPPLIER', 'QA', 'SITE_RECEIVER']);
 export const parentTypeEnum = pgEnum('parent_type', ['PO', 'BOQ', 'INVOICE', 'PACKING_LIST', 'CMR', 'NCR', 'EVIDENCE']);
-export const progressSourceEnum = pgEnum('progress_source', ['SRP', 'IRP']);
+export const progressSourceEnum = pgEnum('progress_source', ['SRP', 'IRP', 'FORECAST']);
 export const conflictTypeEnum = pgEnum('conflict_type', ['QUANTITY_MISMATCH', 'PROGRESS_MISMATCH', 'DATE_VARIANCE', 'EVIDENCE_FAILURE', 'NCR_CONFLICT']);
 export const conflictStateEnum = pgEnum('conflict_state', ['OPEN', 'REVIEW', 'ESCALATED', 'RESOLVED', 'CLOSED']);
 export const ncrSeverityEnum = pgEnum('ncr_severity', ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
 export const ncrStatusEnum = pgEnum('ncr_status', ['OPEN', 'REVIEW', 'REMEDIATION', 'CLOSED']);
 export const ledgerStatusEnum = pgEnum('ledger_status', ['COMMITTED', 'PAID', 'PENDING', 'CANCELLED']);
+export const trustLevelEnum = pgEnum('trust_level', ['VERIFIED', 'INTERNAL', 'FORECAST']);
+export const documentTypeEnum = pgEnum('document_type', ['INVOICE', 'PACKING_LIST', 'CMR', 'NCR_REPORT', 'EVIDENCE', 'PROGRESS_REPORT', 'OTHER']);
 
 // --- SHARED COLUMNS ---
 const baseColumns = {
@@ -247,6 +249,8 @@ export const document = pgTable('document', {
     fileUrl: text('file_url').notNull(),
     mimeType: text('mime_type'),
     uploadedBy: text('uploaded_by').references(() => user.id),
+    // Phase 4: Manual classification for training AI
+    documentType: documentTypeEnum('document_type'),
 });
 
 export const documentExtraction = pgTable('document_extraction', {
@@ -297,11 +301,15 @@ export const deliveryItem = pgTable('delivery_item', {
 export const progressRecord = pgTable('progress_record', {
     ...baseColumns,
     milestoneId: uuid('milestone_id').references(() => milestone.id).notNull(),
-    source: progressSourceEnum('source').notNull(), // SRP or IRP
+    source: progressSourceEnum('source').notNull(), // SRP, IRP, or FORECAST
     percentComplete: numeric('percent_complete').notNull(),
     comment: text('comment'),
     reportedDate: timestamp('reported_date').defaultNow().notNull(),
     reportedBy: text('reported_by').references(() => user.id),
+    // Phase 4: Trust & Forecasting
+    trustLevel: trustLevelEnum('trust_level').default('INTERNAL'),
+    isForecast: boolean('is_forecast').default(false),
+    forecastBasis: text('forecast_basis'), // Explanation for AI-generated forecasts
 }, (t) => ({
     percentCheck: check('percent_check', sql`${t.percentComplete} >= 0 AND ${t.percentComplete} <= 100`),
 }));
@@ -336,6 +344,11 @@ export const conflictRecord = pgTable('conflict_record', {
     slaDeadline: timestamp('sla_deadline'),
 
     assignedTo: text('assigned_to').references(() => user.id),
+    // Phase 4: Escalation tracking
+    escalationLevel: integer('escalation_level').default(0), // 0=None, 1=PM, 2=Exec, 3=Finance
+    isCriticalPath: boolean('is_critical_path').default(false),
+    isFinancialMilestone: boolean('is_financial_milestone').default(false),
+    lastReminderAt: timestamp('last_reminder_at'),
 });
 
 // --- 8. CONFIDENCE & RISK ---

@@ -63,19 +63,19 @@ export function InviteClient({
     const emailMismatch = isLoggedIn && currentUserEmail && currentUserEmail !== inviteEmail;
 
     return (
-        <Card className="w-full max-w-md border-none shadow-2xl bg-card/60 backdrop-blur-xl overflow-hidden ring-1 ring-white/10">
-            <CardHeader className="text-center pt-8">
-                <div className="flex justify-center mb-6">
-                    <div className="h-16 w-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-                        <CheckCircle className="h-10 w-10" weight="duotone" />
+        <Card className="w-[420px]">
+            <CardHeader className="text-center">
+                <div className="flex justify-center mb-4">
+                    <div className="h-12 w-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                        <CheckCircle className="h-7 w-7" weight="duotone" />
                     </div>
                 </div>
-                <CardTitle className="text-2xl font-black">Ready to Join?</CardTitle>
-                <CardDescription className="text-base font-medium">
+                <CardTitle className="text-xl">Ready to Join?</CardTitle>
+                <CardDescription>
                     Activate your account and join the workspace.
                 </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6 px-8">
+            <CardContent className="space-y-4">
                 {emailMismatch && (
                     <div className="bg-amber-500/10 text-amber-600 p-4 rounded-xl text-sm border border-amber-500/20 flex items-start gap-3">
                         <CircleNotch className="h-5 w-5 rotate-45 shrink-0" weight="bold" />
@@ -86,27 +86,25 @@ export function InviteClient({
                 )}
 
                 {!isLoggedIn ? (
-                    <div className="bg-muted/30 p-6 rounded-2xl border border-muted/50">
-                        <InviteAuthForm email={inviteEmail} onSuccess={onAuthSuccess} />
-                    </div>
+                    <InviteAuthForm email={inviteEmail} onSuccess={onAuthSuccess} />
                 ) : (
-                    <div className="text-center bg-blue-500/5 p-6 rounded-2xl border border-blue-500/10">
-                        <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Authenticated</p>
-                        <p className="font-bold text-lg">{currentUserEmail}</p>
+                    <div className="text-center bg-muted/30 p-4 rounded-lg border border-muted">
+                        <p className="text-xs font-medium text-muted-foreground">Signed in as</p>
+                        <p className="font-semibold">{currentUserEmail}</p>
                     </div>
                 )}
             </CardContent>
 
             {isLoggedIn && (
-                <CardFooter className="flex flex-col gap-3 px-8 pb-8">
+                <CardFooter className="flex flex-col gap-2">
                     <Button
-                        className="w-full h-14 rounded-xl font-black text-lg bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                        className="w-full"
                         onClick={handleAccept}
                         disabled={isPending}
                     >
                         {isPending ? (
                             <>
-                                <CircleNotch className="mr-2 h-6 w-6 animate-spin" />
+                                <CircleNotch className="mr-2 h-4 w-4 animate-spin" />
                                 Setting up...
                             </>
                         ) : (
@@ -114,7 +112,7 @@ export function InviteClient({
                         )}
                     </Button>
                     <Link href="/dashboard" className="w-full">
-                        <Button variant="ghost" className="w-full h-12 rounded-xl text-muted-foreground font-bold hover:bg-transparent hover:text-foreground" disabled={isPending}>
+                        <Button variant="ghost" className="w-full text-muted-foreground" disabled={isPending}>
                             Decline invitation
                         </Button>
                     </Link>
