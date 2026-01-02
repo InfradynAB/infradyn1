@@ -154,16 +154,16 @@ Quick visual test:
 
 | Test | Status |
 |------|--------|
-| Supplier can submit progress update with media | ☐ |
-| PM can log internal progress | ☐ |
-| Conflict auto-detects on SRP/IRP mismatch >10% | ☐ |
-| Forecast records generated for idle milestones | ☐ |
-| Chase engine sends reminders | ☐ |
-| Escalation triggers correctly (8h/12h) | ☐ |
-| Performance dashboard shows metrics | ☐ |
-| History timeline shows consolidated view | ☐ |
-| Trust indicators display correct colors | ☐ |
-| PO Gallery filters and previews work | ☐ |
+| Supplier can submit progress update with media | ✅ |
+| PM can log internal progress | ✅ |
+| Conflict auto-detects on SRP/IRP mismatch >10% | ✅ |
+| Forecast records generated for idle milestones | ✅ |
+| Chase engine sends reminders | ✅ |
+| Escalation triggers correctly (8h/12h) | ✅ |
+| Performance dashboard shows metrics | ✅ |
+| History timeline shows consolidated view | ✅ |
+| Trust indicators display correct colors | ✅ |
+| PO Gallery filters and previews work | ✅ |
 
 ---
 
