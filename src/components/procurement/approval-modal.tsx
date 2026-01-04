@@ -39,6 +39,9 @@ export function ApprovalModal({ approval, isOpen, onClose, onResolve }: Approval
 
     if (!approval) return null;
 
+    const isResolved = approval.state === "RESOLVED" || approval.state === "CLOSED";
+    const isEscalated = approval.state === "ESCALATED";
+
     const handleResolve = (resolution: "ACCEPTED" | "REJECTED" | "ESCALATED") => {
         startTransition(async () => {
             try {
@@ -58,13 +61,25 @@ export function ApprovalModal({ approval, isOpen, onClose, onResolve }: Approval
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-amber-500/10">
-                            <Warning className="h-6 w-6 text-amber-600" weight="duotone" />
+                        <div className={`p-2 rounded-xl ${isResolved ? "bg-green-500/10" : isEscalated ? "bg-purple-500/10" : "bg-amber-500/10"}`}>
+                            {isResolved ? (
+                                <CheckCircle className="h-6 w-6 text-green-600" weight="duotone" />
+                            ) : isEscalated ? (
+                                <ArrowRight className="h-6 w-6 text-purple-600" weight="duotone" />
+                            ) : (
+                                <Warning className="h-6 w-6 text-amber-600" weight="duotone" />
+                            )}
                         </div>
-                        Resolve Conflict
+                        {isResolved ? "Conflict Resolved" : isEscalated ? "Conflict Escalated" : "Resolve Conflict"}
                     </DialogTitle>
                     <DialogDescription>
-                        Review the conflict for <strong>{approval.poNumber}</strong>
+                        {isResolved ? (
+                            <>This conflict for <strong>{approval.poNumber}</strong> has been resolved.</>
+                        ) : isEscalated ? (
+                            <>This conflict for <strong>{approval.poNumber}</strong> has been escalated.</>
+                        ) : (
+                            <>Review the conflict for <strong>{approval.poNumber}</strong></>
+                        )}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -101,74 +116,92 @@ export function ApprovalModal({ approval, isOpen, onClose, onResolve }: Approval
                         <p className="text-sm text-muted-foreground">{approval.description}</p>
                     )}
 
-                    {/* Actions */}
-                    {!showReject ? (
-                        <>
-                            <div>
-                                <Textarea
-                                    value={comment}
-                                    onChange={(e) => setComment(e.target.value)}
-                                    placeholder="Add a note (optional)..."
-                                    rows={2}
-                                />
-                            </div>
-                            <div className="flex gap-3">
-                                <Button
-                                    variant="outline"
-                                    className="flex-1"
-                                    onClick={() => setShowReject(true)}
-                                >
-                                    <XCircle className="h-4 w-4 mr-2" />
-                                    Reject
-                                </Button>
-                                <Button
-                                    className="flex-1"
-                                    onClick={() => handleResolve("ACCEPTED")}
-                                    disabled={isPending}
-                                >
-                                    {isPending ? (
-                                        <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
-                                    ) : (
-                                        <CheckCircle className="h-4 w-4 mr-2" />
-                                    )}
-                                    Accept & Resolve
-                                </Button>
-                            </div>
-                        </>
+                    {/* Resolved/Escalated State - Show confirmation */}
+                    {(isResolved || isEscalated) ? (
+                        <div className={`p-4 rounded-xl text-center ${isResolved ? "bg-green-50 dark:bg-green-500/10" : "bg-purple-50 dark:bg-purple-500/10"}`}>
+                            <CheckCircle className={`h-10 w-10 mx-auto mb-2 ${isResolved ? "text-green-600" : "text-purple-600"}`} weight="duotone" />
+                            <p className={`font-semibold ${isResolved ? "text-green-700 dark:text-green-400" : "text-purple-700 dark:text-purple-400"}`}>
+                                {isResolved ? "This conflict has been resolved" : "This conflict has been escalated to higher authority"}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                No further action required.
+                            </p>
+                            <Button variant="outline" className="mt-4" onClick={onClose}>
+                                Close
+                            </Button>
+                        </div>
                     ) : (
+                        /* Actions - Only show if not resolved */
                         <>
-                            <div>
-                                <Textarea
-                                    value={comment}
-                                    onChange={(e) => setComment(e.target.value)}
-                                    placeholder="Reason for rejection/escalation..."
-                                    rows={3}
-                                />
-                            </div>
-                            <div className="flex gap-3">
-                                <Button
-                                    variant="outline"
-                                    className="flex-1"
-                                    onClick={() => setShowReject(false)}
-                                >
-                                    Back
-                                </Button>
-                                <Button
-                                    variant="destructive"
-                                    onClick={() => handleResolve("REJECTED")}
-                                    disabled={isPending}
-                                >
-                                    Reject
-                                </Button>
-                                <Button
-                                    className="bg-purple-600 hover:bg-purple-700"
-                                    onClick={() => handleResolve("ESCALATED")}
-                                    disabled={isPending}
-                                >
-                                    <ArrowRight className="h-4 w-4 mr-2" />
-                                    Escalate
-                                </Button>
-                            </div>
+                            {!showReject ? (
+                                <>
+                                    <div>
+                                        <Textarea
+                                            value={comment}
+                                            onChange={(e) => setComment(e.target.value)}
+                                            placeholder="Add a note (optional)..."
+                                            rows={2}
+                                        />
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <Button
+                                            variant="outline"
+                                            className="flex-1"
+                                            onClick={() => setShowReject(true)}
+                                        >
+                                            <XCircle className="h-4 w-4 mr-2" />
+                                            Reject
+                                        </Button>
+                                        <Button
+                                            className="flex-1"
+                                            onClick={() => handleResolve("ACCEPTED")}
+                                            disabled={isPending}
+                                        >
+                                            {isPending ? (
+                                                <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
+                                            ) : (
+                                                <CheckCircle className="h-4 w-4 mr-2" />
+                                            )}
+                                            Accept & Resolve
+                                        </Button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div>
+                                        <Textarea
+                                            value={comment}
+                                            onChange={(e) => setComment(e.target.value)}
+                                            placeholder="Reason for rejection/escalation..."
+                                            rows={3}
+                                        />
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <Button
+                                            variant="outline"
+                                            className="flex-1"
+                                            onClick={() => setShowReject(false)}
+                                        >
+                                            Back
+                                        </Button>
+                                        <Button
+                                            variant="destructive"
+                                            onClick={() => handleResolve("REJECTED")}
+                                            disabled={isPending}
+                                        >
+                                            Reject
+                                        </Button>
+                                        <Button
+                                            className="bg-purple-600 hover:bg-purple-700"
+                                            onClick={() => handleResolve("ESCALATED")}
+                                            disabled={isPending}
+                                        >
+                                            <ArrowRight className="h-4 w-4 mr-2" />
+                                            Escalate
+                                        </Button>
+                                    </div>
+                                </>
+                            )}
                         </>
                     )}
                 </div>
@@ -176,3 +209,4 @@ export function ApprovalModal({ approval, isOpen, onClose, onResolve }: Approval
         </Dialog>
     );
 }
+
