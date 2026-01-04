@@ -13,6 +13,11 @@ export const ledgerStatusEnum = pgEnum('ledger_status', ['COMMITTED', 'PAID', 'P
 export const trustLevelEnum = pgEnum('trust_level', ['VERIFIED', 'INTERNAL', 'FORECAST']);
 export const documentTypeEnum = pgEnum('document_type', ['INVOICE', 'PACKING_LIST', 'CMR', 'NCR_REPORT', 'EVIDENCE', 'PROGRESS_REPORT', 'OTHER']);
 
+// Phase 5: Advanced Ingestion Enums
+export const ingestionSourceEnum = pgEnum('ingestion_source', ['MANUAL_UPLOAD', 'EMAIL_INBOUND', 'SMARTSHEET_SYNC', 'EXCEL_IMPORT', 'API_INTEGRATION']);
+export const emailIngestionStatusEnum = pgEnum('email_ingestion_status', ['PENDING', 'PROCESSING', 'PROCESSED', 'FAILED', 'IGNORED']);
+export const syncProviderEnum = pgEnum('sync_provider', ['SMARTSHEET', 'EXCEL_SCHEDULED', 'GOOGLE_SHEETS']);
+
 // --- SHARED COLUMNS ---
 const baseColumns = {
     id: uuid('id').defaultRandom().primaryKey(),
@@ -260,7 +265,111 @@ export const documentExtraction = pgTable('document_extraction', {
     parsedJson: text('parsed_json'),
     confidenceScore: numeric('confidence_score'),
     status: text('status').default('PENDING'),
+    // Phase 5: Enhanced extraction metadata
+    ingestionSource: ingestionSourceEnum('ingestion_source').default('MANUAL_UPLOAD'),
+    aiModel: text('ai_model'), // e.g., 'gpt-4o-mini', 'gpt-4-vision'
+    extractionTimeMs: integer('extraction_time_ms'),
+    fieldConfidences: jsonb('field_confidences').$type<Record<string, number>>(), // { poNumber: 0.95, vendor: 0.87 }
+    detectedDocType: text('detected_doc_type'), // AI-detected document type
+    requiresReview: boolean('requires_review').default(false),
+    reviewedAt: timestamp('reviewed_at'),
+    reviewedBy: text('reviewed_by').references(() => user.id),
+    correctionsMade: jsonb('corrections_made').$type<Record<string, { original: string; corrected: string }>>(),
 });
+
+// --- Phase 5: EMAIL INGESTION ---
+
+export const emailIngestion = pgTable('email_ingestion', {
+    ...baseColumns,
+    organizationId: uuid('organization_id').references(() => organization.id).notNull(),
+    fromEmail: text('from_email').notNull(),
+    toEmail: text('to_email').notNull(), // org-specific inbox e.g., po-abc123@ingest.infradyn.com
+    subject: text('subject'),
+    bodyText: text('body_text'),
+    bodyHtml: text('body_html'),
+    receivedAt: timestamp('received_at').defaultNow().notNull(),
+    status: emailIngestionStatusEnum('status').default('PENDING').notNull(),
+    matchedSupplierId: uuid('matched_supplier_id').references(() => supplier.id),
+    matchedPoId: uuid('matched_po_id').references(() => purchaseOrder.id),
+    processingError: text('processing_error'),
+    processedAt: timestamp('processed_at'),
+});
+
+export const emailAttachment = pgTable('email_attachment', {
+    ...baseColumns,
+    emailIngestionId: uuid('email_ingestion_id').references(() => emailIngestion.id).notNull(),
+    fileName: text('file_name').notNull(),
+    fileUrl: text('file_url'), // S3 URL after upload
+    mimeType: text('mime_type'),
+    fileSize: integer('file_size'),
+    documentId: uuid('document_id').references(() => document.id), // Link to processed document
+    extractionId: uuid('extraction_id').references(() => documentExtraction.id),
+});
+
+// --- Phase 5: EXTERNAL SYNC ---
+
+export const externalSync = pgTable('external_sync', {
+    ...baseColumns,
+    organizationId: uuid('organization_id').references(() => organization.id).notNull(),
+    provider: syncProviderEnum('provider').notNull(),
+    name: text('name').notNull(), // User-friendly name
+    config: jsonb('config').$type<{
+        apiKey?: string;
+        sheetId?: string;
+        workspaceId?: string;
+        columnMappings?: Record<string, string>;
+    }>(),
+    targetProjectId: uuid('target_project_id').references(() => project.id),
+    lastSyncAt: timestamp('last_sync_at'),
+    lastSyncStatus: text('last_sync_status'), // SUCCESS, PARTIAL, FAILED
+    lastSyncError: text('last_sync_error'),
+    syncFrequency: text('sync_frequency').default('MANUAL'), // HOURLY, DAILY, MANUAL
+    isActive: boolean('is_active').default(true),
+    itemsSynced: integer('items_synced').default(0),
+});
+
+export const syncLog = pgTable('sync_log', {
+    ...baseColumns,
+    externalSyncId: uuid('external_sync_id').references(() => externalSync.id).notNull(),
+    syncedAt: timestamp('synced_at').defaultNow().notNull(),
+    status: text('status').notNull(), // SUCCESS, PARTIAL, FAILED
+    itemsProcessed: integer('items_processed').default(0),
+    itemsCreated: integer('items_created').default(0),
+    itemsUpdated: integer('items_updated').default(0),
+    itemsFailed: integer('items_failed').default(0),
+    errorDetails: jsonb('error_details'),
+    durationMs: integer('duration_ms'),
+});
+
+// --- Phase 5: USAGE QUOTAS ---
+
+export const usageQuota = pgTable('usage_quota', {
+    ...baseColumns,
+    organizationId: uuid('organization_id').references(() => organization.id).notNull().unique(),
+    // Monthly limits
+    monthlyOcrLimit: integer('monthly_ocr_limit').default(100), // Pages per month
+    monthlyAiParseLimit: integer('monthly_ai_parse_limit').default(50), // Documents per month
+    monthlyEmailIngestLimit: integer('monthly_email_ingest_limit').default(200), // Emails per month
+    // Current usage (reset monthly)
+    ocrUsedThisMonth: integer('ocr_used_this_month').default(0),
+    aiParseUsedThisMonth: integer('ai_parse_used_this_month').default(0),
+    emailIngestUsedThisMonth: integer('email_ingest_used_this_month').default(0),
+    // Tracking
+    lastResetAt: timestamp('last_reset_at').defaultNow(),
+    currentPeriodStart: timestamp('current_period_start').defaultNow(),
+});
+
+export const usageEvent = pgTable('usage_event', {
+    ...baseColumns,
+    organizationId: uuid('organization_id').references(() => organization.id).notNull(),
+    eventType: text('event_type').notNull(), // OCR_PAGE, AI_PARSE, EMAIL_INGEST
+    resourceId: uuid('resource_id'), // documentId, emailIngestionId, etc.
+    quantity: integer('quantity').default(1),
+    estimatedCostUsd: numeric('estimated_cost_usd'),
+    metadata: jsonb('metadata'),
+}, (t) => ({
+    orgDateIdx: index('usage_event_org_date_idx').on(t.organizationId, t.createdAt),
+}));
 
 // --- 5. LOGISTICS & DELIVERY ---
 
@@ -661,4 +770,37 @@ export const riskProfileRelations = relations(riskProfile, ({ one }) => ({
 
 export const confidenceScoreRelations = relations(confidenceScore, ({ one }) => ({
     progressRecord: one(progressRecord, { fields: [confidenceScore.progressRecordId], references: [progressRecord.id] }),
+}));
+
+// --- Phase 5: Advanced Ingestion Relations ---
+
+export const emailIngestionRelations = relations(emailIngestion, ({ one, many }) => ({
+    organization: one(organization, { fields: [emailIngestion.organizationId], references: [organization.id] }),
+    matchedSupplier: one(supplier, { fields: [emailIngestion.matchedSupplierId], references: [supplier.id] }),
+    matchedPo: one(purchaseOrder, { fields: [emailIngestion.matchedPoId], references: [purchaseOrder.id] }),
+    attachments: many(emailAttachment),
+}));
+
+export const emailAttachmentRelations = relations(emailAttachment, ({ one }) => ({
+    emailIngestion: one(emailIngestion, { fields: [emailAttachment.emailIngestionId], references: [emailIngestion.id] }),
+    document: one(document, { fields: [emailAttachment.documentId], references: [document.id] }),
+    extraction: one(documentExtraction, { fields: [emailAttachment.extractionId], references: [documentExtraction.id] }),
+}));
+
+export const externalSyncRelations = relations(externalSync, ({ one, many }) => ({
+    organization: one(organization, { fields: [externalSync.organizationId], references: [organization.id] }),
+    targetProject: one(project, { fields: [externalSync.targetProjectId], references: [project.id] }),
+    logs: many(syncLog),
+}));
+
+export const syncLogRelations = relations(syncLog, ({ one }) => ({
+    externalSync: one(externalSync, { fields: [syncLog.externalSyncId], references: [externalSync.id] }),
+}));
+
+export const usageQuotaRelations = relations(usageQuota, ({ one }) => ({
+    organization: one(organization, { fields: [usageQuota.organizationId], references: [organization.id] }),
+}));
+
+export const usageEventRelations = relations(usageEvent, ({ one }) => ({
+    organization: one(organization, { fields: [usageEvent.organizationId], references: [organization.id] }),
 }));
