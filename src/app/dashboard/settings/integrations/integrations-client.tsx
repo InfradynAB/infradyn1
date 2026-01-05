@@ -28,12 +28,12 @@ interface ExternalSyncItem {
     provider: string;
     name: string;
     sheetId?: string;
-    syncFrequency: string;
-    isActive: boolean;
+    syncFrequency: string | null;
+    isActive: boolean | null;
     lastSyncAt?: string;
-    lastSyncStatus?: string;
-    lastSyncError?: string;
-    itemsSynced?: number;
+    lastSyncStatus?: string | null;
+    lastSyncError?: string | null;
+    itemsSynced?: number | null;
     targetProject?: { id: string; name: string } | null;
 }
 
@@ -189,7 +189,7 @@ export function IntegrationsClient({ quotaStatus, syncs, emails, organizationId 
                                                     <Clock size={12} />
                                                     {sync.syncFrequency}
                                                 </span>
-                                                {sync.itemsSynced !== undefined && sync.itemsSynced > 0 && (
+                                                {sync.itemsSynced != null && sync.itemsSynced > 0 && (
                                                     <>
                                                         <span>•</span>
                                                         <span>{sync.itemsSynced} items</span>
