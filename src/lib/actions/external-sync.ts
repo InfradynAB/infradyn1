@@ -6,10 +6,26 @@
  */
 
 import db from "@/db/drizzle";
-import { externalSync, syncLog, organization } from "@/db/schema";
+import { externalSync, syncLog, member } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/auth";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+
+// Helper to get session and organizationId
+async function getAuthContext() {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user?.id) {
+        return { session: null, organizationId: null };
+    }
+
+    // Fetch organizationId from member table
+    const membership = await db.query.member.findFirst({
+        where: eq(member.userId, session.user.id),
+    });
+
+    return { session, organizationId: membership?.organizationId || null };
+}
 
 export interface CreateSyncConfig {
     provider: "SMARTSHEET" | "EXCEL_SCHEDULED" | "GOOGLE_SHEETS";
@@ -22,14 +38,14 @@ export interface CreateSyncConfig {
 }
 
 export async function createExternalSync(config: CreateSyncConfig) {
-    const session = await auth();
-    if (!session?.user?.organizationId) {
+    const { organizationId } = await getAuthContext();
+    if (!organizationId) {
         return { success: false, error: "Unauthorized" };
     }
 
     try {
         const [sync] = await db.insert(externalSync).values({
-            organizationId: session.user.organizationId,
+            organizationId,
             provider: config.provider,
             name: config.name,
             config: {
@@ -54,8 +70,8 @@ export async function updateExternalSync(
     syncId: string,
     updates: Partial<CreateSyncConfig> & { isActive?: boolean }
 ) {
-    const session = await auth();
-    if (!session?.user?.organizationId) {
+    const { organizationId } = await getAuthContext();
+    if (!organizationId) {
         return { success: false, error: "Unauthorized" };
     }
 
@@ -64,7 +80,7 @@ export async function updateExternalSync(
         const existing = await db.query.externalSync.findFirst({
             where: and(
                 eq(externalSync.id, syncId),
-                eq(externalSync.organizationId, session.user.organizationId)
+                eq(externalSync.organizationId, organizationId)
             ),
         });
 
@@ -101,8 +117,8 @@ export async function updateExternalSync(
 }
 
 export async function deleteExternalSync(syncId: string) {
-    const session = await auth();
-    if (!session?.user?.organizationId) {
+    const { organizationId } = await getAuthContext();
+    if (!organizationId) {
         return { success: false, error: "Unauthorized" };
     }
 
@@ -111,7 +127,7 @@ export async function deleteExternalSync(syncId: string) {
         const existing = await db.query.externalSync.findFirst({
             where: and(
                 eq(externalSync.id, syncId),
-                eq(externalSync.organizationId, session.user.organizationId)
+                eq(externalSync.organizationId, organizationId)
             ),
         });
 
@@ -133,15 +149,15 @@ export async function deleteExternalSync(syncId: string) {
 }
 
 export async function listExternalSyncs() {
-    const session = await auth();
-    if (!session?.user?.organizationId) {
+    const { organizationId } = await getAuthContext();
+    if (!organizationId) {
         return { success: false, error: "Unauthorized", data: [] };
     }
 
     try {
         const syncs = await db.query.externalSync.findMany({
             where: and(
-                eq(externalSync.organizationId, session.user.organizationId),
+                eq(externalSync.organizationId, organizationId),
                 eq(externalSync.isDeleted, false)
             ),
             with: {
@@ -176,8 +192,8 @@ export async function listExternalSyncs() {
 }
 
 export async function getSyncLogs(syncId: string, limit: number = 20) {
-    const session = await auth();
-    if (!session?.user?.organizationId) {
+    const { organizationId } = await getAuthContext();
+    if (!organizationId) {
         return { success: false, error: "Unauthorized", data: [] };
     }
 
@@ -186,7 +202,7 @@ export async function getSyncLogs(syncId: string, limit: number = 20) {
         const existing = await db.query.externalSync.findFirst({
             where: and(
                 eq(externalSync.id, syncId),
-                eq(externalSync.organizationId, session.user.organizationId)
+                eq(externalSync.organizationId, organizationId)
             ),
         });
 
@@ -219,3 +235,4 @@ export async function getSyncLogs(syncId: string, limit: number = 20) {
         return { success: false, error: "Failed to get sync logs", data: [] };
     }
 }
+

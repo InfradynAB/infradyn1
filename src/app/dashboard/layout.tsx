@@ -15,6 +15,7 @@ import {
     SidebarProvider,
     SidebarTrigger,
 } from "@/components/ui/sidebar"
+import { NotificationCenter } from "@/components/shared/notification-center"
 import { auth } from "../../../auth"
 import { headers } from "next/headers"
 import { noIndexMetadata } from "@/lib/seo.config"
@@ -37,6 +38,7 @@ export default async function DashboardLayout({
     });
 
     const user = session?.user ? {
+        id: session.user.id,
         name: session.user.name,
         email: session.user.email,
         image: session.user.image,
@@ -64,6 +66,7 @@ export default async function DashboardLayout({
                         </Breadcrumb>
                     </div>
                     <div className="flex items-center gap-2">
+                        {user?.id && <NotificationCenter userId={user.id} />}
                         <ModeToggle />
                         <UserMenu user={user} />
                     </div>

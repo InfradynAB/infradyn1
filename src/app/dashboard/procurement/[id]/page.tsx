@@ -320,13 +320,13 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                 <CardDescription>Recent updates from supplier and internal teams</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-4">
+                                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                                     {(po as any).milestones?.flatMap((m: any) =>
                                         m.progressRecords?.map((pr: any) => ({
                                             ...pr,
                                             milestoneTitle: m.title,
                                         })) || []
-                                    ).slice(0, 10).map((record: any, index: number) => (
+                                    ).slice(0, 20).map((record: any, index: number) => (
                                         <div key={record.id || index} className="flex items-center gap-4 p-3 rounded-lg border">
                                             <TrustIndicator level={record.trustLevel || "INTERNAL"} size="sm" showLabel={false} />
                                             <div className="flex-1">

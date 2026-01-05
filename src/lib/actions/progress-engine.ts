@@ -284,10 +284,16 @@ export async function detectConflicts(milestoneId: string) {
         const deviation = Math.abs(srpValue - irpValue);
 
         if (deviation > 10) {
-            // Get milestone and PO info
+            // Get milestone and PO info with project to find PM
             const milestoneData = await db.query.milestone.findFirst({
                 where: eq(milestone.id, milestoneId),
-                with: { purchaseOrder: true },
+                with: {
+                    purchaseOrder: {
+                        with: {
+                            project: true,
+                        },
+                    },
+                },
             });
 
             if (!milestoneData) {
@@ -304,7 +310,22 @@ export async function detectConflicts(milestoneId: string) {
             });
 
             if (!existingConflict) {
-                await db.insert(conflictRecord).values({
+                // Find the PM (first org admin from member table)
+                const orgId = milestoneData.purchaseOrder?.project?.organizationId;
+                let projectOwner: string | undefined;
+
+                if (orgId) {
+                    const { member } = await import("@/db/schema");
+                    const adminMember = await db.query.member.findFirst({
+                        where: and(
+                            eq(member.organizationId, orgId),
+                            eq(member.role, "ADMIN")
+                        ),
+                    });
+                    projectOwner = adminMember?.userId;
+                }
+
+                const [newConflict] = await db.insert(conflictRecord).values({
                     projectId: milestoneData.purchaseOrder.projectId,
                     purchaseOrderId: milestoneData.purchaseOrderId,
                     milestoneId,
@@ -314,9 +335,21 @@ export async function detectConflicts(milestoneId: string) {
                     description: `SRP reports ${srpValue}%, IRP reports ${irpValue}%. Deviation: ${deviation}%`,
                     slaDeadline: new Date(Date.now() + 48 * 60 * 60 * 1000), // 48h SLA
                     escalationLevel: 0,
-                    isCriticalPath: false, // To be set based on milestone
+                    isCriticalPath: false,
                     isFinancialMilestone: Number(milestoneData.paymentPercentage) >= 25,
-                });
+                    assignedTo: projectOwner, // Auto-assign to PM/Admin
+                }).returning();
+
+                // Create immediate notification for PM
+                if (projectOwner) {
+                    await db.insert(notification).values({
+                        userId: projectOwner,
+                        title: `⚠️ Progress Conflict Detected`,
+                        message: `Milestone "${milestoneData.title}" on PO ${milestoneData.purchaseOrder.poNumber}: PM reports ${irpValue}%, Supplier reports ${srpValue}%`,
+                        type: "CONFLICT",
+                        linkUrl: `/dashboard/procurement/${milestoneData.purchaseOrderId}?tab=conflicts`,
+                    });
+                }
             }
 
             revalidatePath("/dashboard/procurement/pos");

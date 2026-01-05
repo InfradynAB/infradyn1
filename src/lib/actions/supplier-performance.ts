@@ -121,20 +121,24 @@ export async function getSupplierPerformance(supplierId: string): Promise<{
             }
         }
 
-        // Calculate final metrics
-        const responseRate = totalMilestones > 0 ? (srpRecords / totalMilestones) * 100 : 0;
+        // Calculate final metrics (all capped at 100%)
+        const responseRate = totalMilestones > 0
+            ? Math.min(100, (srpRecords / totalMilestones) * 100)
+            : 0;
         const avgResponseTime = responseCount > 0 ? totalResponseTimeHours / responseCount : 0;
         const reportingAccuracy = (srpRecords > 0 && irpRecords > 0)
-            ? (matchingRecords / Math.min(srpRecords, irpRecords)) * 100
+            ? Math.min(100, (matchingRecords / Math.min(srpRecords, irpRecords)) * 100)
             : 0;
-        const conflictRate = totalMilestones > 0 ? (milestonesWithConflict / totalMilestones) * 100 : 0;
+        const conflictRate = totalMilestones > 0
+            ? Math.min(100, (milestonesWithConflict / totalMilestones) * 100)
+            : 0;
 
-        // Calculate reliability score (weighted average)
-        const reliabilityScore = Math.round(
+        // Calculate reliability score (weighted average, capped at 100)
+        const reliabilityScore = Math.min(100, Math.round(
             (responseRate * 0.3) +
             (reportingAccuracy * 0.4) +
             ((100 - conflictRate) * 0.3)
-        );
+        ));
 
         // Count missed updates (milestones without SRP for 7+ days)
         const [missedCountResult] = await db.select({ count: count() })

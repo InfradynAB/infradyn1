@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { UsersIcon, UserCircleIcon, BellIcon, ShieldCheckIcon, PaletteIcon, BuildingsIcon } from "@phosphor-icons/react/dist/ssr";
+import { UsersIcon, UserCircleIcon, BellIcon, ShieldCheckIcon, PaletteIcon, BuildingsIcon, PlugsConnectedIcon, FileCloudIcon } from "@phosphor-icons/react/dist/ssr";
 
 const settingsLinks = [
     {
@@ -14,6 +14,12 @@ const settingsLinks = [
         description: "Manage team members and invitations.",
         href: "/dashboard/settings/team",
         icon: UsersIcon,
+    },
+    {
+        title: "Integrations",
+        description: "Connect Smartsheet, manage email ingestion, and view usage.",
+        href: "/dashboard/settings/integrations",
+        icon: PlugsConnectedIcon,
     },
     {
         title: "Profile",

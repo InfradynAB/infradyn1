@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { headers } from "next/headers";
 import db from "@/db/drizzle";
 import { externalSync } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -15,7 +16,7 @@ import { syncSheetToPO } from "@/lib/services/smartsheet";
 export async function POST(request: NextRequest) {
     try {
         // Auth check
-        const session = await auth();
+        const session = await auth.api.getSession({ headers: await headers() });
         if (!session?.user) {
             return NextResponse.json(
                 { error: "Unauthorized" },

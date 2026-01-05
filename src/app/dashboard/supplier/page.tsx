@@ -237,7 +237,7 @@ export default async function SupplierDashboardPage() {
                                 <div className="h-2 bg-muted rounded-full overflow-hidden">
                                     <div
                                         className={`h-full rounded-full transition-all ${performance.responseRate >= 80 ? 'bg-green-500' : performance.responseRate >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
-                                        style={{ width: `${performance.responseRate}%` }}
+                                        style={{ width: `${Math.min(100, performance.responseRate)}%` }}
                                     />
                                 </div>
                             </CardContent>
@@ -247,13 +247,13 @@ export default async function SupplierDashboardPage() {
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-sm text-muted-foreground">Accuracy</span>
                                     <span className={`text-2xl font-bold ${performance.reportingAccuracy >= 80 ? 'text-green-600' : performance.reportingAccuracy >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
-                                        {performance.reportingAccuracy.toFixed(0)}%
+                                        {Math.min(100, performance.reportingAccuracy).toFixed(0)}%
                                     </span>
                                 </div>
                                 <div className="h-2 bg-muted rounded-full overflow-hidden">
                                     <div
                                         className={`h-full rounded-full transition-all ${performance.reportingAccuracy >= 80 ? 'bg-green-500' : performance.reportingAccuracy >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
-                                        style={{ width: `${performance.reportingAccuracy}%` }}
+                                        style={{ width: `${Math.min(100, performance.reportingAccuracy)}%` }}
                                     />
                                 </div>
                             </CardContent>
@@ -263,13 +263,13 @@ export default async function SupplierDashboardPage() {
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-sm text-muted-foreground">Reliability</span>
                                     <span className={`text-2xl font-bold ${performance.reliabilityScore >= 80 ? 'text-green-600' : performance.reliabilityScore >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
-                                        {performance.reliabilityScore.toFixed(0)}%
+                                        {Math.min(100, performance.reliabilityScore).toFixed(0)}%
                                     </span>
                                 </div>
                                 <div className="h-2 bg-muted rounded-full overflow-hidden">
                                     <div
                                         className={`h-full rounded-full transition-all ${performance.reliabilityScore >= 80 ? 'bg-green-500' : performance.reliabilityScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
-                                        style={{ width: `${performance.reliabilityScore}%` }}
+                                        style={{ width: `${Math.min(100, performance.reliabilityScore)}%` }}
                                     />
                                 </div>
                             </CardContent>

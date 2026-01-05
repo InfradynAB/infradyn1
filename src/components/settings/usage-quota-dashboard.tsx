@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-    FileSearch,
+    MagnifyingGlass,
     Robot,
     EnvelopeSimple,
     CurrencyDollar,
@@ -122,7 +122,7 @@ export function UsageQuotaDashboard({ quota, className }: UsageQuotaDashboardPro
                 <div className="space-y-4">
                     <UsageBar
                         label="OCR Pages"
-                        icon={FileSearch}
+                        icon={MagnifyingGlass}
                         used={quota.ocr.used}
                         limit={quota.ocr.limit}
                         percentage={quota.ocr.percentage}

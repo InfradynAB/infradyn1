@@ -1,4 +1,4 @@
-import { CalendarIcon, HouseIcon, TrayIcon, MagnifyingGlassIcon, GearIcon, BuildingsIcon, GitForkIcon, TruckIcon, FolderSimpleIcon, Hexagon, FileTextIcon } from "@phosphor-icons/react/dist/ssr"
+import { CalendarIcon, HouseIcon, TrayIcon, MagnifyingGlassIcon, GearIcon, BuildingsIcon, GitForkIcon, TruckIcon, FolderSimpleIcon, Hexagon, FileTextIcon, PlugsConnectedIcon } from "@phosphor-icons/react/dist/ssr"
 
 import {
     Sidebar,
@@ -39,6 +39,11 @@ const items = [
         title: "Suppliers",
         url: "/dashboard/suppliers",
         icon: TruckIcon,
+    },
+    {
+        title: "Integrations",
+        url: "/dashboard/settings/integrations",
+        icon: PlugsConnectedIcon,
     },
     {
         title: "Settings",
