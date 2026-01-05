@@ -135,9 +135,9 @@ export default function POWizard({
     const [extractionStatus, setExtractionStatus] = useState<"idle" | "extracting" | "success" | "error">("idle");
     const [extractedData, setExtractedData] = useState<any>(null);
 
-    // Milestone file state
-    const [milestoneFile, setMilestoneFile] = useState<File | null>(null);
-    const [milestoneFileUrl, setMilestoneFileUrl] = useState<string | null>(null);
+    // Supporting documents state (multiple files with type)
+    type SupportingDoc = { file: File; type: "boq" | "milestone" | "ro" | "other"; fileUrl?: string };
+    const [supportingDocs, setSupportingDocs] = useState<SupportingDoc[]>([]);
     const [simulatedProgress, setSimulatedProgress] = useState(0);
 
     // Milestones & BOQ state
@@ -193,7 +193,7 @@ export default function POWizard({
     const currentStepIndex = STEPS.findIndex((s) => s.id === currentStep);
 
     // Handle file upload and AI extraction
-    const processUploads = async (poFile: File, msFile?: File | null) => {
+    const processUploads = async (poFile: File, docs: SupportingDoc[]) => {
         if (!selectedProject) {
             toast.warning("Please select a project first");
             return;
@@ -218,17 +218,18 @@ export default function POWizard({
             const poData = await uploadAndPresign(poFile, "po");
             setFileUrl(poData.fileUrl);
 
-            // 2. Upload Milestone file if exists
-            let msFileUrl = null;
-            if (msFile) {
-                const msData = await uploadAndPresign(msFile, "boq"); // Using boq type for general docs
-                msFileUrl = msData.fileUrl;
-                setMilestoneFileUrl(msFileUrl);
-            }
+            // 2. Upload all supporting documents
+            const uploadedDocs = await Promise.all(
+                docs.map(async (doc) => {
+                    const data = await uploadAndPresign(doc.file, doc.type);
+                    return { ...doc, fileUrl: data.fileUrl };
+                })
+            );
+            setSupportingDocs(uploadedDocs);
 
             setSimulatedProgress(40); // Jump to 40% after uploads
 
-            // 3. Parallel Extraction
+            // 3. Parallel Extraction for PO + supporting docs
             const extractionPromises = [
                 fetch("/api/po/extract", {
                     method: "POST",
@@ -237,12 +238,14 @@ export default function POWizard({
                 }).then(r => r.json())
             ];
 
-            if (msFileUrl) {
+            // Extract from milestone/boq documents
+            const milestoneDoc = uploadedDocs.find(d => d.type === "milestone" || d.type === "boq");
+            if (milestoneDoc?.fileUrl) {
                 extractionPromises.push(
                     fetch("/api/milestones/extract", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ fileUrl: msFileUrl }),
+                        body: JSON.stringify({ fileUrl: milestoneDoc.fileUrl }),
                     }).then(r => r.json())
                 );
             }
@@ -337,9 +340,26 @@ export default function POWizard({
         if (file) setSelectedFile(file);
     };
 
-    const handleMSFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) setMilestoneFile(file);
+    const handleSupportingDocChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (files && files.length > 0) {
+            // Add new files with default type
+            const newDocs: SupportingDoc[] = Array.from(files).map(file => ({
+                file,
+                type: file.name.toLowerCase().includes('boq') ? 'boq' :
+                    file.name.toLowerCase().includes('milestone') ? 'milestone' :
+                        file.name.toLowerCase().includes('ro') ? 'ro' : 'other',
+            }));
+            setSupportingDocs(prev => [...prev, ...newDocs]);
+        }
+    };
+
+    const removeDocument = (index: number) => {
+        setSupportingDocs(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const changeDocType = (index: number, type: SupportingDoc['type']) => {
+        setSupportingDocs(prev => prev.map((doc, i) => i === index ? { ...doc, type } : doc));
     };
 
     const startAnalysis = () => {
@@ -347,11 +367,16 @@ export default function POWizard({
             toast.error("Please select a primary PO document");
             return;
         }
-        processUploads(selectedFile, milestoneFile);
+        processUploads(selectedFile, supportingDocs);
     };
 
-    // Navigation
+    // Navigation with Step 1 validation
     const goNext = () => {
+        // Step 1 validation: Must complete analysis before proceeding
+        if (currentStep === "upload" && uploadProgress !== "done" && mode !== "edit") {
+            toast.error("Please upload and analyze your PO document first");
+            return;
+        }
         const nextIndex = currentStepIndex + 1;
         if (nextIndex < STEPS.length) {
             setCurrentStep(STEPS[nextIndex].id);
@@ -445,7 +470,14 @@ export default function POWizard({
                     <div key={step.id} className="flex items-center">
                         <button
                             type="button"
-                            onClick={() => setCurrentStep(step.id)}
+                            onClick={() => {
+                                // Prevent skipping Step 1 without completing analysis
+                                if (index > 0 && uploadProgress !== "done" && mode !== "edit") {
+                                    toast.warning("Complete document analysis first");
+                                    return;
+                                }
+                                setCurrentStep(step.id);
+                            }}
                             className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${currentStep === step.id
                                 ? "bg-primary text-primary-foreground"
                                 : index < currentStepIndex
@@ -534,29 +566,60 @@ export default function POWizard({
                                     </div>
                                 </div>
 
-                                {/* Milestone Upload */}
-                                <div className={`relative p-8 rounded-3xl border-2 border-dashed transition-all group ${milestoneFile ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-muted-foreground/20 hover:border-indigo-500/50 bg-muted/20'}`}>
+                                {/* Supporting Documents Upload */}
+                                <div className={`relative p-8 rounded-3xl border-2 border-dashed transition-all group ${supportingDocs.length > 0 ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-muted-foreground/20 hover:border-indigo-500/50 bg-muted/20'}`}>
                                     <input
                                         type="file"
-                                        id="ms-upload"
+                                        id="supporting-upload"
                                         accept=".pdf,application/pdf,.xlsx,.xls,.csv"
                                         className="absolute inset-0 opacity-0 cursor-pointer"
-                                        onChange={handleMSFileChange}
+                                        onChange={handleSupportingDocChange}
                                         disabled={uploadProgress !== "idle" && uploadProgress !== "error"}
+                                        multiple
                                     />
                                     <div className="flex flex-col items-center text-center space-y-3">
-                                        <div className={`h-16 w-16 rounded-2xl flex items-center justify-center transition-all ${milestoneFile ? 'bg-indigo-500 text-white' : 'bg-background shadow-md text-muted-foreground group-hover:scale-110'}`}>
+                                        <div className={`h-16 w-16 rounded-2xl flex items-center justify-center transition-all ${supportingDocs.length > 0 ? 'bg-indigo-500 text-white' : 'bg-background shadow-md text-muted-foreground group-hover:scale-110'}`}>
                                             <FilesIcon className="h-8 w-8" weight="duotone" />
                                         </div>
                                         <div>
-                                            <p className="font-black text-sm">Milestones (Optional)</p>
-                                            <p className="text-xs text-muted-foreground mt-1 truncate max-w-[200px]">
-                                                {milestoneFile ? milestoneFile.name : "Excel or PDF"}
+                                            <p className="font-black text-sm">BOQ / Milestones / RO</p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                {supportingDocs.length > 0 ? `${supportingDocs.length} file(s) selected` : "Excel or PDF (optional)"}
                                             </p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
+
+                            {/* List of Supporting Documents */}
+                            {supportingDocs.length > 0 && (
+                                <div className="space-y-2 p-4 bg-muted/20 rounded-2xl border border-muted/30">
+                                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Supporting Documents</p>
+                                    {supportingDocs.map((doc, index) => (
+                                        <div key={index} className="flex items-center gap-3 p-3 bg-background rounded-xl border">
+                                            <FilesIcon className="h-5 w-5 text-indigo-500" weight="fill" />
+                                            <span className="flex-1 text-sm font-medium truncate">{doc.file.name}</span>
+                                            <select
+                                                value={doc.type}
+                                                onChange={(e) => changeDocType(index, e.target.value as SupportingDoc['type'])}
+                                                className="text-xs px-2 py-1 rounded-lg border bg-muted/50"
+                                            >
+                                                <option value="boq">BOQ Schedule</option>
+                                                <option value="milestone">Milestones</option>
+                                                <option value="ro">RO Schedule</option>
+                                                <option value="other">Other</option>
+                                            </select>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeDocument(index)}
+                                                className="text-red-500 hover:text-red-700 text-xs font-bold"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
                             {/* Progress Area */}
                             {(uploadProgress === "uploading" || uploadProgress === "extracting") && (
