@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
 import {
     Dialog,
     DialogContent,
@@ -112,7 +113,7 @@ export function CreateProjectDialog({ organizations }: CreateProjectDialogProps)
 
                         <div className="grid gap-2">
                             <Label htmlFor="location">Location</Label>
-                            <Input id="location" name="location" placeholder="City, Country (e.g. Paris, France)" />
+                            <LocationAutocomplete name="location" placeholder="Search city or address..." />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
