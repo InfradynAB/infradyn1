@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { UploadSimpleIcon } from "@phosphor-icons/react";
+import { UploadSimpleIcon, DownloadSimpleIcon } from "@phosphor-icons/react";
 import { importSuppliers } from "@/lib/actions/supplier";
 
 
@@ -56,13 +56,29 @@ export function ImportSupplierDialog() {
                 <DialogHeader>
                     <DialogTitle>Import Suppliers</DialogTitle>
                     <DialogDescription>
-                        Upload an Excel file (.xlsx) with columns: <strong>Supplier Name</strong>, Contact Email, Tax ID.
+                        Upload an Excel file (.xlsx) with suppliers. Download the template to see the required format.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={onSubmit} className="grid gap-4 py-4">
+                    {/* Download Template Button */}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full gap-2"
+                        asChild
+                    >
+                        <a href="/api/suppliers/template" download>
+                            <DownloadSimpleIcon className="h-4 w-4" />
+                            Download Template
+                        </a>
+                    </Button>
+
                     <div className="grid gap-2">
                         <Label htmlFor="file">Excel File</Label>
                         <Input id="file" name="file" type="file" accept=".xlsx,.xls" required />
+                        <p className="text-xs text-muted-foreground">
+                            Columns: Supplier Name, Contact Email, Tax ID
+                        </p>
                     </div>
                     <DialogFooter>
                         <Button type="submit" disabled={isLoading}>
@@ -74,3 +90,4 @@ export function ImportSupplierDialog() {
         </Dialog>
     );
 }
+
