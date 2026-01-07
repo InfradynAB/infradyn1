@@ -3,11 +3,25 @@ import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { importFromExcel, generateBOQTemplate } from "@/lib/services/excel-importer";
+import { getDownloadPresignedUrl } from "@/lib/services/s3";
 import * as XLSX from "xlsx";
 
 const requestSchema = z.object({
     fileUrl: z.string().url(),
 });
+
+/**
+ * Extract S3 key from a full S3 URL
+ */
+function extractS3Key(url: string): string | null {
+    // Match: https://bucket.s3.region.amazonaws.com/key or https://s3.region.amazonaws.com/bucket/key
+    const match = url.match(/s3[.-].*?\.amazonaws\.com\/(.+)$/);
+    if (match) return match[1];
+
+    // Also handle direct bucket URLs
+    const bucketMatch = url.match(/infradyn-storage\.s3\..*?\.amazonaws\.com\/(.+)$/);
+    return bucketMatch ? bucketMatch[1] : null;
+}
 
 /**
  * POST /api/boq/extract
@@ -26,14 +40,36 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { fileUrl } = requestSchema.parse(body);
 
+        console.log("[BOQ Extract] Processing file:", fileUrl);
+
+        // If it's an S3 URL, generate a signed URL for access
+        let fetchUrl = fileUrl;
+        const s3Key = extractS3Key(fileUrl);
+        if (s3Key) {
+            console.log("[BOQ Extract] S3 key detected:", s3Key);
+            try {
+                fetchUrl = await getDownloadPresignedUrl(s3Key);
+                console.log("[BOQ Extract] Using signed URL for S3 access");
+            } catch (e) {
+                console.error("[BOQ Extract] Failed to generate signed URL:", e);
+            }
+        }
+
         // Fetch the file
-        const response = await fetch(fileUrl);
+        const response = await fetch(fetchUrl);
         if (!response.ok) {
-            return NextResponse.json({ error: "Failed to fetch file" }, { status: 400 });
+            console.error("[BOQ Extract] Failed to fetch file:", response.status, response.statusText);
+            return NextResponse.json({
+                success: false,
+                error: `Failed to fetch file: ${response.status}`,
+                items: [],
+            }, { status: 200 }); // Return 200 with success: false to not block extraction
         }
 
         const contentType = response.headers.get("content-type") || "";
         const buffer = await response.arrayBuffer();
+
+        console.log("[BOQ Extract] File type:", contentType, "URL ends with xlsx:", fileUrl.endsWith(".xlsx"));
 
         // Check if it's an Excel file
         if (
@@ -82,16 +118,26 @@ export async function POST(request: NextRequest) {
 
         // For PDF files, use AI extraction
         if (contentType.includes("pdf") || fileUrl.endsWith(".pdf")) {
+            console.log("[BOQ Extract] Processing PDF for BOQ extraction");
+
+            // Get incoming headers to forward auth cookies
+            const reqHeaders = await headers();
+            const cookie = reqHeaders.get("cookie") || "";
+
             // Call the existing PO extraction which includes BOQ
             const extractResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ""}/api/po/extract`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "Cookie": cookie, // Forward auth cookies
+                },
                 body: JSON.stringify({ fileUrl }),
             });
 
             const extractResult = await extractResponse.json();
+            console.log("[BOQ Extract] PO extraction result:", extractResult.success, "BOQ items:", extractResult.data?.boqItems?.length || 0);
 
-            if (extractResult.success && extractResult.data?.boqItems) {
+            if (extractResult.success && extractResult.data?.boqItems && extractResult.data.boqItems.length > 0) {
                 return NextResponse.json({
                     success: true,
                     items: extractResult.data.boqItems,
@@ -100,16 +146,19 @@ export async function POST(request: NextRequest) {
                 });
             }
 
+            // Return empty but success to not block other extractions
             return NextResponse.json({
                 success: false,
-                error: "Could not extract BOQ items from PDF",
+                error: "No BOQ items found in PDF",
                 items: [],
             });
         }
 
         return NextResponse.json({
+            success: false,
             error: "Unsupported file type. Please upload Excel (.xlsx) or PDF",
-        }, { status: 400 });
+            items: [],
+        });
 
     } catch (error) {
         console.error("[BOQ Extract Error]:", error);

@@ -456,6 +456,8 @@ export default function POWizard({
                 result = await createPurchaseOrder({
                     ...data,
                     fileUrl: fileUrl || undefined,
+                    milestones,
+                    boqItems,
                 });
             }
 

@@ -80,6 +80,7 @@ export async function createPurchaseOrder(
         // Validate input
         const validated = createPOSchema.safeParse(input);
         if (!validated.success) {
+            console.error("[createPurchaseOrder] Validation failed:", JSON.stringify(validated.error.flatten(), null, 2));
             return {
                 success: false,
                 error: "Validation failed",
@@ -87,8 +88,11 @@ export async function createPurchaseOrder(
             };
         }
 
-        const { projectId, supplierId, poNumber, totalValue, currency, fileUrl } =
-            validated.data;
+        const {
+            projectId, supplierId, poNumber, totalValue, currency, fileUrl,
+            scope, paymentTerms, incoterms, retentionPercentage,
+            milestones: inputMilestones, boqItems: inputBoqItems
+        } = validated.data;
 
         // Verify project exists and user has access
         const projectRecord = await db.query.project.findFirst({
@@ -109,6 +113,10 @@ export async function createPurchaseOrder(
                 poNumber,
                 totalValue: totalValue.toString(),
                 currency,
+                scope: scope || null,
+                paymentTerms: paymentTerms || null,
+                incoterms: incoterms || null,
+                retentionPercentage: retentionPercentage?.toString() || null,
                 status: "DRAFT",
             })
             .returning();
@@ -133,6 +141,38 @@ export async function createPurchaseOrder(
                 mimeType: "application/pdf",
                 uploadedBy: user.id,
             });
+        }
+
+        // Save milestones if provided
+        if (inputMilestones && inputMilestones.length > 0) {
+            await db.insert(milestone).values(
+                inputMilestones.map((m, idx) => ({
+                    purchaseOrderId: newPO.id,
+                    title: m.title,
+                    description: m.description || null,
+                    expectedDate: m.expectedDate ? new Date(m.expectedDate) : null,
+                    paymentPercentage: m.paymentPercentage.toString(),
+                    sequenceOrder: m.sequenceOrder ?? idx,
+                }))
+            );
+        }
+
+        // Save BOQ items if provided
+        if (inputBoqItems && inputBoqItems.length > 0) {
+            await db.insert(boqItem).values(
+                inputBoqItems.map((b) => ({
+                    purchaseOrderId: newPO.id,
+                    itemNumber: b.itemNumber,
+                    description: b.description,
+                    unit: b.unit,
+                    quantity: b.quantity.toString(),
+                    unitPrice: b.unitPrice.toString(),
+                    totalPrice: b.totalPrice.toString(),
+                    rosDate: b.rosDate ? new Date(b.rosDate) : null,
+                    isCritical: b.isCritical ?? false,
+                    rosStatus: b.rosStatus ?? "NOT_SET",
+                }))
+            );
         }
 
         revalidatePath("/dashboard/procurement");

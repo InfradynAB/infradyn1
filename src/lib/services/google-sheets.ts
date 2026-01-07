@@ -193,9 +193,28 @@ export async function importBOQFromGoogleSheet(
             sheetName,
             rowsProcessed: dataRows.length,
         };
-    } catch (error) {
+    } catch (error: any) {
         console.error("[Google Sheets Import Error]:", error);
-        throw error;
+
+        // Provide user-friendly error messages
+        const errorMessage = error.message || "";
+        const errorCode = error.code || error.status;
+
+        if (errorCode === 403 || errorMessage.includes("permission") || errorMessage.includes("not supported")) {
+            throw new Error(
+                `Access denied. Please share the Google Sheet with: ${process.env.GOOGLE_SHEETS_CLIENT_EMAIL || "(service account email not configured)"}`
+            );
+        }
+
+        if (errorCode === 404 || errorMessage.includes("not found")) {
+            throw new Error("Spreadsheet not found. Please check the URL and make sure the sheet exists.");
+        }
+
+        if (errorMessage.includes("credentials")) {
+            throw new Error("Google Sheets integration not configured. Contact your administrator.");
+        }
+
+        throw new Error(`Failed to import from Google Sheets: ${errorMessage}`);
     }
 }
 
