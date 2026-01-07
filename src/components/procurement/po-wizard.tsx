@@ -238,21 +238,40 @@ export default function POWizard({
                 }).then(r => r.json())
             ];
 
-            // Extract from milestone/boq documents
-            const milestoneDoc = uploadedDocs.find(d => d.type === "milestone" || d.type === "boq");
+            // Extract from milestone/boq documents separately
+            const milestoneDoc = uploadedDocs.find(d => d.type === "milestone");
+            const boqDoc = uploadedDocs.find(d => d.type === "boq");
+
+            // Extract milestones from milestone doc
             if (milestoneDoc?.fileUrl) {
                 extractionPromises.push(
                     fetch("/api/milestones/extract", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ fileUrl: milestoneDoc.fileUrl }),
-                    }).then(r => r.json())
+                    }).then(r => r.json()).catch(() => ({ success: false }))
                 );
+            } else {
+                extractionPromises.push(Promise.resolve({ success: false }));
+            }
+
+            // Extract BOQ from BOQ doc
+            if (boqDoc?.fileUrl) {
+                extractionPromises.push(
+                    fetch("/api/boq/extract", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ fileUrl: boqDoc.fileUrl }),
+                    }).then(r => r.json()).catch(() => ({ success: false }))
+                );
+            } else {
+                extractionPromises.push(Promise.resolve({ success: false }));
             }
 
             const results = await Promise.all(extractionPromises);
             const poResult = results[0];
-            const msResult = results[1];
+            const msResult = results[1]; // Milestone extraction result
+            const boqResult = results[2]; // BOQ extraction result
 
             if (poResult.success && poResult.data) {
                 const data = poResult.data;
@@ -273,7 +292,7 @@ export default function POWizard({
                         ...m,
                         sequenceOrder: i,
                     })));
-                    toast.success("Milestones extracted from secondary document");
+                    toast.success(`Extracted ${msResult.milestones.length} milestones from document`);
                 } else if (data.milestones?.length > 0) {
                     setMilestones(data.milestones.map((m: any, i: number) => ({
                         ...m,
@@ -281,8 +300,15 @@ export default function POWizard({
                     })));
                 }
 
-                // BOQ
-                if (data.boqItems?.length > 0) {
+                // BOQ: Prioritize secondary file if provided
+                if (boqResult?.success && boqResult.items?.length > 0) {
+                    setBOQItems(boqResult.items.map((b: any) => ({
+                        ...b,
+                        isCritical: false,
+                        rosStatus: "NOT_SET" as const,
+                    })));
+                    toast.success(`Extracted ${boqResult.items.length} BOQ items from document`);
+                } else if (data.boqItems?.length > 0) {
                     setBOQItems(data.boqItems.map((b: any) => ({
                         ...b,
                         isCritical: false,
@@ -373,10 +399,25 @@ export default function POWizard({
     // Navigation with Step 1 validation
     const goNext = () => {
         // Step 1 validation: Must complete analysis before proceeding
-        if (currentStep === "upload" && uploadProgress !== "done" && mode !== "edit") {
+        if (currentStep === "upload") {
+            if (uploadProgress === "done" || mode === "edit") {
+                const nextIndex = currentStepIndex + 1;
+                if (nextIndex < STEPS.length) {
+                    setCurrentStep(STEPS[nextIndex].id);
+                }
+                return;
+            }
+
+            // If analysis hasn't started but we have file and project, trigger it
+            if (uploadProgress === "idle" && selectedFile && watch("projectId")) {
+                startAnalysis();
+                return;
+            }
+
             toast.error("Please upload and analyze your PO document first");
             return;
         }
+
         const nextIndex = currentStepIndex + 1;
         if (nextIndex < STEPS.length) {
             setCurrentStep(STEPS[nextIndex].id);
@@ -549,7 +590,7 @@ export default function POWizard({
                                         type="file"
                                         id="po-upload"
                                         accept=".pdf,application/pdf"
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                        className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                         onChange={handlePOFileChange}
                                         disabled={uploadProgress !== "idle" && uploadProgress !== "error"}
                                     />
@@ -572,7 +613,7 @@ export default function POWizard({
                                         type="file"
                                         id="supporting-upload"
                                         accept=".pdf,application/pdf,.xlsx,.xls,.csv"
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                        className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                         onChange={handleSupportingDocChange}
                                         disabled={uploadProgress !== "idle" && uploadProgress !== "error"}
                                         multiple

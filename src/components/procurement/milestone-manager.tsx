@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,8 @@ import {
     PencilSimpleIcon,
     CheckIcon,
     XIcon,
+    FileArrowUpIcon,
+    SpinnerIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
@@ -52,11 +54,71 @@ export function MilestoneManager({
 }: MilestoneManagerProps) {
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [editForm, setEditForm] = useState<MilestoneData | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isImporting, setIsImporting] = useState(false);
 
     const totalPercentage = milestones.reduce(
         (sum, m) => sum + (m.paymentPercentage || 0),
         0
     );
+
+    // Handle file import
+    const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsImporting(true);
+        try {
+            // Upload file first
+            const presignRes = await fetch("/api/upload/presign", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    fileName: file.name,
+                    contentType: file.type || "application/octet-stream",
+                    docType: "milestone",
+                }),
+            });
+
+            if (!presignRes.ok) throw new Error("Failed to get upload URL");
+            const { uploadUrl, fileUrl } = await presignRes.json();
+
+            await fetch(uploadUrl, {
+                method: "PUT",
+                headers: { "Content-Type": file.type || "application/octet-stream" },
+                body: file,
+            });
+
+            // Extract milestones
+            const extractRes = await fetch("/api/milestones/extract", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ fileUrl }),
+            });
+
+            const result = await extractRes.json();
+
+            if (result.success && result.milestones?.length > 0) {
+                const newMilestones: MilestoneData[] = result.milestones.map((m: any, i: number) => ({
+                    title: m.title || m.name || "",
+                    description: m.description || "",
+                    expectedDate: m.expectedDate || "",
+                    paymentPercentage: m.paymentPercentage || 0,
+                    sequenceOrder: milestones.length + i,
+                }));
+                onChange([...milestones, ...newMilestones]);
+                toast.success(`Imported ${newMilestones.length} milestones`);
+            } else {
+                toast.error(result.error || "No milestones found in file");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to import milestones from file");
+        } finally {
+            setIsImporting(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
 
     const addMilestone = () => {
         const newMilestone: MilestoneData = {
@@ -143,6 +205,27 @@ export function MilestoneManager({
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">Payment Milestones</CardTitle>
                     <div className="flex gap-2">
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".xlsx,.xls,.pdf"
+                            onChange={handleFileImport}
+                            className="hidden"
+                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isImporting}
+                        >
+                            {isImporting ? (
+                                <SpinnerIcon className="h-4 w-4 mr-1 animate-spin" />
+                            ) : (
+                                <FileArrowUpIcon className="h-4 w-4 mr-1" />
+                            )}
+                            Import
+                        </Button>
                         {milestones.length === 0 && (
                             <Button
                                 type="button"
