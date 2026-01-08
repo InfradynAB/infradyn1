@@ -486,8 +486,17 @@ export const invoice = pgTable('invoice', {
     invoiceNumber: text('invoice_number').notNull(),
     amount: numeric('amount').notNull(),
     invoiceDate: timestamp('invoice_date').notNull(),
-    status: text('status').default('PENDING'),
+    status: text('status').default('PENDING'), // PENDING, APPROVED, PARTIALLY_PAID, PAID, REJECTED, OVERDUE
     documentId: uuid('document_id').references(() => document.id),
+    // Phase 5: Payment tracking
+    milestoneId: uuid('milestone_id').references(() => milestone.id),
+    dueDate: timestamp('due_date'),
+    paidAt: timestamp('paid_at'),
+    paidAmount: numeric('paid_amount').default('0'),
+    retentionAmount: numeric('retention_amount').default('0'),
+    paymentReference: text('payment_reference'), // External ERP reference
+    validationStatus: text('validation_status').default('PENDING'), // PENDING, PASSED, FAILED, MISMATCH
+    validationNotes: text('validation_notes'),
 }, (t) => ({
     invoiceNumberIdx: uniqueIndex('invoice_number_idx').on(t.supplierId, t.invoiceNumber),
 }));
@@ -509,6 +518,14 @@ export const changeOrder = pgTable('change_order', {
     newTotalValue: numeric('new_total_value').notNull(),
     approvedBy: text('approved_by').references(() => user.id),
     approvedAt: timestamp('approved_at'),
+    // Phase 5: CO Workflow
+    status: text('status').default('DRAFT'), // DRAFT, SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED
+    requestedBy: text('requested_by').references(() => user.id),
+    requestedAt: timestamp('requested_at').defaultNow(),
+    affectedMilestoneIds: jsonb('affected_milestone_ids').$type<string[]>(),
+    scopeChange: text('scope_change'), // Description of scope impact
+    scheduleImpactDays: integer('schedule_impact_days').default(0),
+    rejectionReason: text('rejection_reason'),
 });
 
 export const financialLedger = pgTable('financial_ledger', {
@@ -516,9 +533,34 @@ export const financialLedger = pgTable('financial_ledger', {
     projectId: uuid('project_id').references(() => project.id).notNull(),
     purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrder.id),
     invoiceId: uuid('invoice_id').references(() => invoice.id),
-    transactionType: text('transaction_type').notNull(), // INVOICE, PAYMENT, ADJUSTMENT
+    transactionType: text('transaction_type').notNull(), // INVOICE, PAYMENT, ADJUSTMENT, CO_ADJUSTMENT
     amount: numeric('amount').notNull(),
     status: ledgerStatusEnum('status').default('PENDING'),
+    // Phase 5: Enhanced tracking
+    changeOrderId: uuid('change_order_id').references(() => changeOrder.id),
+    milestoneId: uuid('milestone_id').references(() => milestone.id),
+    dueDate: timestamp('due_date'),
+    paidAt: timestamp('paid_at'),
+    paymentMethod: text('payment_method'), // BANK_TRANSFER, CHECK, WIRE, etc.
+    externalReference: text('external_reference'), // ERP transaction ID
+    notes: text('notes'),
+});
+
+// --- 9.5. MILESTONE PAYMENTS (Phase 5) ---
+
+export const milestonePayment = pgTable('milestone_payment', {
+    ...baseColumns,
+    milestoneId: uuid('milestone_id').references(() => milestone.id).notNull(),
+    invoiceId: uuid('invoice_id').references(() => invoice.id),
+    approvedAmount: numeric('approved_amount'),
+    paidAmount: numeric('paid_amount').default('0'),
+    retainedAmount: numeric('retained_amount').default('0'),
+    status: text('status').default('NOT_STARTED'), // NOT_STARTED, APPROVED, INVOICED, PARTIALLY_PAID, PAID, OVERDUE
+    approvedAt: timestamp('approved_at'),
+    approvedBy: text('approved_by').references(() => user.id),
+    dueDate: timestamp('due_date'),
+    paidAt: timestamp('paid_at'),
+    notes: text('notes'),
 });
 
 // --- 10. QUALITY (NCR) ---
@@ -668,6 +710,8 @@ export const boqItemRelations = relations(boqItem, ({ one, many }) => ({
 export const milestoneRelations = relations(milestone, ({ one, many }) => ({
     purchaseOrder: one(purchaseOrder, { fields: [milestone.purchaseOrderId], references: [purchaseOrder.id] }),
     progressRecords: many(progressRecord),
+    payments: many(milestonePayment),
+    invoices: many(invoice),
 }));
 
 export const progressRecordRelations = relations(progressRecord, ({ one }) => ({
@@ -700,6 +744,8 @@ export const documentRelations = relations(document, ({ one, many }) => ({
 export const invoiceRelations = relations(invoice, ({ one, many }) => ({
     supplier: one(supplier, { fields: [invoice.supplierId], references: [supplier.id] }),
     purchaseOrder: one(purchaseOrder, { fields: [invoice.purchaseOrderId], references: [purchaseOrder.id] }),
+    milestone: one(milestone, { fields: [invoice.milestoneId], references: [milestone.id] }),
+    document: one(document, { fields: [invoice.documentId], references: [document.id] }),
     items: many(invoiceItem),
 }));
 
@@ -803,4 +849,26 @@ export const usageQuotaRelations = relations(usageQuota, ({ one }) => ({
 
 export const usageEventRelations = relations(usageEvent, ({ one }) => ({
     organization: one(organization, { fields: [usageEvent.organizationId], references: [organization.id] }),
+}));
+
+// --- Phase 5: Progress, Payment & Change Order Relations ---
+
+export const milestonePaymentRelations = relations(milestonePayment, ({ one }) => ({
+    milestone: one(milestone, { fields: [milestonePayment.milestoneId], references: [milestone.id] }),
+    invoice: one(invoice, { fields: [milestonePayment.invoiceId], references: [invoice.id] }),
+    approver: one(user, { fields: [milestonePayment.approvedBy], references: [user.id] }),
+}));
+
+export const changeOrderRelations = relations(changeOrder, ({ one }) => ({
+    purchaseOrder: one(purchaseOrder, { fields: [changeOrder.purchaseOrderId], references: [purchaseOrder.id] }),
+    approver: one(user, { fields: [changeOrder.approvedBy], references: [user.id] }),
+    requester: one(user, { fields: [changeOrder.requestedBy], references: [user.id] }),
+}));
+
+export const financialLedgerRelations = relations(financialLedger, ({ one }) => ({
+    project: one(project, { fields: [financialLedger.projectId], references: [project.id] }),
+    purchaseOrder: one(purchaseOrder, { fields: [financialLedger.purchaseOrderId], references: [purchaseOrder.id] }),
+    invoice: one(invoice, { fields: [financialLedger.invoiceId], references: [invoice.id] }),
+    changeOrder: one(changeOrder, { fields: [financialLedger.changeOrderId], references: [changeOrder.id] }),
+    milestone: one(milestone, { fields: [financialLedger.milestoneId], references: [milestone.id] }),
 }));
