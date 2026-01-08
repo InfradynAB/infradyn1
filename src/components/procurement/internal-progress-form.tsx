@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -33,8 +33,10 @@ import {
     ClipboardText,
     Phone,
     MapPin,
+    SparkleIcon,
 } from "@phosphor-icons/react";
 import { TrustIndicator } from "@/components/shared/trust-indicator";
+import { Sparkle } from "@phosphor-icons/react";
 
 // --- Schema ---
 const internalUpdateSchema = z.object({
@@ -67,7 +69,6 @@ interface InternalProgressFormProps {
     poNumber: string;
     milestones: Milestone[];
     supplierName: string;
-    aiSuggestions?: AIFieldSuggestion[];
     onSuccess?: () => void;
 }
 
@@ -88,11 +89,12 @@ export function InternalProgressForm({
     poNumber,
     milestones,
     supplierName,
-    aiSuggestions = [],
     onSuccess,
 }: InternalProgressFormProps) {
     const [isPending, startTransition] = useTransition();
     const [appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set());
+    const [aiSuggestions, setAiSuggestions] = useState<AIFieldSuggestion[]>([]);
+    const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
     const form = useForm<InternalUpdateFormData>({
         resolver: zodResolver(internalUpdateSchema),
@@ -104,13 +106,56 @@ export function InternalProgressForm({
         },
     });
 
-    const selectedMilestone = milestones.find(
-        (m) => m.id === form.watch("milestoneId")
-    );
+    const selectedMilestoneId = form.watch("milestoneId");
+    const selectedSource = form.watch("source");
+    const selectedMilestone = milestones.find((m) => m.id === selectedMilestoneId);
+
+    // Fetch AI suggestions when milestone or source changes
+    const fetchAISuggestions = useCallback(async () => {
+        if (!selectedMilestoneId) {
+            setAiSuggestions([]);
+            return;
+        }
+
+        setIsLoadingSuggestions(true);
+        setAppliedSuggestions(new Set());
+
+        try {
+            const response = await fetch("/api/progress/suggest", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    milestoneId: selectedMilestoneId,
+                    purchaseOrderId,
+                    source: selectedSource,
+                }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.suggestions) {
+                    setAiSuggestions(data.suggestions);
+                }
+            }
+        } catch (error) {
+            console.error("Failed to fetch AI suggestions:", error);
+        } finally {
+            setIsLoadingSuggestions(false);
+        }
+    }, [selectedMilestoneId, selectedSource, purchaseOrderId]);
+
+    useEffect(() => {
+        fetchAISuggestions();
+    }, [fetchAISuggestions]);
 
     const applySuggestion = (suggestion: AIFieldSuggestion) => {
         if (suggestion.field === "percentComplete") {
-            form.setValue("percentComplete", suggestion.value as number);
+            const value = typeof suggestion.value === 'number'
+                ? suggestion.value
+                : Number(suggestion.value);
+            form.setValue("percentComplete", value, { shouldValidate: true, shouldDirty: true });
+        } else if (suggestion.field === "comment") {
+            form.setValue("comment", suggestion.value as string, { shouldValidate: true, shouldDirty: true });
         }
         setAppliedSuggestions((prev) => new Set([...prev, suggestion.field]));
         toast.success("Suggestion applied", { description: suggestion.reason });
@@ -137,6 +182,7 @@ export function InternalProgressForm({
                     description: `${poNumber} updated to ${values.percentComplete}%`,
                 });
                 form.reset();
+                setAiSuggestions([]);
                 onSuccess?.();
             } catch (error: any) {
                 toast.error("Failed to log progress", {
@@ -166,39 +212,87 @@ export function InternalProgressForm({
             </CardHeader>
             <CardContent>
                 {/* AI Suggestions Panel */}
-                {aiSuggestions.length > 0 && (
-                    <div className="mb-6 p-4 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20">
+                {(aiSuggestions.length > 0 || isLoadingSuggestions) && selectedMilestoneId && (
+                    <div className="mb-6 p-4 rounded-xl bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-500/10 dark:to-purple-500/10 border border-blue-200 dark:border-blue-500/20">
                         <div className="flex items-center gap-2 mb-3">
-                            <Lightbulb className="h-5 w-5 text-blue-600" weight="duotone" />
+                            {isLoadingSuggestions ? (
+                                <CircleNotch className="h-5 w-5 text-blue-600 animate-spin" />
+                            ) : (
+                                <Sparkle className="h-5 w-5 text-blue-600" weight="fill" />
+                            )}
                             <span className="font-semibold text-sm text-blue-700 dark:text-blue-400">
-                                AI Suggestions
+                                {isLoadingSuggestions ? "Generating AI Suggestions..." : "AI Suggestions"}
+                            </span>
+                            <span className="text-xs text-muted-foreground ml-auto">
+                                Click to apply
                             </span>
                         </div>
-                        <div className="space-y-2">
-                            {aiSuggestions.map((suggestion, index) => (
-                                <div
-                                    key={index}
-                                    className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-900"
-                                >
-                                    <div>
-                                        <p className="text-sm font-medium">
-                                            {suggestion.field}: <strong>{suggestion.value}</strong>
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {suggestion.reason}
-                                        </p>
-                                    </div>
-                                    <Button
-                                        size="sm"
-                                        variant={appliedSuggestions.has(suggestion.field) ? "secondary" : "outline"}
-                                        onClick={() => applySuggestion(suggestion)}
-                                        disabled={appliedSuggestions.has(suggestion.field)}
-                                    >
-                                        {appliedSuggestions.has(suggestion.field) ? "Applied" : "Apply"}
-                                    </Button>
-                                </div>
-                            ))}
-                        </div>
+                        {isLoadingSuggestions ? (
+                            <div className="flex items-center justify-center py-4">
+                                <p className="text-sm text-muted-foreground">Analyzing milestone history...</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {aiSuggestions.map((suggestion, index) => {
+                                    const fieldLabels: Record<string, string> = {
+                                        percentComplete: "Progress",
+                                        comment: "Notes",
+                                    };
+                                    const displayValue = suggestion.field === "comment"
+                                        ? (suggestion.value as string).length > 50
+                                            ? (suggestion.value as string).substring(0, 50) + "..."
+                                            : suggestion.value
+                                        : suggestion.field === "percentComplete"
+                                            ? `${suggestion.value}%`
+                                            : suggestion.value;
+
+                                    return (
+                                        <div
+                                            key={index}
+                                            className={`flex items-center justify-between p-3 rounded-lg bg-white dark:bg-slate-900 shadow-sm transition-all ${appliedSuggestions.has(suggestion.field)
+                                                ? "opacity-60"
+                                                : "hover:shadow-md cursor-pointer"
+                                                }`}
+                                            onClick={() => !appliedSuggestions.has(suggestion.field) && applySuggestion(suggestion)}
+                                        >
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                                        {fieldLabels[suggestion.field] || suggestion.field}
+                                                    </span>
+                                                    <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                                                        {suggestion.confidence}% confident
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm font-semibold mt-1">{displayValue}</p>
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    {suggestion.reason}
+                                                </p>
+                                            </div>
+                                            <Button
+                                                size="sm"
+                                                variant={appliedSuggestions.has(suggestion.field) ? "secondary" : "default"}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    applySuggestion(suggestion);
+                                                }}
+                                                disabled={appliedSuggestions.has(suggestion.field)}
+                                                className="ml-3"
+                                            >
+                                                {appliedSuggestions.has(suggestion.field) ? (
+                                                    <>
+                                                        <CheckCircle className="h-4 w-4 mr-1" />
+                                                        Applied
+                                                    </>
+                                                ) : (
+                                                    "Apply"
+                                                )}
+                                            </Button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -273,58 +367,70 @@ export function InternalProgressForm({
                         <FormField
                             control={form.control}
                             name="percentComplete"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <div className="flex items-center justify-between">
-                                        <FormLabel>Progress</FormLabel>
-                                        <div className="flex items-center gap-2">
-                                            <Input
-                                                type="number"
+                            render={({ field }) => {
+                                // Use watched value to ensure UI updates on setValue
+                                const progressValue = form.watch("percentComplete");
+                                return (
+                                    <FormItem>
+                                        <div className="flex items-center justify-between">
+                                            <FormLabel>Progress</FormLabel>
+                                            <div className="flex items-center gap-2">
+                                                <Input
+                                                    type="number"
+                                                    min={0}
+                                                    max={100}
+                                                    value={progressValue}
+                                                    onChange={(e) => field.onChange(Number(e.target.value))}
+                                                    className="w-20 text-center"
+                                                />
+                                                <span className="text-muted-foreground">%</span>
+                                            </div>
+                                        </div>
+                                        <FormControl>
+                                            <Slider
                                                 min={0}
                                                 max={100}
-                                                value={field.value}
-                                                onChange={(e) => field.onChange(Number(e.target.value))}
-                                                className="w-20 text-center"
+                                                step={5}
+                                                value={[progressValue]}
+                                                onValueChange={(v) => field.onChange(v[0])}
+                                                className="py-4"
                                             />
-                                            <span className="text-muted-foreground">%</span>
-                                        </div>
-                                    </div>
-                                    <FormControl>
-                                        <Slider
-                                            min={0}
-                                            max={100}
-                                            step={5}
-                                            value={[field.value]}
-                                            onValueChange={(v) => field.onChange(v[0])}
-                                            className="py-4"
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                );
+                            }}
                         />
 
                         {/* Comment */}
                         <FormField
                             control={form.control}
                             name="comment"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Notes *</FormLabel>
-                                    <FormControl>
-                                        <Textarea
-                                            placeholder="Describe the source and details of this update..."
-                                            className="resize-none"
-                                            rows={4}
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormDescription>
-                                        Required for audit trail. Include date and attendees if from a call.
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
+                            render={({ field }) => {
+                                // Use watched value to ensure UI updates on setValue
+                                const commentValue = form.watch("comment");
+                                return (
+                                    <FormItem>
+                                        <FormLabel>Notes *</FormLabel>
+                                        <FormControl>
+                                            <Textarea
+                                                placeholder="Describe the source and details of this update..."
+                                                className="resize-none"
+                                                rows={4}
+                                                value={commentValue}
+                                                onChange={field.onChange}
+                                                onBlur={field.onBlur}
+                                                name={field.name}
+                                                ref={field.ref}
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Required for audit trail. Include date and attendees if from a call.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                );
+                            }}
                         />
 
                         {/* Submit */}
