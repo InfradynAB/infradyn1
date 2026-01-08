@@ -62,20 +62,20 @@ export function ChangeOrderForm({
     const [open, setOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const form = useForm<ChangeOrderFormData>({
+    const form = useForm({
         resolver: zodResolver(changeOrderSchema),
         defaultValues: {
             reason: "",
             amountDelta: 0,
             scopeChange: "",
             scheduleImpactDays: 0,
-            affectedMilestoneIds: [],
+            affectedMilestoneIds: [] as string[],
         },
     });
 
-    const amountDelta = form.watch("amountDelta");
-    const newTotal = currentPOValue + (amountDelta || 0);
-    const changePercent = currentPOValue > 0 ? ((amountDelta || 0) / currentPOValue) * 100 : 0;
+    const amountDelta = (form.watch("amountDelta") as number) || 0;
+    const newTotal = currentPOValue + amountDelta;
+    const changePercent = currentPOValue > 0 ? (amountDelta / currentPOValue) * 100 : 0;
 
     async function onSubmit(values: ChangeOrderFormData) {
         setIsSubmitting(true);
@@ -162,6 +162,7 @@ export function ChangeOrderForm({
                                                 step="0.01"
                                                 placeholder="0.00"
                                                 {...field}
+                                                value={field.value as number}
                                             />
                                         </FormControl>
                                         <FormDescription>
@@ -204,6 +205,7 @@ export function ChangeOrderForm({
                                             type="number"
                                             placeholder="0"
                                             {...field}
+                                            value={field.value as number ?? 0}
                                         />
                                     </FormControl>
                                     <FormDescription>

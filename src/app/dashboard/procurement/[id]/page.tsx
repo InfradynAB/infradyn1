@@ -47,6 +47,19 @@ import {
     extractS3KeyFromUrl,
     getDownloadPresignedUrl
 } from "@/lib/services/s3";
+// Phase 5 imports
+import { InvoiceUploadSheet } from "@/components/procurement/invoice-upload-sheet";
+import { ChangeOrderForm } from "@/components/procurement/change-order-form";
+import { PaymentStatusBadge, COStatusBadge } from "@/components/procurement/payment-status-badge";
+import { getPaymentSummary, getPendingInvoices } from "@/lib/actions/finance-engine";
+import { getChangeOrdersForPO, getCOImpactSummary } from "@/lib/actions/change-order-engine";
+import {
+    CurrencyDollar,
+    Receipt,
+    ArrowsClockwise,
+    CheckCircle,
+    Warning,
+} from "@phosphor-icons/react/dist/ssr";
 
 // Status badge colors
 const statusColors: Record<string, string> = {
@@ -119,6 +132,19 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
         })
     );
 
+    // Phase 5: Fetch financial data
+    const [paymentResult, invoicesResult, cosResult, coImpactResult] = await Promise.all([
+        getPaymentSummary(undefined, po.id),
+        getPendingInvoices(undefined, po.id),
+        getChangeOrdersForPO(po.id),
+        getCOImpactSummary(undefined, po.id),
+    ]);
+
+    const paymentSummary = paymentResult.data || { totalCommitted: 0, totalPaid: 0, totalPending: 0, totalOverdue: 0, totalRetained: 0 };
+    const pendingInvoices = invoicesResult.data || [];
+    const changeOrders = cosResult.data || [];
+    const coImpact = coImpactResult.data || { totalCOs: 0, approvedCOs: 0, pendingCOs: 0, totalCostImpact: 0, totalScheduleImpact: 0, affectedMilestones: 0 };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -175,8 +201,8 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                 </div>
             </div>
 
-            {/* Summary Cards */}
-            <div className="grid gap-4 md:grid-cols-3">
+            {/* Summary Cards - Phase 5 Enhanced */}
+            <div className="grid gap-4 md:grid-cols-5">
                 <Card>
                     <CardHeader className="pb-2">
                         <CardDescription>Total Value</CardDescription>
@@ -190,30 +216,81 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                 </Card>
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardDescription>Current Version</CardDescription>
+                        <CardDescription className="flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3 text-green-500" />
+                            Paid
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold font-mono text-green-600">
+                            {po.currency} {paymentSummary.totalPaid.toLocaleString()}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            {Number(po.totalValue) > 0
+                                ? ((paymentSummary.totalPaid / Number(po.totalValue)) * 100).toFixed(0)
+                                : 0}% of total
+                        </p>
+                    </CardContent>
+                </Card>
+                <Card className={paymentSummary.totalOverdue > 0 ? "border-red-300" : ""}>
+                    <CardHeader className="pb-2">
+                        <CardDescription className="flex items-center gap-1">
+                            <Warning className="h-3 w-3 text-amber-500" />
+                            Pending
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold font-mono text-amber-600">
+                            {po.currency} {paymentSummary.totalPending.toLocaleString()}
+                        </div>
+                        {paymentSummary.totalOverdue > 0 && (
+                            <p className="text-xs text-red-500">
+                                ${paymentSummary.totalOverdue.toLocaleString()} overdue
+                            </p>
+                        )}
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardDescription className="flex items-center gap-1">
+                            <ArrowsClockwise className="h-3 w-3" />
+                            Change Orders
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">
+                            {coImpact.totalCOs}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            {coImpact.pendingCOs > 0
+                                ? `${coImpact.pendingCOs} pending review`
+                                : "All processed"}
+                        </p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardDescription>Version</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
                             v{latestVersion?.versionNumber || 1}
                         </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>Last Updated</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {format(new Date(po.updatedAt), "MMM d, yyyy")}
-                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            {format(new Date(po.updatedAt), "MMM d")}
+                        </p>
                     </CardContent>
                 </Card>
             </div>
 
             {/* Tabs */}
             <Tabs defaultValue="overview" className="space-y-4">
-                <TabsList>
+                <TabsList className="flex-wrap">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="financials" className="gap-1.5">
+                        <Receipt className="h-4 w-4" />
+                        Financials
+                    </TabsTrigger>
                     <TabsTrigger value="progress" className="gap-1.5">
                         <ChartLineUpIcon className="h-4 w-4" />
                         Progress
@@ -292,6 +369,175 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                             </div>
                         </CardContent>
                     </Card>
+                </TabsContent>
+
+                {/* Financials Tab - Phase 5 */}
+                <TabsContent value="financials">
+                    <div className="grid gap-6 lg:grid-cols-2">
+                        {/* Left Column: Invoices */}
+                        <div className="space-y-6">
+                            <Card>
+                                <CardHeader>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <Receipt className="h-5 w-5" />
+                                                Invoices
+                                            </CardTitle>
+                                            <CardDescription>
+                                                Upload and track invoices for this PO
+                                            </CardDescription>
+                                        </div>
+                                        <InvoiceUploadSheet
+                                            purchaseOrderId={po.id}
+                                            milestones={(po as any).milestones?.map((m: any) => ({
+                                                id: m.id,
+                                                title: m.title,
+                                                amount: m.amount,
+                                                paymentPercentage: m.paymentPercentage,
+                                                status: m.status,
+                                            })) || []}
+                                            poTotalValue={Number(po.totalValue)}
+                                        />
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    {pendingInvoices.length > 0 ? (
+                                        <div className="space-y-3">
+                                            {pendingInvoices.map((inv: any) => (
+                                                <div
+                                                    key={inv.id}
+                                                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                                                            <Receipt className="h-5 w-5 text-amber-600" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium">{inv.invoiceNumber}</p>
+                                                            <p className="text-sm text-muted-foreground">
+                                                                {inv.milestone?.title || "No milestone"}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="font-mono font-medium">
+                                                            {po.currency} {Number(inv.amount).toLocaleString()}
+                                                        </p>
+                                                        <PaymentStatusBadge status={inv.status} />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 text-muted-foreground">
+                                            <Receipt className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                                            <p>No invoices uploaded yet</p>
+                                            <p className="text-sm">Upload an invoice to track payments</p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* Right Column: Change Orders */}
+                        <div className="space-y-6">
+                            <Card>
+                                <CardHeader>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <ArrowsClockwise className="h-5 w-5" />
+                                                Change Orders
+                                            </CardTitle>
+                                            <CardDescription>
+                                                Request and track changes to this PO
+                                            </CardDescription>
+                                        </div>
+                                        <ChangeOrderForm
+                                            purchaseOrderId={po.id}
+                                            currentPOValue={Number(po.totalValue)}
+                                            milestones={(po as any).milestones?.map((m: any) => ({
+                                                id: m.id,
+                                                title: m.title,
+                                                status: m.status,
+                                            })) || []}
+                                        />
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    {changeOrders.length > 0 ? (
+                                        <div className="space-y-3">
+                                            {changeOrders.map((co: any) => (
+                                                <div
+                                                    key={co.id}
+                                                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${co.status === "APPROVED" ? "bg-green-100" :
+                                                            co.status === "REJECTED" ? "bg-red-100" : "bg-blue-100"
+                                                            }`}>
+                                                            <ArrowsClockwise className={`h-5 w-5 ${co.status === "APPROVED" ? "text-green-600" :
+                                                                co.status === "REJECTED" ? "text-red-600" : "text-blue-600"
+                                                                }`} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium">{co.changeNumber}</p>
+                                                            <p className="text-sm text-muted-foreground truncate max-w-[200px]">
+                                                                {co.reason}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className={`font-mono font-medium ${Number(co.amountDelta) > 0 ? "text-amber-600" :
+                                                            Number(co.amountDelta) < 0 ? "text-green-600" : ""
+                                                            }`}>
+                                                            {Number(co.amountDelta) >= 0 ? "+" : ""}
+                                                            {po.currency} {Number(co.amountDelta).toLocaleString()}
+                                                        </p>
+                                                        <COStatusBadge status={co.status} />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 text-muted-foreground">
+                                            <ArrowsClockwise className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                                            <p>No change orders</p>
+                                            <p className="text-sm">Submit a CO to request changes</p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* CO Impact Summary */}
+                            {coImpact.totalCOs > 0 && (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="text-base">CO Impact Summary</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="grid grid-cols-3 gap-4 text-center">
+                                            <div>
+                                                <p className="text-2xl font-bold text-green-600">{coImpact.approvedCOs}</p>
+                                                <p className="text-xs text-muted-foreground">Approved</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-2xl font-bold text-amber-600">{coImpact.pendingCOs}</p>
+                                                <p className="text-xs text-muted-foreground">Pending</p>
+                                            </div>
+                                            <div>
+                                                <p className={`text-2xl font-bold ${coImpact.totalCostImpact >= 0 ? "text-amber-600" : "text-green-600"}`}>
+                                                    {coImpact.totalCostImpact >= 0 ? "+" : ""}{po.currency}{coImpact.totalCostImpact.toLocaleString()}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">Cost Impact</p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </div>
+                    </div>
                 </TabsContent>
 
                 {/* Progress Tab - Phase 4 */}

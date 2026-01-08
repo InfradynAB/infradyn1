@@ -23,6 +23,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { PlusIcon, FileTextIcon, ArrowRightIcon } from "@phosphor-icons/react/dist/ssr";
 import { formatDistanceToNow } from "date-fns";
+import { ProgressDashboard } from "@/components/procurement/progress-dashboard";
 
 // Status badge color mapping
 const statusColors: Record<string, string> = {
@@ -173,6 +174,9 @@ export default async function ProcurementPage() {
                     </Link>
                 </Button>
             </div>
+
+            {/* Phase 5: Progress Dashboard Overview */}
+            <ProgressDashboard />
 
             {/* PO List Card */}
             <Card>

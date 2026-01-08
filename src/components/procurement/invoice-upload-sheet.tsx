@@ -33,14 +33,14 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, Upload, CircleNotch, FileText, AlertTriangle, CheckCircle } from "@phosphor-icons/react";
+import { CalendarIcon, Upload, CircleNotch, FileText, Warning, CheckCircle } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const invoiceSchema = z.object({
     invoiceNumber: z.string().min(1, "Invoice number required"),
     amount: z.coerce.number().positive("Amount must be positive"),
-    invoiceDate: z.date({ required_error: "Invoice date required" }),
+    invoiceDate: z.date(),
     dueDate: z.date().optional(),
     milestoneId: z.string().optional(),
 });
@@ -77,16 +77,19 @@ export function InvoiceUploadSheet({
         reason?: string;
     }>({ status: null });
 
-    const form = useForm<InvoiceFormData>({
+    const form = useForm({
         resolver: zodResolver(invoiceSchema),
         defaultValues: {
             invoiceNumber: "",
             amount: 0,
+            invoiceDate: new Date(),
+            dueDate: undefined as Date | undefined,
+            milestoneId: undefined as string | undefined,
         },
     });
 
     const selectedMilestoneId = form.watch("milestoneId");
-    const amount = form.watch("amount");
+    const amount = form.watch("amount") as number;
 
     // Validate invoice amount against milestone
     const validateAgainstMilestone = (msId: string, invoiceAmount: number) => {
@@ -208,6 +211,7 @@ export function InvoiceUploadSheet({
                                             step="0.01"
                                             placeholder="0.00"
                                             {...field}
+                                            value={field.value as number}
                                         />
                                     </FormControl>
                                     <FormMessage />
@@ -261,8 +265,8 @@ export function InvoiceUploadSheet({
                                 )}
                             >
                                 {validationResult.status === "PASSED" && <CheckCircle className="h-5 w-5" />}
-                                {validationResult.status === "MISMATCH" && <AlertTriangle className="h-5 w-5" />}
-                                {validationResult.status === "FAILED" && <AlertTriangle className="h-5 w-5" />}
+                                {validationResult.status === "MISMATCH" && <Warning className="h-5 w-5" />}
+                                {validationResult.status === "FAILED" && <Warning className="h-5 w-5" />}
                                 <span>{validationResult.reason}</span>
                             </div>
                         )}

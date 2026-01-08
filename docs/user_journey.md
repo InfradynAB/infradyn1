@@ -158,7 +158,7 @@
 
 ---
 
-## PHASE 5 — PROGRESS, PAYMENT & CHANGE ORDER TRACKING
+## PHASE 5 — PROGRESS TRACKING
 
 ### Journey Steps
 1. System auto-updates milestone completion % from verified supplier or site inputs.

@@ -618,12 +618,14 @@ export const auditLog = pgTable('audit_log', {
 
 export const notification = pgTable('notification', {
     ...baseColumns,
-    userId: text('user_id').references(() => user.id).notNull(),
+    userId: text('user_id').references(() => user.id),
     title: text('title').notNull(),
     message: text('message').notNull(),
     type: text('type').default('INFO'),
     readAt: timestamp('read_at'),
     linkUrl: text('link_url'),
+    link: text('link'),
+    metadata: jsonb('metadata'),
 });
 
 export const integrationKey = pgTable('integration_key', {
