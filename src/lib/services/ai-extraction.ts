@@ -6,6 +6,7 @@ import {
 } from "@aws-sdk/client-textract";
 import OpenAI from "openai";
 import * as XLSX from "xlsx";
+import mammoth from "mammoth";
 import { getFileBuffer, extractS3KeyFromUrl } from "./s3";
 
 // Initialize clients
@@ -69,6 +70,28 @@ export interface ExtractionResult {
  */
 function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Extract text from a Word document (.doc, .docx) using mammoth
+ */
+async function extractTextFromWord(
+    buffer: Buffer
+): Promise<{ success: boolean; text?: string; error?: string }> {
+    try {
+        console.log("[Word Extract] Starting Word document text extraction");
+        const result = await mammoth.extractRawText({ buffer });
+
+        if (result.value) {
+            console.log(`[Word Extract] Extracted ${result.value.length} characters`);
+            return { success: true, text: result.value };
+        }
+
+        return { success: false, error: "No text content found in Word document" };
+    } catch (error: any) {
+        console.error("[Word Extract] Error:", error);
+        return { success: false, error: error.message || "Failed to extract text from Word document" };
+    }
 }
 
 /**
@@ -345,7 +368,7 @@ Rules:
 }
 
 /**
- * Full extraction pipeline: Textract → GPT
+ * Full extraction pipeline: Textract/Mammoth → GPT
  */
 export async function extractPOFromS3(
     fileUrl: string
@@ -362,15 +385,30 @@ export async function extractPOFromS3(
 
         const [, bucket, , key] = match;
         const decodedKey = decodeURIComponent(key);
+        const extension = decodedKey.split('.').pop()?.toLowerCase();
 
-        // Step 1: Extract text with Textract
-        const textractResult = await extractTextWithTextract(bucket, decodedKey);
-        if (!textractResult.success || !textractResult.text) {
-            return { success: false, error: textractResult.error || "No text extracted" };
+        let extractedText: string | undefined;
+
+        // Check if it's a Word document
+        if (extension === "doc" || extension === "docx") {
+            console.log("[extractPOFromS3] Detected Word document, using mammoth");
+            const buffer = await getFileBuffer(decodedKey);
+            const wordResult = await extractTextFromWord(buffer);
+            if (!wordResult.success || !wordResult.text) {
+                return { success: false, error: wordResult.error || "No text extracted from Word document" };
+            }
+            extractedText = wordResult.text;
+        } else {
+            // Step 1: Extract text with Textract (PDF, images)
+            const textractResult = await extractTextWithTextract(bucket, decodedKey);
+            if (!textractResult.success || !textractResult.text) {
+                return { success: false, error: textractResult.error || "No text extracted" };
+            }
+            extractedText = textractResult.text;
         }
 
         // Step 2: Parse with GPT
-        const gptResult = await parseWithGPT(textractResult.text);
+        const gptResult = await parseWithGPT(extractedText);
         return gptResult;
     } catch (error) {
         console.error("[extractPOFromS3] Error:", error);
@@ -481,7 +519,7 @@ Ensure the percentages sum up to or represent the total contract value.`;
 }
 
 /**
- * Generic entry point for milestone-only extraction (PDF or Excel)
+ * Generic entry point for milestone-only extraction (PDF, Excel, or Word)
  */
 export async function extractMilestonesFromS3(fileUrl: string): Promise<{ success: boolean; milestones: ExtractedMilestone[]; error?: string }> {
     try {
@@ -490,27 +528,40 @@ export async function extractMilestonesFromS3(fileUrl: string): Promise<{ succes
 
         const extension = key.split('.').pop()?.toLowerCase();
 
+        // Excel files
         if (extension === 'xlsx' || extension === 'xls' || extension === 'csv') {
             const buffer = await getFileBuffer(key);
             const milestones = await extractMilestonesFromExcel(buffer);
             return { success: true, milestones };
-        } else {
-            // Assume PDF/Image - use Textract + GPT
-            const urlPattern = /https:\/\/([^.]+)\.s3\.([^.]+)\.amazonaws\.com\/(.+)/;
-            const match = fileUrl.match(urlPattern);
-            if (!match) return { success: false, milestones: [], error: "Invalid S3 URL format" };
+        }
 
-            const [, bucket, , s3Key] = match;
-            const decodedKey = decodeURIComponent(s3Key);
-
-            const textractResult = await extractTextWithTextract(bucket, decodedKey);
-            if (!textractResult.success || !textractResult.text) {
-                return { success: false, milestones: [], error: textractResult.error };
+        // Word documents
+        if (extension === 'doc' || extension === 'docx') {
+            console.log("[extractMilestonesFromS3] Detected Word document");
+            const buffer = await getFileBuffer(key);
+            const wordResult = await extractTextFromWord(buffer);
+            if (!wordResult.success || !wordResult.text) {
+                return { success: false, milestones: [], error: wordResult.error };
             }
-
-            const milestones = await extractMilestonesFromPDF(textractResult.text);
+            const milestones = await extractMilestonesFromPDF(wordResult.text);
             return { success: true, milestones };
         }
+
+        // PDF/Image - use Textract + GPT
+        const urlPattern = /https:\/\/([^.]+)\.s3\.([^.]+)\.amazonaws\.com\/(.+)/;
+        const match = fileUrl.match(urlPattern);
+        if (!match) return { success: false, milestones: [], error: "Invalid S3 URL format" };
+
+        const [, bucket, , s3Key] = match;
+        const decodedKey = decodeURIComponent(s3Key);
+
+        const textractResult = await extractTextWithTextract(bucket, decodedKey);
+        if (!textractResult.success || !textractResult.text) {
+            return { success: false, milestones: [], error: textractResult.error };
+        }
+
+        const milestones = await extractMilestonesFromPDF(textractResult.text);
+        return { success: true, milestones };
     } catch (error) {
         console.error("[extractMilestonesFromS3] Error:", error);
         return { success: false, milestones: [], error: "Extraction failed" };

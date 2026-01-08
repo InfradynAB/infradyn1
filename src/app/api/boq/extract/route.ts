@@ -116,9 +116,16 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // For PDF files, use AI extraction
-        if (contentType.includes("pdf") || fileUrl.endsWith(".pdf")) {
-            console.log("[BOQ Extract] Processing PDF for BOQ extraction");
+        // For PDF or Word files, use AI extraction via PO extract endpoint
+        if (
+            contentType.includes("pdf") ||
+            fileUrl.endsWith(".pdf") ||
+            contentType.includes("msword") ||
+            contentType.includes("wordprocessingml") ||
+            fileUrl.endsWith(".doc") ||
+            fileUrl.endsWith(".docx")
+        ) {
+            console.log("[BOQ Extract] Processing PDF/Word for BOQ extraction");
 
             // Get incoming headers to forward auth cookies
             const reqHeaders = await headers();

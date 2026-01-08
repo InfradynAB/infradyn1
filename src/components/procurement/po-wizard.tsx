@@ -591,7 +591,7 @@ export default function POWizard({
                                     <input
                                         type="file"
                                         id="po-upload"
-                                        accept=".pdf,application/pdf"
+                                        accept=".pdf,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                                         className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                         onChange={handlePOFileChange}
                                         disabled={uploadProgress !== "idle" && uploadProgress !== "error"}
@@ -601,7 +601,7 @@ export default function POWizard({
                                             <FileArrowUpIcon className="h-8 w-8" weight="duotone" />
                                         </div>
                                         <div>
-                                            <p className="font-black text-sm">Primary PO PDF</p>
+                                            <p className="font-black text-sm">Primary PO Document</p>
                                             <p className="text-xs text-muted-foreground mt-1 truncate max-w-[200px]">
                                                 {selectedFile ? selectedFile.name : "Mandatory document"}
                                             </p>
@@ -614,7 +614,7 @@ export default function POWizard({
                                     <input
                                         type="file"
                                         id="supporting-upload"
-                                        accept=".pdf,application/pdf,.xlsx,.xls,.csv"
+                                        accept=".pdf,application/pdf,.xlsx,.xls,.csv,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                                         className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                         onChange={handleSupportingDocChange}
                                         disabled={uploadProgress !== "idle" && uploadProgress !== "error"}
