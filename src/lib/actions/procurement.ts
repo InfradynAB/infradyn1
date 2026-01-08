@@ -69,6 +69,65 @@ async function getUserOrganizationIds(userId: string): Promise<string[]> {
 // ============================================================================
 
 /**
+ * Generate a unique PO number for a project
+ * Format: {ProjectCode}-{YEAR}-{SEQUENCE} e.g., PROJ-2025-001
+ */
+export async function generatePONumber(
+    projectId: string
+): Promise<ActionResult<{ poNumber: string }>> {
+    try {
+        await getAuthenticatedUser();
+
+        // Get project details
+        const projectRecord = await db.query.project.findFirst({
+            where: eq(project.id, projectId),
+        });
+
+        if (!projectRecord) {
+            return { success: false, error: "Project not found" };
+        }
+
+        // Get project code (first 4-6 chars of name, uppercase, alphanumeric only)
+        const projectCode = (projectRecord.name || "PROJ")
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, "")
+            .substring(0, 4) || "PROJ";
+
+        // Get current year
+        const year = new Date().getFullYear();
+
+        // Count existing POs for this project this year
+        const existingPOs = await db.query.purchaseOrder.findMany({
+            where: eq(purchaseOrder.projectId, projectId),
+            columns: { poNumber: true },
+        });
+
+        // Find the highest sequence number for this pattern
+        const pattern = `${projectCode}-${year}-`;
+        let maxSequence = 0;
+
+        existingPOs.forEach((po) => {
+            if (po.poNumber.startsWith(pattern)) {
+                const seqPart = po.poNumber.replace(pattern, "");
+                const seq = parseInt(seqPart, 10);
+                if (!isNaN(seq) && seq > maxSequence) {
+                    maxSequence = seq;
+                }
+            }
+        });
+
+        // Generate next sequence (padded to 3 digits)
+        const nextSequence = (maxSequence + 1).toString().padStart(3, "0");
+        const poNumber = `${projectCode}-${year}-${nextSequence}`;
+
+        return { success: true, data: { poNumber } };
+    } catch (error) {
+        console.error("[generatePONumber] Error:", error);
+        return { success: false, error: "Failed to generate PO number" };
+    }
+}
+
+/**
  * Create a new Purchase Order with initial version (v1)
  */
 export async function createPurchaseOrder(

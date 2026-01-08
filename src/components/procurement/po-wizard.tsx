@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { createPurchaseOrder, updatePurchaseOrder } from "@/lib/actions/procurement";
+import { createPurchaseOrder, updatePurchaseOrder, generatePONumber } from "@/lib/actions/procurement";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -418,6 +418,26 @@ export default function POWizard({
             return;
         }
 
+        // Step 2 validation: Must fill mandatory fields
+        if (currentStep === "details") {
+            const supplierId = watch("supplierId");
+            const poNumber = watch("poNumber");
+            const totalValue = watch("totalValue");
+
+            if (!supplierId) {
+                toast.error("Please select a supplier");
+                return;
+            }
+            if (!poNumber || poNumber.trim() === "") {
+                toast.error("Please enter a PO number");
+                return;
+            }
+            if (!totalValue || totalValue <= 0) {
+                toast.error("Please enter a valid total value");
+                return;
+            }
+        }
+
         const nextIndex = currentStepIndex + 1;
         if (nextIndex < STEPS.length) {
             setCurrentStep(STEPS[nextIndex].id);
@@ -571,7 +591,19 @@ export default function POWizard({
                                     <FilesIcon weight="fill" className="h-4 w-4" />
                                     Assign to Project
                                 </Label>
-                                <Select onValueChange={(v) => setValue("projectId", v)} value={watch("projectId")}>
+                                <Select
+                                    onValueChange={async (v) => {
+                                        setValue("projectId", v);
+                                        // Auto-generate PO number for new POs
+                                        if (mode === "create" && v) {
+                                            const result = await generatePONumber(v);
+                                            if (result.success && result.data) {
+                                                setValue("poNumber", result.data.poNumber);
+                                            }
+                                        }
+                                    }}
+                                    value={watch("projectId")}
+                                >
                                     <SelectTrigger className="h-12 rounded-xl border-muted-foreground/20 bg-background/50 font-bold">
                                         <SelectValue placeholder="Select a project" />
                                     </SelectTrigger>
@@ -818,6 +850,11 @@ export default function POWizard({
                         <ComplianceValidator
                             data={complianceData}
                             onNavigateToStep={(step) => setCurrentStep(step)}
+                            onUpdateValue={(field, value) => {
+                                if (field === "totalValue" && typeof value === "number") {
+                                    setValue("totalValue", value);
+                                }
+                            }}
                         />
 
                         <Card>
