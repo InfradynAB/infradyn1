@@ -270,9 +270,9 @@ export async function updatePaymentStatus(input: UpdatePaymentInput) {
 }
 
 /**
- * Get payment summary for a project or PO.
+ * Get payment summary for a project, PO, or supplier.
  */
-export async function getPaymentSummary(projectId?: string, purchaseOrderId?: string): Promise<{ success: boolean; data?: PaymentSummary; error?: string }> {
+export async function getPaymentSummary(projectId?: string, supplierId?: string, purchaseOrderId?: string): Promise<{ success: boolean; data?: PaymentSummary; error?: string }> {
     try {
         const user = await getCurrentUser();
         if (!user) {
@@ -284,6 +284,19 @@ export async function getPaymentSummary(projectId?: string, purchaseOrderId?: st
             whereClause = sql`${financialLedger.projectId} = ${projectId}`;
         } else if (purchaseOrderId) {
             whereClause = sql`${financialLedger.purchaseOrderId} = ${purchaseOrderId}`;
+        }
+
+        if (supplierId) {
+            // Need to join with PO to filter by supplierId
+            const poIds = await db.select({ id: purchaseOrder.id })
+                .from(purchaseOrder)
+                .where(eq(purchaseOrder.supplierId, supplierId));
+
+            const ids = poIds.map(p => p.id);
+            if (ids.length === 0) {
+                return { success: true, data: { totalCommitted: 0, totalPaid: 0, totalPending: 0, totalOverdue: 0, totalRetained: 0 } };
+            }
+            whereClause = and(whereClause, sql`${financialLedger.purchaseOrderId} IN (${sql.join(ids, sql`, `)})`) as any;
         }
 
         // Get all ledger entries
@@ -414,20 +427,23 @@ export async function validateInvoiceAmount(invoiceId: string) {
 }
 
 /**
- * Get invoices pending payment for a project/PO.
+ * Get invoices pending payment for a project/PO/supplier.
  */
-export async function getPendingInvoices(projectId?: string, purchaseOrderId?: string) {
+export async function getPendingInvoices(projectId?: string, supplierId?: string, purchaseOrderId?: string) {
     try {
         const user = await getCurrentUser();
         if (!user) {
             return { success: false, error: "Unauthorized" };
         }
 
+        let whereClause = and(
+            purchaseOrderId ? eq(invoice.purchaseOrderId, purchaseOrderId) : sql`1=1`,
+            supplierId ? eq(invoice.supplierId, supplierId) : sql`1=1`,
+            sql`${invoice.status} IN ('PENDING', 'PARTIALLY_PAID', 'OVERDUE')`
+        );
+
         let query = db.query.invoice.findMany({
-            where: and(
-                purchaseOrderId ? eq(invoice.purchaseOrderId, purchaseOrderId) : sql`1=1`,
-                sql`${invoice.status} IN ('PENDING', 'PARTIALLY_PAID', 'OVERDUE')`
-            ),
+            where: whereClause,
             with: {
                 milestone: true,
                 supplier: true,
@@ -504,7 +520,6 @@ export async function calculateBudgetExposure(projectId: string) {
             success: true,
             data: {
                 totalPOs: pos.length,
-                totalCommitted,
                 totalForecasted,
                 totalApprovedProgress,
                 ...paymentData,

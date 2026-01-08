@@ -5,7 +5,7 @@ import { getPaymentSummary, calculateBudgetExposure, getPendingInvoices } from "
 import { getCOImpactSummary, getPendingChangeOrders } from "@/lib/actions/change-order-engine";
 import db from "@/db/drizzle";
 import { purchaseOrder, milestone, progressRecord, supplier } from "@/db/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and, inArray } from "drizzle-orm";
 
 interface SupplierProgress {
     supplierId: string;
@@ -30,34 +30,54 @@ export async function GET(request: NextRequest) {
         const projectId = searchParams.get("projectId");
         const section = searchParams.get("section");
 
+        // PMs see org data, Suppliers see their specific data
+        const isSupplier = session.user.role === "SUPPLIER";
+        let supplierId: string | undefined;
+
+        if (isSupplier) {
+            const supplierProfile = await db.query.supplier.findFirst({
+                where: eq(supplier.userId, session.user.id)
+            });
+            if (!supplierProfile) {
+                return NextResponse.json({ error: "Supplier profile not found" }, { status: 404 });
+            }
+            supplierId = supplierProfile.id;
+        }
+
+        // Helper to wrap global queries with the correct scoping
+        const options = {
+            projectId: projectId || undefined,
+            supplierId
+        };
+
         // If specific section requested
         if (section) {
             switch (section) {
                 case "payments":
-                    const payments = await getPaymentSummary(projectId || undefined);
+                    const payments = await getPaymentSummary(options.projectId, options.supplierId, undefined);
                     return NextResponse.json(payments);
 
                 case "budget":
                     if (!projectId) {
                         return NextResponse.json({ error: "projectId required for budget" }, { status: 400 });
                     }
-                    const budget = await calculateBudgetExposure(projectId);
+                    const budget = await calculateBudgetExposure(projectId); // Budget is always project-scoped
                     return NextResponse.json(budget);
 
                 case "pending-invoices":
-                    const invoices = await getPendingInvoices(projectId || undefined);
+                    const invoices = await getPendingInvoices(options.projectId, options.supplierId, undefined);
                     return NextResponse.json(invoices);
 
                 case "pending-cos":
-                    const cos = await getPendingChangeOrders();
+                    const cos = await getPendingChangeOrders(options.projectId, options.supplierId, undefined);
                     return NextResponse.json(cos);
 
                 case "co-impact":
-                    const impact = await getCOImpactSummary(projectId || undefined);
+                    const impact = await getCOImpactSummary(options.projectId, options.supplierId, undefined);
                     return NextResponse.json(impact);
 
                 case "supplier-progress":
-                    const supplierProgress = await getSupplierProgress(projectId || undefined);
+                    const supplierProgress = await getSupplierProgress(options.projectId, options.supplierId);
                     return NextResponse.json({ success: true, data: supplierProgress });
 
                 default:
@@ -74,12 +94,12 @@ export async function GET(request: NextRequest) {
             coImpact,
             supplierProgress,
         ] = await Promise.all([
-            getPaymentSummary(projectId || undefined),
+            getPaymentSummary(options.projectId, options.supplierId, undefined),
             projectId ? calculateBudgetExposure(projectId) : Promise.resolve({ success: true, data: null }),
-            getPendingInvoices(projectId || undefined),
-            getPendingChangeOrders(),
-            getCOImpactSummary(projectId || undefined),
-            getSupplierProgress(projectId || undefined),
+            getPendingInvoices(options.projectId, options.supplierId, undefined),
+            getPendingChangeOrders(options.projectId, options.supplierId, undefined),
+            getCOImpactSummary(options.projectId, options.supplierId, undefined),
+            getSupplierProgress(options.projectId, options.supplierId),
         ]);
 
         return NextResponse.json({
@@ -105,39 +125,31 @@ export async function GET(request: NextRequest) {
 /**
  * Calculate progress metrics grouped by supplier
  */
-async function getSupplierProgress(projectId?: string): Promise<SupplierProgress[]> {
+async function getSupplierProgress(projectId?: string, supplierId?: string): Promise<SupplierProgress[]> {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user) return [];
+
     // Get all POs with their milestones and progress
-    let pos;
-    if (projectId) {
-        pos = await db.query.purchaseOrder.findMany({
-            where: eq(purchaseOrder.projectId, projectId),
-            with: {
-                supplier: true,
-                milestones: {
-                    with: {
-                        progressRecords: {
-                            orderBy: [desc(progressRecord.createdAt)],
-                            limit: 1,
-                        },
+    let whereClause = and(
+        projectId ? eq(purchaseOrder.projectId, projectId) : sql`1=1`,
+        supplierId ? eq(purchaseOrder.supplierId, supplierId) : sql`1=1`,
+        eq(purchaseOrder.organizationId, session.user.organizationId as string)
+    );
+
+    const pos = await db.query.purchaseOrder.findMany({
+        where: whereClause,
+        with: {
+            supplier: true,
+            milestones: {
+                with: {
+                    progressRecords: {
+                        orderBy: [desc(progressRecord.createdAt)],
+                        limit: 1,
                     },
                 },
             },
-        });
-    } else {
-        pos = await db.query.purchaseOrder.findMany({
-            with: {
-                supplier: true,
-                milestones: {
-                    with: {
-                        progressRecords: {
-                            orderBy: [desc(progressRecord.createdAt)],
-                            limit: 1,
-                        },
-                    },
-                },
-            },
-        });
-    }
+        },
+    });
 
     // Group by supplier
     const supplierMap = new Map<string, {
@@ -166,7 +178,7 @@ async function getSupplierProgress(projectId?: string): Promise<SupplierProgress
 
     // Calculate aggregates
     const result: SupplierProgress[] = [];
-    for (const [supplierId, data] of supplierMap) {
+    for (const [sId, data] of supplierMap) {
         const totalMilestones = data.milestones.length;
         const completedMilestones = data.milestones.filter(m => m.progress >= 100).length;
         const avgProgress = totalMilestones > 0
@@ -174,7 +186,7 @@ async function getSupplierProgress(projectId?: string): Promise<SupplierProgress
             : 0;
 
         result.push({
-            supplierId,
+            supplierId: sId,
             supplierName: data.supplierName,
             totalMilestones,
             avgProgress: Math.round(avgProgress * 10) / 10,

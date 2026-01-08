@@ -144,6 +144,10 @@ async function POList() {
     );
 }
 
+import { ProgressDashboard } from "@/components/procurement/progress-dashboard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ChartLineUpIcon, ListIcon } from "@phosphor-icons/react/dist/ssr";
+
 // Main Page
 export default async function ProcurementPage() {
     const session = await auth.api.getSession({
@@ -163,7 +167,7 @@ export default async function ProcurementPage() {
                         Procurement
                     </h1>
                     <p className="text-muted-foreground">
-                        Manage purchase orders and track materials
+                        Manage purchase orders and track financial progress
                     </p>
                 </div>
                 <Button asChild>
@@ -174,20 +178,39 @@ export default async function ProcurementPage() {
                 </Button>
             </div>
 
-            {/* PO List Card */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Purchase Orders</CardTitle>
-                    <CardDescription>
-                        All purchase orders across your projects
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Suspense fallback={<POTableSkeleton />}>
-                        <POList />
-                    </Suspense>
-                </CardContent>
-            </Card>
+            <Tabs defaultValue="list" className="space-y-6">
+                <TabsList>
+                    <TabsTrigger value="list" className="gap-2">
+                        <ListIcon className="h-4 w-4" />
+                        PO List
+                    </TabsTrigger>
+                    <TabsTrigger value="dashboard" className="gap-2">
+                        <ChartLineUpIcon className="h-4 w-4" />
+                        Performance Dashboard
+                    </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="list">
+                    {/* PO List Card */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Recent Orders</CardTitle>
+                            <CardDescription>
+                                All purchase orders across your projects
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Suspense fallback={<POTableSkeleton />}>
+                                <POList />
+                            </Suspense>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="dashboard">
+                    <ProgressDashboard />
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

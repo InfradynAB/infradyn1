@@ -2,14 +2,19 @@ import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import db from "@/db/drizzle";
-import { purchaseOrder, supplier } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { purchaseOrder, supplier, progressRecord, changeOrder } from "@/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SupplierPOActions } from "@/components/supplier/po-actions";
-import { FileTextIcon, CalendarIcon, PackageIcon, StackIcon, TruckIcon } from "@phosphor-icons/react/dist/ssr";
+import { FileTextIcon, CalendarIcon, PackageIcon, StackIcon, TruckIcon, CurrencyDollarIcon, ArrowsClockwiseIcon } from "@phosphor-icons/react/dist/ssr";
+import { format } from "date-fns";
+import { InvoiceUploadSheet } from "@/components/procurement/invoice-upload-sheet";
+import { ChangeOrderForm } from "@/components/procurement/change-order-form";
+import { PaymentStatusBadge, COStatusBadge } from "@/components/procurement/payment-status-badge";
+import { Button } from "@/components/ui/button";
 
 export default async function SupplierPODetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -37,10 +42,27 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
         with: {
             project: true,
             boqItems: true,
-            milestones: true,
+            milestones: {
+                with: {
+                    payments: true,
+                    progressRecords: {
+                        orderBy: desc(progressRecord.reportedDate),
+                        limit: 1
+                    }
+                }
+            },
+            changeOrders: {
+                orderBy: desc(changeOrder.createdAt)
+            },
             organization: true
         }
     });
+
+    // Import progressRecord and changeOrder from schema for the query
+    // Wait, the query is using db.query.purchaseOrder.findFirst, so I need to check if schema is imported correctly.
+    // In this file, db is imported from "@/db/drizzle", but schema tables are imported from "@/db/schema".
+    // I should check if progressRecord and changeOrder are in the schema imports.
+
 
     if (!po) {
         notFound();
@@ -209,15 +231,86 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
                                                 <div className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">Value</div>
                                                 <div className="font-bold text-lg">{po.currency} {Number(ms.amount).toLocaleString()}</div>
                                             </div>
-                                            <Badge variant="secondary" className="bg-slate-100 text-slate-800 font-bold px-3 py-1 ring-1 ring-slate-200">
-                                                {ms.status}
-                                            </Badge>
+                                            <div className="flex flex-col items-end gap-2">
+                                                <PaymentStatusBadge status={(ms as any).payments?.[0]?.status || "NOT_STARTED"} />
+                                                <InvoiceUploadSheet
+                                                    purchaseOrderId={po.id}
+                                                    milestones={[{
+                                                        id: ms.id,
+                                                        title: ms.title,
+                                                        status: ms.status || "NOT_STARTED",
+                                                        amount: ms.amount?.toString(),
+                                                        paymentPercentage: ms.paymentPercentage?.toString() || "0",
+                                                    }]}
+                                                    poTotalValue={Number(po.totalValue)}
+                                                    trigger={
+                                                        <Button variant="ghost" size="sm" className="h-7 text-[10px] font-black uppercase">
+                                                            Upload Invoice
+                                                        </Button>
+                                                    }
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     )}
+
+                    {/* Phase 5: Change Orders Section */}
+                    <div className="space-y-4 pt-4">
+                        <div className="flex items-center justify-between px-2">
+                            <h3 className="text-2xl font-black tracking-tight flex items-center gap-2">
+                                <ArrowsClockwiseIcon className="h-7 w-7 text-indigo-500" weight="duotone" />
+                                Change Orders
+                            </h3>
+                            <ChangeOrderForm
+                                purchaseOrderId={po.id}
+                                currentPOValue={Number(po.totalValue)}
+                                milestones={po.milestones.map(m => ({
+                                    id: m.id,
+                                    title: m.title,
+                                    status: m.status || "NOT_STARTED"
+                                }))}
+                            />
+                        </div>
+
+                        {po.changeOrders?.length > 0 ? (
+                            <div className="grid gap-4">
+                                {po.changeOrders.map((co: any) => (
+                                    <div key={co.id} className="bg-card/60 backdrop-blur-md p-5 rounded-2xl border border-muted/50 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-3 mb-1">
+                                                <span className="font-black text-sm text-indigo-600">{co.changeNumber}</span>
+                                                <COStatusBadge status={co.status} />
+                                                <span className="text-xs text-muted-foreground">
+                                                    {format(new Date(co.createdAt), "MMM d, yyyy")}
+                                                </span>
+                                            </div>
+                                            <p className="font-bold truncate text-sm">{co.reason}</p>
+                                        </div>
+                                        <div className="flex items-center gap-6 border-t md:border-t-0 pt-4 md:pt-0">
+                                            <div className="text-right">
+                                                <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Impact</div>
+                                                <div className={Number(co.amountDelta) >= 0 ? "text-amber-600 font-bold" : "text-green-600 font-bold"}>
+                                                    {Number(co.amountDelta) >= 0 ? "+" : ""}
+                                                    {po.currency} {Number(co.amountDelta).toLocaleString()}
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Schedule</div>
+                                                <div className="font-bold">{co.scheduleImpactDays > 0 ? `+${co.scheduleImpactDays}d` : "—"}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="bg-muted/20 border-2 border-dashed rounded-2xl py-10 text-center">
+                                <p className="text-muted-foreground font-medium">No change orders on record.</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

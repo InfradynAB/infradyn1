@@ -119,8 +119,8 @@ export async function processInvoiceEscalations(): Promise<EscalationResult> {
                 // Check if notification already sent at this level today
                 const existingNotification = await db.query.notification.findFirst({
                     where: and(
-                        sql`${notification.metadata}::jsonb->>'invoiceId' = ${inv.id}`,
-                        sql`${notification.metadata}::jsonb->>'escalationLevel' = ${level.toString()}`,
+                        sql`${(notification as any).metadata}::jsonb->>'invoiceId' = ${inv.id}`,
+                        sql`${(notification as any).metadata}::jsonb->>'escalationLevel' = ${level.toString()}`,
                         sql`${notification.createdAt} > ${new Date(now.getTime() - 24 * 60 * 60 * 1000)}`
                     ),
                 });
@@ -128,11 +128,11 @@ export async function processInvoiceEscalations(): Promise<EscalationResult> {
                 if (!existingNotification) {
                     // Create notification (would need to find actual user by role)
                     await db.insert(notification).values({
-                        userId: null, // Would be populated based on role
+                        userId: inv.purchaseOrder.organizationId, // Fallback
                         type: level >= ESCALATION_LEVELS.PM ? "PAYMENT_ESCALATION" : "PAYMENT_REMINDER",
                         title: level >= ESCALATION_LEVELS.PM ? "Overdue Invoice Escalation" : "Invoice Payment Reminder",
                         message,
-                        link: `/procurement/invoices/${inv.id}`,
+                        linkUrl: `/procurement/invoices/${inv.id}`,
                         metadata: JSON.stringify({
                             invoiceId: inv.id,
                             invoiceNumber: inv.invoiceNumber,
@@ -224,19 +224,19 @@ export async function processCOEscalations(): Promise<EscalationResult> {
             if (level > ESCALATION_LEVELS.NONE) {
                 const existingNotification = await db.query.notification.findFirst({
                     where: and(
-                        sql`${notification.metadata}::jsonb->>'changeOrderId' = ${co.id}`,
-                        sql`${notification.metadata}::jsonb->>'escalationLevel' = ${level.toString()}`,
+                        sql`${(notification as any).metadata}::jsonb->>'changeOrderId' = ${co.id}`,
+                        sql`${(notification as any).metadata}::jsonb->>'escalationLevel' = ${level.toString()}`,
                         sql`${notification.createdAt} > ${new Date(now.getTime() - 24 * 60 * 60 * 1000)}`
                     ),
                 });
 
                 if (!existingNotification) {
                     await db.insert(notification).values({
-                        userId: null,
+                        userId: co.purchaseOrder.organizationId,
                         type: level >= ESCALATION_LEVELS.EXECUTIVE ? "CO_ESCALATION" : "CO_REMINDER",
                         title: level >= ESCALATION_LEVELS.EXECUTIVE ? "Change Order Escalation" : "Change Order Review Reminder",
                         message,
-                        link: `/procurement/change-orders/${co.id}`,
+                        linkUrl: `/procurement/change-orders/${co.id}`,
                         metadata: JSON.stringify({
                             changeOrderId: co.id,
                             changeNumber: co.changeNumber,
@@ -327,19 +327,19 @@ export async function processMilestoneValidationEscalations(): Promise<Escalatio
             if (level > ESCALATION_LEVELS.NONE) {
                 const existingNotification = await db.query.notification.findFirst({
                     where: and(
-                        sql`${notification.metadata}::jsonb->>'milestoneId' = ${ms.id}`,
-                        sql`${notification.metadata}::jsonb->>'type' = 'VALIDATION_REMINDER'`,
+                        sql`${(notification as any).metadata}::jsonb->>'milestoneId' = ${ms.id}`,
+                        sql`${(notification as any).metadata}::jsonb->>'type' = 'VALIDATION_REMINDER'`,
                         sql`${notification.createdAt} > ${new Date(now.getTime() - 24 * 60 * 60 * 1000)}`
                     ),
                 });
 
                 if (!existingNotification) {
                     await db.insert(notification).values({
-                        userId: null,
+                        userId: ms.purchaseOrder.organizationId,
                         type: "MILESTONE_VALIDATION_REMINDER",
                         title: level >= ESCALATION_LEVELS.EXECUTIVE ? "Milestone Validation Overdue" : "Milestone Validation Required",
                         message,
-                        link: `/procurement/${ms.purchaseOrderId}`,
+                        linkUrl: `/procurement/${ms.purchaseOrderId}`,
                         metadata: JSON.stringify({
                             milestoneId: ms.id,
                             milestoneTitle: ms.title,

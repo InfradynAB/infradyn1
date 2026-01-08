@@ -32,6 +32,8 @@ import {
     ChartLineUpIcon,
     ImagesIcon,
     WarningCircleIcon,
+    CurrencyDollarIcon,
+    ArrowsClockwiseIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { format } from "date-fns";
 import { UploadVersionDialog } from "@/components/procurement/upload-version-dialog";
@@ -41,6 +43,11 @@ import { InternalProgressForm } from "@/components/procurement/internal-progress
 import { POGallery } from "@/components/procurement/po-gallery";
 import { ConflictQueue } from "@/components/procurement/conflict-queue";
 import { ConflictResolver } from "@/components/procurement/conflict-resolver";
+// Phase 5 imports
+import { InvoiceUploadSheet } from "@/components/procurement/invoice-upload-sheet";
+import { ChangeOrderForm } from "@/components/procurement/change-order-form";
+import { PaymentStatusBadge, COStatusBadge } from "@/components/procurement/payment-status-badge";
+import { ProgressDashboard } from "@/components/procurement/progress-dashboard";
 import { TrustIndicator } from "@/components/shared/trust-indicator";
 import { getDocumentsByParentId } from "@/lib/actions/documents";
 import {
@@ -228,6 +235,14 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                     </TabsTrigger>
                     <TabsTrigger value="boq">BOQ Items</TabsTrigger>
                     <TabsTrigger value="versions">Version History</TabsTrigger>
+                    <TabsTrigger value="financials" className="gap-1.5">
+                        <CurrencyDollarIcon className="h-4 w-4" />
+                        Financials
+                    </TabsTrigger>
+                    <TabsTrigger value="change-orders" className="gap-1.5">
+                        <ArrowsClockwiseIcon className="h-4 w-4" />
+                        Change Orders
+                    </TabsTrigger>
                 </TabsList>
 
                 {/* Overview Tab */}
@@ -529,6 +544,80 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                     </div>
                                 ))}
                             </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* Financials Tab - Phase 5 */}
+                <TabsContent value="financials" className="space-y-6">
+                    <div className="flex justify-end">
+                        <InvoiceUploadSheet
+                            purchaseOrderId={po.id}
+                            milestones={(po as any).milestones || []}
+                            poTotalValue={Number(po.totalValue)}
+                        />
+                    </div>
+
+                    <ProgressDashboard projectId={po.projectId} />
+                </TabsContent>
+
+                {/* Change Orders Tab - Phase 5 */}
+                <TabsContent value="change-orders" className="space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-medium">Change Order Tracking</h3>
+                        <ChangeOrderForm
+                            purchaseOrderId={po.id}
+                            currentPOValue={Number(po.totalValue)}
+                            milestones={(po as any).milestones || []}
+                        />
+                    </div>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>History</CardTitle>
+                            <CardDescription>All change orders for this purchase order</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {(po as any).changeOrders?.length > 0 ? (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Number</TableHead>
+                                            <TableHead>Reason</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead className="text-right">Impact</TableHead>
+                                            <TableHead className="text-right">Schedule</TableHead>
+                                            <TableHead className="text-right">Date</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {(po as any).changeOrders.map((co: any) => (
+                                            <TableRow key={co.id}>
+                                                <TableCell className="font-medium">{co.changeNumber}</TableCell>
+                                                <TableCell className="max-w-[300px] truncate">{co.reason}</TableCell>
+                                                <TableCell>
+                                                    <COStatusBadge status={co.status} />
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono">
+                                                    {Number(co.amountDelta) >= 0 ? "+" : ""}
+                                                    {Number(co.amountDelta).toLocaleString()}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {co.scheduleImpactDays > 0 ? `+${co.scheduleImpactDays}d` : "—"}
+                                                </TableCell>
+                                                <TableCell className="text-right text-muted-foreground">
+                                                    {format(new Date(co.createdAt), "MMM d, yyyy")}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            ) : (
+                                <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+                                    <ArrowsClockwiseIcon className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                                    <p>No change orders requested for this PO.</p>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>

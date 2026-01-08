@@ -331,7 +331,7 @@ export async function rejectChangeOrder(input: RejectCOInput) {
 /**
  * Get pending change orders for review.
  */
-export async function getPendingChangeOrders(purchaseOrderId?: string) {
+export async function getPendingChangeOrders(projectId?: string, supplierId?: string, purchaseOrderId?: string) {
     try {
         const user = await getCurrentUser();
         if (!user) {
@@ -341,6 +341,8 @@ export async function getPendingChangeOrders(purchaseOrderId?: string) {
         const cos = await db.query.changeOrder.findMany({
             where: and(
                 purchaseOrderId ? eq(changeOrder.purchaseOrderId, purchaseOrderId) : sql`1=1`,
+                supplierId ? sql`${changeOrder.purchaseOrderId} IN (SELECT id FROM purchase_order WHERE supplier_id = ${supplierId})` : sql`1=1`,
+                projectId ? sql`${changeOrder.purchaseOrderId} IN (SELECT id FROM purchase_order WHERE project_id = ${projectId})` : sql`1=1`,
                 sql`${changeOrder.status} IN ('SUBMITTED', 'UNDER_REVIEW')`
             ),
             with: {
@@ -362,9 +364,9 @@ export async function getPendingChangeOrders(purchaseOrderId?: string) {
 }
 
 /**
- * Get CO impact summary for a project or PO.
+ * Get CO impact summary for a project, PO, or supplier.
  */
-export async function getCOImpactSummary(projectId?: string, purchaseOrderId?: string): Promise<{ success: boolean; data?: COImpactSummary; error?: string }> {
+export async function getCOImpactSummary(projectId?: string, supplierId?: string, purchaseOrderId?: string): Promise<{ success: boolean; data?: COImpactSummary; error?: string }> {
     try {
         const user = await getCurrentUser();
         if (!user) {
@@ -373,23 +375,15 @@ export async function getCOImpactSummary(projectId?: string, purchaseOrderId?: s
 
         let cos: any[];
 
-        if (purchaseOrderId) {
-            cos = await db.query.changeOrder.findMany({
-                where: eq(changeOrder.purchaseOrderId, purchaseOrderId),
-            });
-        } else if (projectId) {
-            // Get all POs for project, then their COs
-            const pos = await db.query.purchaseOrder.findMany({
-                where: eq(purchaseOrder.projectId, projectId),
-            });
-            const poIds = pos.map(p => p.id);
+        let whereClause = and(
+            purchaseOrderId ? eq(changeOrder.purchaseOrderId, purchaseOrderId) : sql`1=1`,
+            projectId ? sql`${changeOrder.purchaseOrderId} IN (SELECT id FROM purchase_order WHERE project_id = ${projectId})` : sql`1=1`,
+            supplierId ? sql`${changeOrder.purchaseOrderId} IN (SELECT id FROM purchase_order WHERE supplier_id = ${supplierId})` : sql`1=1`
+        );
 
-            cos = await db.query.changeOrder.findMany({
-                where: sql`${changeOrder.purchaseOrderId} IN (${sql.join(poIds.map(id => sql`${id}`), sql`, `)})`,
-            });
-        } else {
-            cos = await db.query.changeOrder.findMany({});
-        }
+        cos = await db.query.changeOrder.findMany({
+            where: whereClause,
+        });
 
         let totalCostImpact = 0;
         let totalScheduleImpact = 0;

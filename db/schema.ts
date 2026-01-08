@@ -624,6 +624,7 @@ export const notification = pgTable('notification', {
     type: text('type').default('INFO'),
     readAt: timestamp('read_at'),
     linkUrl: text('link_url'),
+    metadata: text('metadata'), // JSON
 });
 
 export const integrationKey = pgTable('integration_key', {
@@ -695,6 +696,7 @@ export const purchaseOrderRelations = relations(purchaseOrder, ({ one, many }) =
     shipments: many(shipment),
     invoices: many(invoice),
     conflicts: many(conflictRecord),
+    changeOrders: many(changeOrder),
     organization: one(organization, { fields: [purchaseOrder.organizationId], references: [organization.id] }),
 }));
 

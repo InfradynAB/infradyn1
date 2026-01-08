@@ -30,10 +30,10 @@ import { toast } from "sonner";
 
 const changeOrderSchema = z.object({
     reason: z.string().min(10, "Please provide a detailed reason"),
-    amountDelta: z.coerce.number(),
+    amountDelta: z.number(),
     scopeChange: z.string().optional(),
-    scheduleImpactDays: z.coerce.number().optional(),
-    affectedMilestoneIds: z.array(z.string()).default([]),
+    scheduleImpactDays: z.number().optional(),
+    affectedMilestoneIds: z.array(z.string()),
 });
 
 type ChangeOrderFormData = z.infer<typeof changeOrderSchema>;
@@ -248,9 +248,9 @@ export function ChangeOrderForm({
                                                     <FormItem className="flex items-center space-x-3 space-y-0">
                                                         <FormControl>
                                                             <Checkbox
-                                                                checked={field.value?.includes(ms.id)}
+                                                                checked={(field.value as string[] || []).includes(ms.id)}
                                                                 onCheckedChange={(checked) => {
-                                                                    const current = field.value || [];
+                                                                    const current = (field.value as string[]) || [];
                                                                     if (checked) {
                                                                         field.onChange([...current, ms.id]);
                                                                     } else {

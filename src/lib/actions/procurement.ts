@@ -11,6 +11,8 @@ import {
     boqItem,
     progressRecord,
     conflictRecord,
+    changeOrder,
+    invoice,
 } from "@/db/schema";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
@@ -435,7 +437,15 @@ export async function getPurchaseOrder(
                         progressRecords: {
                             orderBy: desc(progressRecord.reportedDate),
                         },
+                        payments: true,
+                        invoices: true,
                     },
+                },
+                changeOrders: {
+                    orderBy: desc(changeOrder.createdAt),
+                },
+                invoices: {
+                    orderBy: desc(invoice.createdAt),
                 },
                 conflicts: {
                     with: {
