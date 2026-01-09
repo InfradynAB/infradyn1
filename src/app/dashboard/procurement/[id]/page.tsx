@@ -60,6 +60,7 @@ import {
     CheckCircle,
     Warning,
 } from "@phosphor-icons/react/dist/ssr";
+import { COActions, InvoiceActions } from "@/components/procurement/finance-actions";
 
 // Status badge colors
 const statusColors: Record<string, string> = {
@@ -420,11 +421,21 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <p className="font-mono font-medium">
-                                                            {po.currency} {Number(inv.amount).toLocaleString()}
-                                                        </p>
-                                                        <PaymentStatusBadge status={inv.status} />
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="text-right">
+                                                            <p className="font-mono font-medium">
+                                                                {po.currency} {Number(inv.amount).toLocaleString()}
+                                                            </p>
+                                                            <PaymentStatusBadge status={inv.status} />
+                                                        </div>
+                                                        <InvoiceActions
+                                                            invoiceId={inv.id}
+                                                            invoiceNumber={inv.invoiceNumber}
+                                                            amount={Number(inv.amount)}
+                                                            paidAmount={Number(inv.paidAmount || 0)}
+                                                            status={inv.status}
+                                                            currency={po.currency}
+                                                        />
                                                     </div>
                                                 </div>
                                             ))}
@@ -488,14 +499,22 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <p className={`font-mono font-medium ${Number(co.amountDelta) > 0 ? "text-amber-600" :
-                                                            Number(co.amountDelta) < 0 ? "text-green-600" : ""
-                                                            }`}>
-                                                            {Number(co.amountDelta) >= 0 ? "+" : ""}
-                                                            {po.currency} {Number(co.amountDelta).toLocaleString()}
-                                                        </p>
-                                                        <COStatusBadge status={co.status} />
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="text-right">
+                                                            <p className={`font-mono font-medium ${Number(co.amountDelta) > 0 ? "text-amber-600" :
+                                                                Number(co.amountDelta) < 0 ? "text-green-600" : ""
+                                                                }`}>
+                                                                {Number(co.amountDelta) >= 0 ? "+" : ""}
+                                                                {po.currency} {Number(co.amountDelta).toLocaleString()}
+                                                            </p>
+                                                            <COStatusBadge status={co.status} />
+                                                        </div>
+                                                        <COActions
+                                                            changeOrderId={co.id}
+                                                            changeNumber={co.changeNumber}
+                                                            status={co.status}
+                                                            amountDelta={Number(co.amountDelta)}
+                                                        />
                                                     </div>
                                                 </div>
                                             ))}
