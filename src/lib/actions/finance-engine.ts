@@ -159,6 +159,7 @@ export async function createInvoice(input: CreateInvoiceInput) {
         }
 
         await logAudit("INVOICE_CREATED", "invoice", newInvoice.id, {
+            purchaseOrderId: input.purchaseOrderId,
             invoiceNumber: input.invoiceNumber,
             amount: input.amount,
             milestoneId: input.milestoneId,
@@ -255,6 +256,8 @@ export async function updatePaymentStatus(input: UpdatePaymentInput) {
         }
 
         await logAudit("PAYMENT_RECORDED", "invoice", input.invoiceId, {
+            purchaseOrderId: inv.purchaseOrderId,
+            invoiceNumber: inv.invoiceNumber,
             amount: input.paidAmount,
             totalPaid,
             status,

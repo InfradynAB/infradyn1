@@ -59,8 +59,11 @@ import {
     ArrowsClockwise,
     CheckCircle,
     Warning,
+    ClockCounterClockwise,
 } from "@phosphor-icons/react/dist/ssr";
 import { COActions, InvoiceActions } from "@/components/procurement/finance-actions";
+import { AuditLogTimeline } from "@/components/procurement/audit-log-timeline";
+import { MilestoneInvoiceStatus } from "@/components/procurement/milestone-invoice-status";
 
 // Status badge colors
 const statusColors: Record<string, string> = {
@@ -306,6 +309,10 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                     </TabsTrigger>
                     <TabsTrigger value="boq">BOQ Items</TabsTrigger>
                     <TabsTrigger value="versions">Version History</TabsTrigger>
+                    <TabsTrigger value="activity" className="gap-1.5">
+                        <ClockCounterClockwise className="h-4 w-4" />
+                        Activity Log
+                    </TabsTrigger>
                 </TabsList>
 
                 {/* Overview Tab */}
@@ -449,6 +456,51 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                     )}
                                 </CardContent>
                             </Card>
+
+                            {/* Ready to Invoice Milestones */}
+                            {(() => {
+                                const milestones = (po as any).milestones || [];
+                                const readyMilestones = milestones.filter((m: any) => {
+                                    const progress = m.progressRecords?.[0]?.percentComplete || 0;
+                                    const hasInvoice = pendingInvoices.some((inv: any) => inv.milestoneId === m.id);
+                                    return Number(progress) >= 100 && !hasInvoice;
+                                });
+
+                                if (readyMilestones.length === 0) return null;
+
+                                return (
+                                    <Card className="border-emerald-200 bg-emerald-50/30">
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-base flex items-center gap-2 text-emerald-700">
+                                                <CheckCircle className="h-5 w-5" />
+                                                Ready to Invoice ({readyMilestones.length})
+                                            </CardTitle>
+                                            <CardDescription>
+                                                Milestones at 100% completion without invoices
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="space-y-2">
+                                            {readyMilestones.map((m: any) => (
+                                                <div
+                                                    key={m.id}
+                                                    className="flex items-center justify-between p-2 bg-white rounded border"
+                                                >
+                                                    <div>
+                                                        <p className="font-medium text-sm">{m.title}</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {po.currency} {Number(m.amount || (Number(po.totalValue) * Number(m.paymentPercentage) / 100)).toLocaleString()}
+                                                        </p>
+                                                    </div>
+                                                    <MilestoneInvoiceStatus
+                                                        percentComplete={100}
+                                                        hasInvoice={false}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })()}
                         </div>
 
                         {/* Right Column: Change Orders */}
@@ -796,6 +848,11 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                             </div>
                         </CardContent>
                     </Card>
+                </TabsContent>
+
+                {/* Activity Log Tab */}
+                <TabsContent value="activity">
+                    <AuditLogTimeline purchaseOrderId={po.id} />
                 </TabsContent>
             </Tabs >
             <ConflictResolver

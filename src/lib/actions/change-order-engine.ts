@@ -121,6 +121,7 @@ export async function submitChangeOrder(input: SubmitCOInput) {
         }).returning();
 
         await logAudit("CO_SUBMITTED", "change_order", newCO.id, {
+            purchaseOrderId: input.purchaseOrderId,
             changeNumber,
             amountDelta: input.amountDelta,
             reason: input.reason,
@@ -185,6 +186,10 @@ export async function reviewChangeOrder(changeOrderId: string) {
             return { success: false, error: "Unauthorized" };
         }
 
+        const co = await db.query.changeOrder.findFirst({
+            where: eq(changeOrder.id, changeOrderId),
+        });
+
         await db.update(changeOrder)
             .set({
                 status: "UNDER_REVIEW",
@@ -192,7 +197,9 @@ export async function reviewChangeOrder(changeOrderId: string) {
             })
             .where(eq(changeOrder.id, changeOrderId));
 
-        await logAudit("CO_UNDER_REVIEW", "change_order", changeOrderId, {});
+        await logAudit("CO_UNDER_REVIEW", "change_order", changeOrderId, {
+            purchaseOrderId: co?.purchaseOrderId,
+        });
 
         revalidatePath("/procurement");
         return { success: true };
@@ -282,6 +289,8 @@ export async function approveChangeOrder(input: ApproveCOInput) {
         }
 
         await logAudit("CO_APPROVED", "change_order", input.changeOrderId, {
+            purchaseOrderId: co.purchaseOrderId,
+            changeNumber: co.changeNumber,
             approvedBy: user.id,
             amountDelta: co.amountDelta,
             newTotal: co.newTotalValue,
@@ -305,6 +314,10 @@ export async function rejectChangeOrder(input: RejectCOInput) {
             return { success: false, error: "Unauthorized" };
         }
 
+        const co = await db.query.changeOrder.findFirst({
+            where: eq(changeOrder.id, input.changeOrderId),
+        });
+
         await db.update(changeOrder)
             .set({
                 status: "REJECTED",
@@ -316,6 +329,7 @@ export async function rejectChangeOrder(input: RejectCOInput) {
             .where(eq(changeOrder.id, input.changeOrderId));
 
         await logAudit("CO_REJECTED", "change_order", input.changeOrderId, {
+            purchaseOrderId: co?.purchaseOrderId,
             rejectedBy: user.id,
             reason: input.rejectionReason,
         });
