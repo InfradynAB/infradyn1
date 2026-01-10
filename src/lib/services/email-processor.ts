@@ -332,8 +332,15 @@ export async function processEmailQueue(limit: number = 10): Promise<{
                 .where(eq(emailIngestion.id, email.id));
 
             // Process each attachment
+            console.log(`[EMAIL] Email ${email.id} has ${email.attachments.length} attachments`);
+
             for (const attachment of email.attachments) {
-                if (!attachment.fileUrl) continue;
+                console.log(`[EMAIL] Processing attachment: ${attachment.fileName}, fileUrl: ${attachment.fileUrl ? 'YES' : 'NO'}, documentId: ${attachment.documentId || 'NULL'}`);
+
+                if (!attachment.fileUrl) {
+                    console.log(`[EMAIL] Skipping ${attachment.fileName}: no fileUrl`);
+                    continue;
+                }
 
                 // Check OCR quota
                 const ocrQuota = await canUseQuota(email.organizationId, "AI_PARSE");
@@ -342,9 +349,18 @@ export async function processEmailQueue(limit: number = 10): Promise<{
                     continue;
                 }
 
+                // Need documentId to create extraction record
+                if (!attachment.documentId) {
+                    console.warn(`[EMAIL] Skipping extraction for ${attachment.fileName}: no documentId`);
+                    continue;
+                }
+
                 try {
                     // Extract content
+                    console.log(`[EMAIL] Starting extraction for ${attachment.fileName} from ${attachment.fileUrl}`);
                     const extractionResult = await extractPOFromS3(attachment.fileUrl);
+
+                    console.log(`[EMAIL] Extraction result: success=${extractionResult.success}, hasData=${!!extractionResult.data}`);
 
                     if (extractionResult.success && extractionResult.data) {
                         // Calculate confidence
