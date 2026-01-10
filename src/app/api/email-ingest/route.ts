@@ -86,14 +86,14 @@ async function verifyResendSignature(request: NextRequest, body: string): Promis
 async function downloadAttachment(emailId: string, attachmentId: string): Promise<Buffer | null> {
     const apiKey = process.env.RESEND_API_KEY;
 
-    // Try multiple endpoint formats - Resend's inbound email API may differ
+    // Try multiple endpoint formats - Resend's receiving API
     const endpoints = [
-        // Inbound specific endpoint
+        // CORRECT: Receiving email attachments endpoint (returns download_url)
+        `https://api.resend.com/emails/${emailId}/receiving/attachments`,
+        // Legacy inbound endpoint (may not work)
         `https://api.resend.com/inbound/emails/${emailId}/attachments/${attachmentId}`,
-        // Standard attachments endpoint
+        // Standard sent email attachments endpoint (won't work for inbound)
         `https://api.resend.com/emails/${emailId}/attachments/${attachmentId}`,
-        // List attachments for email then find the one
-        `https://api.resend.com/emails/${emailId}/attachments`,
     ];
 
     for (const url of endpoints) {
