@@ -30,8 +30,9 @@ interface ResendEmailReceivedPayload {
             id: string;
             filename: string;
             content_type: string;
-            size: number;
-            download_url: string;
+            content_disposition?: string;
+            content_id?: string;
+            size?: number;
         }>;
     };
 }
@@ -78,22 +79,30 @@ async function verifyResendSignature(request: NextRequest, body: string): Promis
 }
 
 /**
- * Download attachment from Resend's download URL
+ * Download attachment from Resend using the Attachments API
+ * @see https://resend.com/docs/api-reference/inbound/get-attachment
  */
-async function downloadAttachment(downloadUrl: string): Promise<Buffer | null> {
+async function downloadAttachment(emailId: string, attachmentId: string): Promise<Buffer | null> {
     try {
-        const response = await fetch(downloadUrl, {
+        // Resend Attachments API endpoint
+        const url = `https://api.resend.com/emails/${emailId}/attachments/${attachmentId}`;
+
+        console.log(`[EMAIL-INGEST] Downloading attachment: ${attachmentId} from email ${emailId}`);
+
+        const response = await fetch(url, {
             headers: {
                 Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
             },
         });
 
         if (!response.ok) {
-            console.error(`[EMAIL-INGEST] Failed to download attachment: ${response.status}`);
+            const errorText = await response.text();
+            console.error(`[EMAIL-INGEST] Failed to download attachment: ${response.status} - ${errorText}`);
             return null;
         }
 
         const arrayBuffer = await response.arrayBuffer();
+        console.log(`[EMAIL-INGEST] Downloaded attachment: ${arrayBuffer.byteLength} bytes`);
         return Buffer.from(arrayBuffer);
     } catch (error) {
         console.error("[EMAIL-INGEST] Attachment download error:", error);
@@ -111,14 +120,20 @@ async function parseResendPayload(payload: ResendEmailReceivedPayload): Promise<
     const attachments: InboundEmail["attachments"] = [];
 
     if (data.attachments && data.attachments.length > 0) {
+        console.log(`[EMAIL-INGEST] Processing ${data.attachments.length} attachments`);
+
         for (const att of data.attachments) {
-            const content = await downloadAttachment(att.download_url);
+            // Use email_id and attachment id to download
+            const content = await downloadAttachment(data.email_id, att.id);
             if (content) {
                 attachments.push({
                     filename: att.filename,
                     content,
                     contentType: att.content_type,
                 });
+                console.log(`[EMAIL-INGEST] Attachment processed: ${att.filename}`);
+            } else {
+                console.warn(`[EMAIL-INGEST] Failed to download attachment: ${att.filename}`);
             }
         }
     }
