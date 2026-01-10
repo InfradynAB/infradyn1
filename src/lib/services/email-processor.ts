@@ -233,6 +233,9 @@ export async function processAttachments(
                 "image/jpg",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "application/vnd.ms-excel",
+                // Word documents
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/msword",
             ].includes(attachment.contentType);
 
             if (!isDocument) continue;
