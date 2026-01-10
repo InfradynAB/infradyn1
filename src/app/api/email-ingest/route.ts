@@ -13,7 +13,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { handleInboundEmail, type InboundEmail } from "@/lib/services/email-processor";
+import { Resend } from "resend";
 import crypto from "crypto";
+
+// Initialize Resend client
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Resend email.received webhook payload structure
 interface ResendEmailReceivedPayload {
@@ -79,94 +83,60 @@ async function verifyResendSignature(request: NextRequest, body: string): Promis
 }
 
 /**
- * Download attachment from Resend using the Attachments API
- * Tries multiple endpoints since Resend's API differs for inbound vs outbound
- * @see https://resend.com/docs/api-reference/inbound/get-attachment
+ * Download attachment from Resend using the official SDK
+ * @see https://resend.com/docs/dashboard/receiving/attachments
  */
 async function downloadAttachment(emailId: string, attachmentId: string): Promise<Buffer | null> {
-    const apiKey = process.env.RESEND_API_KEY;
-
-    // Try the receiving attachments endpoint with POST (since GET returns 405)
-    const receivingUrl = `https://api.resend.com/emails/${emailId}/receiving/attachments`;
-
     try {
-        // Try POST method first (Resend may require this)
-        console.log(`[EMAIL-INGEST] Trying POST: ${receivingUrl}`);
+        console.log(`[EMAIL-INGEST] Using Resend SDK to list attachments for email: ${emailId}`);
 
-        const postResponse = await fetch(receivingUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email_id: emailId }),
+        // Use the official SDK method - this handles the API calls properly
+        // @ts-ignore - SDK types may not fully support receiving module
+        const response = await resend.emails.receiving.attachments.list({
+            emailId: emailId,
         });
 
-        if (postResponse.ok) {
-            const json = await postResponse.json();
-            console.log(`[EMAIL-INGEST] POST response:`, JSON.stringify(json).slice(0, 300));
-
-            // Find attachment with matching ID
-            const attachments = json.data || json;
-            const attachment = Array.isArray(attachments)
-                ? attachments.find((a: any) => a.id === attachmentId)
-                : null;
-
-            if (attachment?.download_url) {
-                console.log(`[EMAIL-INGEST] Downloading from presigned URL...`);
-                const downloadResponse = await fetch(attachment.download_url);
-                if (downloadResponse.ok) {
-                    const arrayBuffer = await downloadResponse.arrayBuffer();
-                    console.log(`[EMAIL-INGEST] Downloaded: ${arrayBuffer.byteLength} bytes`);
-                    return Buffer.from(arrayBuffer);
-                }
-            }
-        } else {
-            const errorText = await postResponse.text();
-            console.log(`[EMAIL-INGEST] POST returned ${postResponse.status}: ${errorText.slice(0, 100)}`);
+        if (response.error) {
+            console.error(`[EMAIL-INGEST] SDK error:`, response.error);
+            return null;
         }
-    } catch (error) {
-        console.log(`[EMAIL-INGEST] POST error: ${error}`);
-    }
 
-    // Fallback: Try GET as documented
-    try {
-        console.log(`[EMAIL-INGEST] Trying GET: ${receivingUrl}`);
+        // Access the data - SDK may nest it as data.data or just data
+        const responseData = response.data as any;
+        const attachmentsList = responseData?.data || responseData || [];
+        console.log(`[EMAIL-INGEST] SDK returned ${Array.isArray(attachmentsList) ? attachmentsList.length : 0} attachments`);
 
-        const getResponse = await fetch(receivingUrl, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-            },
-        });
+        // Find the specific attachment by ID
+        const attachment = Array.isArray(attachmentsList)
+            ? attachmentsList.find((a: any) => a.id === attachmentId)
+            : null;
 
-        if (getResponse.ok) {
-            const json = await getResponse.json();
-            console.log(`[EMAIL-INGEST] GET response:`, JSON.stringify(json).slice(0, 300));
-
-            const attachments = json.data || json;
-            const attachment = Array.isArray(attachments)
-                ? attachments.find((a: any) => a.id === attachmentId)
-                : null;
-
-            if (attachment?.download_url) {
-                const downloadResponse = await fetch(attachment.download_url);
-                if (downloadResponse.ok) {
-                    const arrayBuffer = await downloadResponse.arrayBuffer();
-                    console.log(`[EMAIL-INGEST] Downloaded: ${arrayBuffer.byteLength} bytes`);
-                    return Buffer.from(arrayBuffer);
-                }
-            }
-        } else {
-            const errorText = await getResponse.text();
-            console.log(`[EMAIL-INGEST] GET returned ${getResponse.status}: ${errorText.slice(0, 100)}`);
+        if (!attachment) {
+            console.error(`[EMAIL-INGEST] Attachment ${attachmentId} not found`);
+            return null;
         }
-    } catch (error) {
-        console.log(`[EMAIL-INGEST] GET error: ${error}`);
-    }
 
-    console.error("[EMAIL-INGEST] All attachment download methods failed");
-    return null;
+        if (!attachment.download_url) {
+            console.error(`[EMAIL-INGEST] No download_url for attachment`);
+            return null;
+        }
+
+        // Download from the presigned URL
+        console.log(`[EMAIL-INGEST] Downloading from presigned URL...`);
+        const downloadResponse = await fetch(attachment.download_url);
+
+        if (!downloadResponse.ok) {
+            console.error(`[EMAIL-INGEST] Download failed: ${downloadResponse.status}`);
+            return null;
+        }
+
+        const arrayBuffer = await downloadResponse.arrayBuffer();
+        console.log(`[EMAIL-INGEST] Downloaded: ${arrayBuffer.byteLength} bytes`);
+        return Buffer.from(arrayBuffer);
+    } catch (error) {
+        console.error("[EMAIL-INGEST] Attachment download error:", error);
+        return null;
+    }
 }
 
 /**
