@@ -247,6 +247,31 @@ export function IntegrationsClient({ quotaStatus, syncs, emails, organizationId 
             <EmailInbox
                 emails={emails}
                 onRefresh={() => window.location.reload()}
+                onDelete={async (emailId) => {
+                    try {
+                        const response = await fetch(`/api/emails/${emailId}`, {
+                            method: "DELETE",
+                        });
+                        if (!response.ok) throw new Error("Failed to delete");
+                        toast.success("Email deleted");
+                        window.location.reload();
+                    } catch {
+                        toast.error("Failed to delete email");
+                    }
+                }}
+                onProcess={async (emailId) => {
+                    try {
+                        const response = await fetch(`/api/emails/${emailId}/process`, {
+                            method: "POST",
+                        });
+                        if (!response.ok) throw new Error("Failed to process");
+                        const result = await response.json();
+                        toast.success(`Processed! ${result.extractionsCreated} extractions created`);
+                        window.location.reload();
+                    } catch {
+                        toast.error("Failed to process email");
+                    }
+                }}
                 className="lg:col-span-2"
             />
 

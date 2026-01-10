@@ -20,6 +20,9 @@ import {
     ArrowsClockwise,
     TruckIcon,
     FileText,
+    Trash,
+    Lightning,
+    CircleNotch,
 } from "@phosphor-icons/react";
 
 export interface EmailIngestionItem {
@@ -37,6 +40,8 @@ export interface EmailIngestionItem {
 interface EmailInboxProps {
     emails: EmailIngestionItem[];
     onRefresh?: () => void;
+    onDelete?: (emailId: string) => Promise<void>;
+    onProcess?: (emailId: string) => Promise<void>;
     isLoading?: boolean;
     className?: string;
 }
@@ -57,7 +62,30 @@ function getStatusConfig(status: string) {
     }
 }
 
-export function EmailInbox({ emails, onRefresh, isLoading, className }: EmailInboxProps) {
+export function EmailInbox({ emails, onRefresh, onDelete, onProcess, isLoading, className }: EmailInboxProps) {
+    const [processingId, setProcessingId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    const handleProcess = async (emailId: string) => {
+        if (!onProcess) return;
+        setProcessingId(emailId);
+        try {
+            await onProcess(emailId);
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
+    const handleDelete = async (emailId: string) => {
+        if (!onDelete) return;
+        setDeletingId(emailId);
+        try {
+            await onDelete(emailId);
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
     return (
         <Card className={className}>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -86,7 +114,7 @@ export function EmailInbox({ emails, onRefresh, isLoading, className }: EmailInb
                         </p>
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
                         {emails.map((email) => {
                             const statusConfig = getStatusConfig(email.status);
                             const StatusIcon = statusConfig.icon;
@@ -146,6 +174,45 @@ export function EmailInbox({ emails, onRefresh, isLoading, className }: EmailInb
                                         <Badge variant="outline" className={cn("mt-1", statusConfig.color)}>
                                             {statusConfig.label}
                                         </Badge>
+                                    </div>
+
+                                    {/* Action buttons */}
+                                    <div className="flex items-center gap-1 ml-2">
+                                        {/* Process button - only show for PENDING emails */}
+                                        {email.status === "PENDING" && onProcess && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
+                                                onClick={() => handleProcess(email.id)}
+                                                disabled={processingId === email.id}
+                                                title="Process with AI"
+                                            >
+                                                {processingId === email.id ? (
+                                                    <CircleNotch size={16} className="animate-spin" />
+                                                ) : (
+                                                    <Lightning size={16} />
+                                                )}
+                                            </Button>
+                                        )}
+
+                                        {/* Delete button */}
+                                        {onDelete && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                onClick={() => handleDelete(email.id)}
+                                                disabled={deletingId === email.id}
+                                                title="Delete email"
+                                            >
+                                                {deletingId === email.id ? (
+                                                    <CircleNotch size={16} className="animate-spin" />
+                                                ) : (
+                                                    <Trash size={16} />
+                                                )}
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             );
