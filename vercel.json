@@ -1,12 +1,13 @@
 {
     "crons": [
-        {
-            "path": "/api/cron/forecast",
-            "schedule": "0 0 * * *"
-        },
+       
         {
             "path": "/api/cron/chase",
             "schedule": "0 6 * * *"
+        },
+        {
+            "path": "/api/cron/process-emails",
+            "schedule": "*/5 * * * *"
         }
     ]
 }
