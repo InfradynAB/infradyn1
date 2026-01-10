@@ -567,3 +567,154 @@ export async function extractMilestonesFromS3(fileUrl: string): Promise<{ succes
         return { success: false, milestones: [], error: "Extraction failed" };
     }
 }
+
+// --- INVOICE EXTRACTION ---
+
+export interface ExtractedInvoiceData {
+    invoiceNumber: string | null;
+    vendorName: string | null;
+    date: string | null; // ISO date
+    dueDate: string | null;
+    totalAmount: number | null;
+    currency: string | null;
+    lineItems: Array<{
+        description: string;
+        quantity?: number;
+        unitPrice?: number;
+        amount: number;
+    }>;
+    taxAmount?: number;
+    subtotal?: number;
+    confidence: number;
+    rawText?: string;
+}
+
+export interface InvoiceExtractionResult {
+    success: boolean;
+    data?: ExtractedInvoiceData;
+    error?: string;
+}
+
+/**
+ * Parse extracted text using GPT-4 to get structured invoice data
+ */
+async function parseInvoiceWithGPT(rawText: string): Promise<InvoiceExtractionResult> {
+    try {
+        const systemPrompt = `You are an expert invoice parser. Extract structured data from the provided invoice text.
+Return a JSON object with these fields:
+- invoiceNumber: string (invoice/receipt number)
+- vendorName: string (supplier/vendor name)
+- date: string (invoice date in ISO format YYYY-MM-DD)
+- dueDate: string (payment due date in ISO format, if available)
+- totalAmount: number (total amount to pay)
+- currency: string (3-letter currency code like USD, EUR, KES)
+- lineItems: array of { description, quantity, unitPrice, amount }
+- taxAmount: number (tax amount if shown)
+- subtotal: number (subtotal before tax if shown)
+
+Be precise with numbers. If a field is not found, use null.
+Return ONLY valid JSON, no markdown formatting.`;
+
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: `Parse this invoice:\n\n${rawText.slice(0, 8000)}` },
+            ],
+            temperature: 0.1,
+            response_format: { type: "json_object" },
+        });
+
+        const content = response.choices[0]?.message?.content;
+        if (!content) {
+            return { success: false, error: "No response from GPT" };
+        }
+
+        const parsed = JSON.parse(content);
+
+        // Calculate confidence based on how many fields were extracted
+        const fields = ['invoiceNumber', 'vendorName', 'date', 'totalAmount', 'currency'];
+        const foundFields = fields.filter(f => parsed[f] !== null && parsed[f] !== undefined);
+        const confidence = foundFields.length / fields.length;
+
+        return {
+            success: true,
+            data: {
+                invoiceNumber: parsed.invoiceNumber || null,
+                vendorName: parsed.vendorName || null,
+                date: parsed.date || null,
+                dueDate: parsed.dueDate || null,
+                totalAmount: parsed.totalAmount ? Number(parsed.totalAmount) : null,
+                currency: parsed.currency || null,
+                lineItems: parsed.lineItems || [],
+                taxAmount: parsed.taxAmount ? Number(parsed.taxAmount) : undefined,
+                subtotal: parsed.subtotal ? Number(parsed.subtotal) : undefined,
+                confidence,
+                rawText,
+            },
+        };
+    } catch (error) {
+        console.error("[parseInvoiceWithGPT] Error:", error);
+        return { success: false, error: "Failed to parse invoice with GPT" };
+    }
+}
+
+/**
+ * Full invoice extraction pipeline: Textract/Mammoth → GPT
+ */
+export async function extractInvoiceFromS3(
+    fileUrl: string
+): Promise<InvoiceExtractionResult> {
+    try {
+        const s3Key = extractS3KeyFromUrl(fileUrl);
+        if (!s3Key) {
+            return { success: false, error: "Invalid S3 URL" };
+        }
+
+        const bucket = process.env.AWS_S3_BUCKET || "infradyn-storage";
+        const fileExtension = s3Key.split('.').pop()?.toLowerCase();
+
+        let rawText: string | undefined;
+
+        // Handle different file types
+        if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+            // Excel - read directly
+            const fileBuffer = await getFileBuffer(s3Key);
+            if (!fileBuffer) {
+                return { success: false, error: "Failed to fetch file from S3" };
+            }
+            const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            rawText = XLSX.utils.sheet_to_csv(sheet);
+        } else if (fileExtension === 'doc' || fileExtension === 'docx') {
+            // Word document
+            const fileBuffer = await getFileBuffer(s3Key);
+            if (!fileBuffer) {
+                return { success: false, error: "Failed to fetch file from S3" };
+            }
+            const wordResult = await extractTextFromWord(fileBuffer);
+            if (!wordResult.success) {
+                return { success: false, error: wordResult.error };
+            }
+            rawText = wordResult.text;
+        } else {
+            // PDF or image - use Textract
+            const textractResult = await extractTextWithTextract(bucket, s3Key);
+            if (!textractResult.success) {
+                return { success: false, error: textractResult.error };
+            }
+            rawText = textractResult.text;
+        }
+
+        if (!rawText || rawText.trim().length === 0) {
+            return { success: false, error: "No text extracted from document" };
+        }
+
+        // Parse with GPT
+        return await parseInvoiceWithGPT(rawText);
+    } catch (error) {
+        console.error("[extractInvoiceFromS3] Error:", error);
+        return { success: false, error: "Invoice extraction failed" };
+    }
+}

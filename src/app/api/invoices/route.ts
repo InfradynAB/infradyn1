@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
+import db from "@/db/drizzle";
+import { invoice, document } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { createInvoice, validateInvoiceAmount, updatePaymentStatus, getPendingInvoices, getPaymentSummary } from "@/lib/actions/finance-engine";
 
 export async function POST(request: NextRequest) {
@@ -25,6 +28,82 @@ export async function POST(request: NextRequest) {
                     documentId: data.documentId,
                 });
                 return NextResponse.json(result);
+            }
+
+            case "submitForApproval": {
+                // Create document record first if we have a URL
+                let documentId: string | undefined;
+                if (data.documentUrl) {
+                    const [doc] = await db.insert(document).values({
+                        organizationId: session.user.organizationId || "",
+                        parentId: data.purchaseOrderId,
+                        parentType: "PO",
+                        fileName: `Invoice_${data.invoiceNumber}.pdf`,
+                        fileUrl: data.documentUrl,
+                        mimeType: "application/pdf",
+                        documentType: "INVOICE",
+                    }).returning();
+                    documentId = doc.id;
+                }
+
+                // Create invoice with PENDING_APPROVAL status
+                const [newInvoice] = await db.insert(invoice).values({
+                    supplierId: data.supplierId,
+                    purchaseOrderId: data.purchaseOrderId,
+                    invoiceNumber: data.invoiceNumber,
+                    amount: String(data.amount),
+                    invoiceDate: new Date(data.invoiceDate),
+                    dueDate: data.dueDate ? new Date(data.dueDate) : null,
+                    milestoneId: data.milestoneId || null,
+                    documentId: documentId || null,
+                    status: "PENDING_APPROVAL",
+                    extractedData: data.extractedData,
+                    confidenceScore: data.extractedData?.confidence ? String(data.extractedData.confidence) : null,
+                    validationStatus: data.validationStatus || "PENDING",
+                    validationNotes: data.validationNotes,
+                    submittedBy: session.user.id,
+                    submittedAt: new Date(),
+                }).returning();
+
+                return NextResponse.json({
+                    success: true,
+                    invoice: newInvoice,
+                });
+            }
+
+            case "approveInvoice": {
+                const [updated] = await db.update(invoice)
+                    .set({
+                        status: "APPROVED",
+                        approvedBy: session.user.id,
+                        approvedAt: new Date(),
+                    })
+                    .where(eq(invoice.id, data.invoiceId))
+                    .returning();
+
+                if (!updated) {
+                    return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+                }
+
+                return NextResponse.json({ success: true, invoice: updated });
+            }
+
+            case "rejectInvoice": {
+                const [updated] = await db.update(invoice)
+                    .set({
+                        status: "REJECTED",
+                        approvedBy: session.user.id,
+                        approvedAt: new Date(),
+                        rejectionReason: data.reason,
+                    })
+                    .where(eq(invoice.id, data.invoiceId))
+                    .returning();
+
+                if (!updated) {
+                    return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+                }
+
+                return NextResponse.json({ success: true, invoice: updated });
             }
 
             case "validate": {

@@ -486,7 +486,7 @@ export const invoice = pgTable('invoice', {
     invoiceNumber: text('invoice_number').notNull(),
     amount: numeric('amount').notNull(),
     invoiceDate: timestamp('invoice_date').notNull(),
-    status: text('status').default('PENDING'), // PENDING, APPROVED, PARTIALLY_PAID, PAID, REJECTED, OVERDUE
+    status: text('status').default('PENDING_APPROVAL'), // PENDING_APPROVAL, APPROVED, PARTIALLY_PAID, PAID, REJECTED, OVERDUE
     documentId: uuid('document_id').references(() => document.id),
     // Phase 5: Payment tracking
     milestoneId: uuid('milestone_id').references(() => milestone.id),
@@ -497,6 +497,15 @@ export const invoice = pgTable('invoice', {
     paymentReference: text('payment_reference'), // External ERP reference
     validationStatus: text('validation_status').default('PENDING'), // PENDING, PASSED, FAILED, MISMATCH
     validationNotes: text('validation_notes'),
+    // AI Extraction fields
+    extractedData: jsonb('extracted_data'), // Raw AI extraction result
+    confidenceScore: numeric('confidence_score'), // AI confidence 0-1
+    // Approval workflow
+    submittedBy: text('submitted_by').references(() => user.id),
+    submittedAt: timestamp('submitted_at'),
+    approvedBy: text('approved_by').references(() => user.id),
+    approvedAt: timestamp('approved_at'),
+    rejectionReason: text('rejection_reason'),
 }, (t) => ({
     invoiceNumberIdx: uniqueIndex('invoice_number_idx').on(t.supplierId, t.invoiceNumber),
 }));
