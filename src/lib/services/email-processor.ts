@@ -43,10 +43,17 @@ export interface ProcessEmailResult {
 
 // Regex patterns for finding PO references
 const PO_PATTERNS = [
+    // Standard PO formats
     /PO[#:\s-]*(\d{4,10})/gi,
     /P\.?O\.?\s*[#:\s-]*(\d{4,10})/gi,
     /Purchase\s*Order[#:\s-]*(\d{4,10})/gi,
     /Order\s*[#:\s-]*([A-Z]{2,4}[-/]?\d{4,10})/gi,
+    // Alphanumeric formats like CT-MI-2025-CM-006
+    /([A-Z]{2,4}-[A-Z]{2,4}-\d{4}-[A-Z]{2,4}-\d{3,6})/gi,
+    // General alphanumeric with dashes (e.g., ABC-123-456)
+    /(?:for|re:|ref:|regarding)\s+([A-Z0-9]+-[A-Z0-9]+-[A-Z0-9-]+)/gi,
+    // PO: followed by alphanumeric
+    /PO[#:\s-]*([A-Z0-9]+-[A-Z0-9]+-[A-Z0-9-]+)/gi,
 ];
 
 /**
@@ -448,12 +455,18 @@ export async function handleInboundEmail(email: InboundEmail): Promise<ProcessEm
 
         // Extract PO references
         const poRefs = extractPOReferences(email.subject, email.text);
+        console.log(`[EMAIL] Subject: "${email.subject}"`);
+        console.log(`[EMAIL] Extracted PO refs: ${poRefs.length > 0 ? poRefs.join(', ') : 'NONE'}`);
+
         let matchedPO: { id: string; poNumber: string } | null = null;
 
         for (const poRef of poRefs) {
             matchedPO = await findPOByNumber(poRef, orgId);
+            console.log(`[EMAIL] Lookup PO "${poRef}": ${matchedPO ? `Found ${matchedPO.poNumber}` : 'Not found'}`);
             if (matchedPO) break;
         }
+
+        console.log(`[EMAIL] Final matchedPO: ${matchedPO ? matchedPO.id : 'NULL'}`);
 
         // Store the email
         const emailId = await storeEmail(
