@@ -51,15 +51,42 @@ const PO_PATTERNS = [
 
 /**
  * Parse organization ID from inbox email address
- * Format: po-{orgId}@ingest.infradyn.com or {orgSlug}@ingest.infradyn.com
+ * Supports multiple formats:
+ * - po-{orgId}@*.resend.app (Resend default)
+ * - po-{orgId}@ingest.yourdomain.com (custom domain)
+ * - {orgSlug}@*.resend.app
+ * - {orgSlug}@ingest.yourdomain.com
  */
 export function parseOrgFromInbox(toEmail: string): string | null {
-    const match = toEmail.match(/^po-([a-f0-9-]{36})@/i);
-    if (match) return match[1];
+    // Format 1: po-{uuid}@anything (most reliable)
+    const uuidMatch = toEmail.match(/^po-([a-f0-9-]{36})@/i);
+    if (uuidMatch) return uuidMatch[1];
 
-    // Try to match by slug
+    // Format 2: {orgId-or-slug}@*.resend.app
+    const resendMatch = toEmail.match(/^([a-z0-9-]+)@[a-z0-9]+\.resend\.app$/i);
+    if (resendMatch) {
+        const prefix = resendMatch[1];
+        // Check if it's po-{uuid} format
+        const poMatch = prefix.match(/^po-([a-f0-9-]{36})$/i);
+        if (poMatch) return poMatch[1];
+        // Otherwise treat as slug
+        return prefix;
+    }
+
+    // Format 3: {slug}@ingest.domain.com
     const slugMatch = toEmail.match(/^([a-z0-9-]+)@ingest\./i);
-    return slugMatch ? slugMatch[1] : null;
+    if (slugMatch) return slugMatch[1];
+
+    // Format 4: Generic - just extract the local part before @
+    const genericMatch = toEmail.match(/^([a-z0-9-]+)@/i);
+    if (genericMatch) {
+        const prefix = genericMatch[1];
+        // Check if it's po-{uuid} format
+        const poMatch = prefix.match(/^po-([a-f0-9-]{36})$/i);
+        if (poMatch) return poMatch[1];
+    }
+
+    return null;
 }
 
 /**

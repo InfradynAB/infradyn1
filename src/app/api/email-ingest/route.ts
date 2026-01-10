@@ -1,140 +1,205 @@
 /**
  * Email Ingest Webhook Endpoint
- * Receives inbound emails from Resend or similar services
+ * Receives inbound emails from Resend email.received webhook
  * 
  * POST /api/email-ingest
+ * 
+ * Setup Instructions:
+ * 1. Go to Resend Dashboard → Webhooks → Add Webhook
+ * 2. Enter URL: https://yourdomain.com/api/email-ingest
+ * 3. Select event: email.received
+ * 4. Copy the signing secret to RESEND_WEBHOOK_SECRET env var
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { handleInboundEmail, type InboundEmail } from "@/lib/services/email-processor";
+import crypto from "crypto";
 
-// Verify webhook signature (for Resend)
-function verifySignature(request: NextRequest): boolean {
-    const signature = request.headers.get("x-resend-signature");
+// Resend email.received webhook payload structure
+interface ResendEmailReceivedPayload {
+    type: "email.received";
+    created_at: string;
+    data: {
+        email_id: string;
+        from: string;
+        to: string[];
+        subject: string;
+        text?: string;
+        html?: string;
+        attachments?: Array<{
+            id: string;
+            filename: string;
+            content_type: string;
+            size: number;
+            download_url: string;
+        }>;
+    };
+}
+
+/**
+ * Verify Resend webhook signature
+ * @see https://resend.com/docs/webhooks#verify-webhook-signature
+ */
+async function verifyResendSignature(request: NextRequest, body: string): Promise<boolean> {
     const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
 
-    // If no secret configured, skip verification (dev mode)
+    // Skip verification in development
     if (!webhookSecret) {
         console.warn("[EMAIL-INGEST] No webhook secret configured, skipping verification");
         return true;
     }
 
-    // TODO: Implement proper HMAC verification when Resend provides this
-    // For now, just check signature exists
-    return !!signature;
+    const signature = request.headers.get("resend-signature") || request.headers.get("x-resend-signature");
+    if (!signature) {
+        console.error("[EMAIL-INGEST] No signature in request");
+        return false;
+    }
+
+    try {
+        // Resend uses HMAC-SHA256
+        const expectedSignature = crypto
+            .createHmac("sha256", webhookSecret)
+            .update(body)
+            .digest("hex");
+
+        return crypto.timingSafeEqual(
+            Buffer.from(signature),
+            Buffer.from(expectedSignature)
+        );
+    } catch (error) {
+        console.error("[EMAIL-INGEST] Signature verification error:", error);
+        return false;
+    }
 }
 
 /**
- * Parse multipart form data for email with attachments
+ * Download attachment from Resend's download URL
  */
-async function parseEmailFromRequest(request: NextRequest): Promise<InboundEmail | null> {
+async function downloadAttachment(downloadUrl: string): Promise<Buffer | null> {
     try {
-        const contentType = request.headers.get("content-type") || "";
+        const response = await fetch(downloadUrl, {
+            headers: {
+                Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+            },
+        });
 
-        if (contentType.includes("application/json")) {
-            // JSON format (Resend webhook)
-            const data = await request.json();
-
-            return {
-                from: data.from || data.sender || "",
-                to: data.to || data.recipient || "",
-                subject: data.subject || "",
-                text: data.text || data.plain || "",
-                html: data.html || "",
-                attachments: data.attachments?.map((att: any) => ({
-                    filename: att.filename || att.name || "attachment",
-                    content: Buffer.from(att.content || att.data, "base64"),
-                    contentType: att.contentType || att.type || "application/octet-stream",
-                })),
-            };
+        if (!response.ok) {
+            console.error(`[EMAIL-INGEST] Failed to download attachment: ${response.status}`);
+            return null;
         }
 
-        if (contentType.includes("multipart/form-data")) {
-            // Multipart form (SendGrid-style)
-            const formData = await request.formData();
-
-            const attachments: InboundEmail["attachments"] = [];
-
-            // Process attachment files
-            for (const [key, value] of formData.entries()) {
-                if (key.startsWith("attachment") && value instanceof Blob) {
-                    const buffer = Buffer.from(await value.arrayBuffer());
-                    attachments.push({
-                        filename: (value as File).name || "attachment",
-                        content: buffer,
-                        contentType: value.type || "application/octet-stream",
-                    });
-                }
-            }
-
-            return {
-                from: formData.get("from") as string || "",
-                to: formData.get("to") as string || "",
-                subject: formData.get("subject") as string || "",
-                text: formData.get("text") as string || "",
-                html: formData.get("html") as string || "",
-                attachments,
-            };
-        }
-
-        console.error("[EMAIL-INGEST] Unsupported content type:", contentType);
-        return null;
+        const arrayBuffer = await response.arrayBuffer();
+        return Buffer.from(arrayBuffer);
     } catch (error) {
-        console.error("[EMAIL-INGEST] Parse error:", error);
+        console.error("[EMAIL-INGEST] Attachment download error:", error);
         return null;
     }
 }
 
+/**
+ * Parse Resend email.received webhook payload
+ */
+async function parseResendPayload(payload: ResendEmailReceivedPayload): Promise<InboundEmail> {
+    const { data } = payload;
+
+    // Download attachments from Resend's attachment API
+    const attachments: InboundEmail["attachments"] = [];
+
+    if (data.attachments && data.attachments.length > 0) {
+        for (const att of data.attachments) {
+            const content = await downloadAttachment(att.download_url);
+            if (content) {
+                attachments.push({
+                    filename: att.filename,
+                    content,
+                    contentType: att.content_type,
+                });
+            }
+        }
+    }
+
+    return {
+        from: data.from,
+        to: data.to[0] || "", // Take first recipient
+        subject: data.subject,
+        text: data.text,
+        html: data.html,
+        attachments,
+    };
+}
+
 export async function POST(request: NextRequest) {
-    // Verify signature
-    if (!verifySignature(request)) {
+    try {
+        // Get raw body for signature verification
+        const body = await request.text();
+
+        // Verify signature
+        if (!(await verifyResendSignature(request, body))) {
+            return NextResponse.json(
+                { error: "Invalid signature" },
+                { status: 401 }
+            );
+        }
+
+        // Parse JSON payload
+        let payload: ResendEmailReceivedPayload;
+        try {
+            payload = JSON.parse(body);
+        } catch {
+            return NextResponse.json(
+                { error: "Invalid JSON payload" },
+                { status: 400 }
+            );
+        }
+
+        // Check event type
+        if (payload.type !== "email.received") {
+            // Acknowledge other events but don't process
+            console.log(`[EMAIL-INGEST] Ignoring event type: ${payload.type}`);
+            return NextResponse.json({ success: true, ignored: true });
+        }
+
+        // Parse email from Resend payload
+        const email = await parseResendPayload(payload);
+
+        if (!email.from || !email.to) {
+            return NextResponse.json(
+                { error: "Missing from or to address" },
+                { status: 400 }
+            );
+        }
+
+        console.log(`[EMAIL-INGEST] Received email from ${email.from} to ${email.to}`);
+        console.log(`[EMAIL-INGEST] Subject: ${email.subject}`);
+        console.log(`[EMAIL-INGEST] Attachments: ${email.attachments?.length || 0}`);
+
+        // Process the email
+        const result = await handleInboundEmail(email);
+
+        if (result.success) {
+            console.log(`[EMAIL-INGEST] Processed successfully: ${result.emailId}`);
+            return NextResponse.json({
+                success: true,
+                emailId: result.emailId,
+                matchedSupplier: result.matchedSupplier?.name,
+                matchedPO: result.matchedPO?.poNumber,
+                attachmentsProcessed: result.attachmentsProcessed,
+            });
+        } else {
+            console.error(`[EMAIL-INGEST] Processing failed: ${result.error}`);
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: result.error
+                },
+                { status: 422 }
+            );
+        }
+    } catch (error) {
+        console.error("[EMAIL-INGEST] Error:", error);
         return NextResponse.json(
-            { error: "Invalid signature" },
-            { status: 401 }
-        );
-    }
-
-    // Parse email
-    const email = await parseEmailFromRequest(request);
-
-    if (!email) {
-        return NextResponse.json(
-            { error: "Could not parse email" },
-            { status: 400 }
-        );
-    }
-
-    if (!email.from || !email.to) {
-        return NextResponse.json(
-            { error: "Missing from or to address" },
-            { status: 400 }
-        );
-    }
-
-    console.log(`[EMAIL-INGEST] Received email from ${email.from} to ${email.to}`);
-    console.log(`[EMAIL-INGEST] Subject: ${email.subject}`);
-    console.log(`[EMAIL-INGEST] Attachments: ${email.attachments?.length || 0}`);
-
-    // Process the email
-    const result = await handleInboundEmail(email);
-
-    if (result.success) {
-        console.log(`[EMAIL-INGEST] Processed successfully: ${result.emailId}`);
-        return NextResponse.json({
-            success: true,
-            emailId: result.emailId,
-            matchedSupplier: result.matchedSupplier?.name,
-            matchedPO: result.matchedPO?.poNumber,
-            attachmentsProcessed: result.attachmentsProcessed,
-        });
-    } else {
-        console.error(`[EMAIL-INGEST] Processing failed: ${result.error}`);
-        return NextResponse.json(
-            {
-                success: false,
-                error: result.error
-            },
-            { status: 422 }
+            { error: "Internal server error" },
+            { status: 500 }
         );
     }
 }
@@ -145,5 +210,7 @@ export async function GET() {
         status: "ok",
         service: "email-ingest",
         timestamp: new Date().toISOString(),
+        resendConfigured: !!process.env.RESEND_API_KEY,
+        webhookSecretConfigured: !!process.env.RESEND_WEBHOOK_SECRET,
     });
 }
