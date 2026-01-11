@@ -2,14 +2,16 @@ import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import db from "@/db/drizzle";
-import { purchaseOrder, supplier } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { purchaseOrder, supplier, invoice } from "@/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SupplierPOActions } from "@/components/supplier/po-actions";
-import { FileTextIcon, CalendarIcon, PackageIcon, StackIcon, TruckIcon } from "@phosphor-icons/react/dist/ssr";
+import { FileTextIcon, CalendarIcon, PackageIcon, StackIcon, TruckIcon, InvoiceIcon, Receipt, ClockCountdown, CheckCircle, HourglassHigh } from "@phosphor-icons/react/dist/ssr";
+import { SupplierInvoiceUpload } from "@/components/supplier/invoice-upload";
+import { findSupplierForUser } from "@/lib/actions/supplier-lookup";
 
 export default async function SupplierPODetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -21,9 +23,12 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
         redirect("/dashboard");
     }
 
-    const supplierData = await db.query.supplier.findFirst({
-        where: eq(supplier.userId, session.user.id)
-    });
+    // Use improved supplier lookup with fallbacks
+    const { supplier: supplierData } = await findSupplierForUser(
+        session.user.id,
+        session.user.email,
+        session.user.supplierId
+    );
 
     if (!supplierData) {
         return <div className="p-20 text-center font-bold">Error: Supplier profile not found.</div>;
@@ -38,7 +43,8 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
             project: true,
             boqItems: true,
             milestones: true,
-            organization: true
+            organization: true,
+            invoices: true
         }
     });
 
@@ -73,6 +79,19 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
                     <Badge className={`text-sm font-black px-4 py-1.5 rounded-full border-2 ${getStatusVariant(po.status)}`}>
                         {po.status}
                     </Badge>
+                    <SupplierInvoiceUpload
+                        purchaseOrderId={po.id}
+                        supplierId={supplierData.id}
+                        milestones={po.milestones.map(m => ({
+                            id: m.id,
+                            title: m.title,
+                            amount: m.amount || undefined,
+                            paymentPercentage: m.paymentPercentage,
+                            status: m.status || "PENDING"
+                        }))}
+                        poTotalValue={Number(po.totalValue)}
+                        currency={po.currency}
+                    />
                     <SupplierPOActions poId={po.id} currentStatus={po.status} />
                 </div>
             </div>
@@ -218,6 +237,64 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
                             </div>
                         </div>
                     )}
+
+                    {/* Submitted Invoices */}
+                    <div className="space-y-4">
+                        <h3 className="text-2xl font-black tracking-tight px-2 flex items-center gap-2">
+                            <Receipt className="h-7 w-7 text-green-500" weight="duotone" />
+                            Submitted Invoices
+                        </h3>
+                        {po.invoices && po.invoices.length > 0 ? (
+                            <div className="grid gap-3">
+                                {po.invoices.map((inv) => (
+                                    <div key={inv.id} className="group bg-card/60 backdrop-blur-md p-5 rounded-xl border border-muted/50 flex items-center justify-between shadow-md">
+                                        <div className="flex items-center gap-4">
+                                            <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${inv.status === 'APPROVED' || inv.status === 'PAID'
+                                                ? 'bg-green-500/10 text-green-600'
+                                                : inv.status === 'REJECTED'
+                                                    ? 'bg-red-500/10 text-red-600'
+                                                    : 'bg-amber-500/10 text-amber-600'
+                                                }`}>
+                                                {inv.status === 'APPROVED' || inv.status === 'PAID' ? (
+                                                    <CheckCircle className="h-5 w-5" weight="fill" />
+                                                ) : inv.status === 'REJECTED' ? (
+                                                    <ClockCountdown className="h-5 w-5" weight="fill" />
+                                                ) : (
+                                                    <HourglassHigh className="h-5 w-5" weight="fill" />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <div className="font-bold">{inv.invoiceNumber}</div>
+                                                <div className="text-sm text-muted-foreground">
+                                                    {new Date(inv.invoiceDate).toLocaleDateString()}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className="text-right">
+                                                <div className="font-bold text-lg">{po.currency} {Number(inv.amount).toLocaleString()}</div>
+                                            </div>
+                                            <Badge className={`font-bold ${inv.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+                                                inv.status === 'PAID' ? 'bg-blue-100 text-blue-700' :
+                                                    inv.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                                        'bg-amber-100 text-amber-700'
+                                                }`}>
+                                                {inv.status?.replace('_', ' ')}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <Card className="border-dashed bg-muted/20">
+                                <CardContent className="py-8 text-center text-muted-foreground">
+                                    <Receipt className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                                    <p className="font-medium">No invoices submitted yet</p>
+                                    <p className="text-sm mt-1">Upload an invoice to request payment</p>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

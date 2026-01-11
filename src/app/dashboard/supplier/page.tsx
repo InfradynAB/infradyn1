@@ -42,15 +42,67 @@ export default async function SupplierDashboardPage() {
         redirect("/dashboard");
     }
 
-    // Fetch supplier details with organization
-    const supplierData = await db.query.supplier.findFirst({
+    // Debug: Log user info for troubleshooting
+    console.log("[SUPPLIER-DASHBOARD] User ID:", session.user.id);
+    console.log("[SUPPLIER-DASHBOARD] User Email:", session.user.email);
+    console.log("[SUPPLIER-DASHBOARD] User Role:", session.user.role);
+    console.log("[SUPPLIER-DASHBOARD] User supplierId from session:", session.user.supplierId);
+
+    // Try multiple methods to find the supplier
+    let supplierData = null;
+
+    // Method 1: Lookup by userId (normal flow when invite was properly accepted)
+    supplierData = await db.query.supplier.findFirst({
         where: eq(supplier.userId, session.user.id),
         with: {
             organization: true
         }
     });
+    console.log("[SUPPLIER-DASHBOARD] Method 1 - Supplier by userId:", !!supplierData);
+
+    // Method 2: Fallback - lookup by user.supplierId if set
+    if (!supplierData && session.user.supplierId) {
+        console.log("[SUPPLIER-DASHBOARD] Trying Method 2 - by user.supplierId:", session.user.supplierId);
+        supplierData = await db.query.supplier.findFirst({
+            where: eq(supplier.id, session.user.supplierId),
+            with: {
+                organization: true
+            }
+        });
+        console.log("[SUPPLIER-DASHBOARD] Method 2 - Supplier by user.supplierId:", !!supplierData);
+
+        // If found, also update the supplier's userId for future lookups
+        if (supplierData) {
+            await db.update(supplier)
+                .set({ userId: session.user.id })
+                .where(eq(supplier.id, supplierData.id));
+            console.log("[SUPPLIER-DASHBOARD] Updated supplier.userId for faster future lookups");
+        }
+    }
+
+    // Method 3: Fallback - lookup by matching email
+    if (!supplierData && session.user.email) {
+        console.log("[SUPPLIER-DASHBOARD] Trying Method 3 - by email:", session.user.email);
+        supplierData = await db.query.supplier.findFirst({
+            where: eq(supplier.contactEmail, session.user.email),
+            with: {
+                organization: true
+            }
+        });
+        console.log("[SUPPLIER-DASHBOARD] Method 3 - Supplier by contactEmail:", !!supplierData);
+
+        // If found, update the supplier's userId for future lookups
+        if (supplierData) {
+            await db.update(supplier)
+                .set({ userId: session.user.id })
+                .where(eq(supplier.id, supplierData.id));
+            console.log("[SUPPLIER-DASHBOARD] Linked supplier to user via email match");
+        }
+    }
 
     if (!supplierData) {
+        console.log("[SUPPLIER-DASHBOARD] No supplier found by any method. User email:", session.user.email);
+
         return (
             <div className="p-8">
                 <Card className="border-dashed bg-muted/50">
@@ -61,6 +113,9 @@ export default async function SupplierDashboardPage() {
                         <CardTitle>Supplier Account Not Linked</CardTitle>
                         <p className="text-muted-foreground mt-2">
                             We could not find a supplier profile linked to your account.
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-4 font-mono">
+                            Debug: User ID = {session.user.id}
                         </p>
                     </CardHeader>
                 </Card>
@@ -77,6 +132,13 @@ export default async function SupplierDashboardPage() {
         },
         orderBy: [asc(purchaseOrder.createdAt)]
     });
+
+    // Debug: Log PO count
+    console.log("[SUPPLIER-DASHBOARD] POs found:", pos.length);
+    if (pos.length > 0) {
+        console.log("[SUPPLIER-DASHBOARD] First PO:", pos[0].poNumber);
+    }
+
 
     // Calculate stats
     const pendingCount = pos.filter(po => po.status === "PENDING_RESPONSE" || po.status === "ISSUED").length;

@@ -17,6 +17,7 @@ import {
     TableRow
 } from "@/components/ui/table";
 import { EyeIcon } from "@phosphor-icons/react/dist/ssr";
+import { findSupplierForUser } from "@/lib/actions/supplier-lookup";
 
 export default async function SupplierPOsPage() {
     const session = await auth.api.getSession({
@@ -27,12 +28,20 @@ export default async function SupplierPOsPage() {
         redirect("/dashboard");
     }
 
-    const supplierData = await db.query.supplier.findFirst({
-        where: eq(supplier.userId, session.user.id)
-    });
+    // Use improved supplier lookup with fallbacks
+    const { supplier: supplierData, method } = await findSupplierForUser(
+        session.user.id,
+        session.user.email,
+        session.user.supplierId
+    );
+    console.log("[SUPPLIER-POS] Found supplier via:", method, "- ID:", supplierData?.id);
 
     if (!supplierData) {
-        return <div>Error: Supplier profile not found.</div>;
+        return <div className="p-8 text-center text-muted-foreground">
+            <h2 className="text-xl font-bold mb-2">Supplier Profile Not Found</h2>
+            <p>Your account is not linked to any supplier. Contact your project manager.</p>
+            <p className="text-xs mt-4 font-mono">User: {session.user.email}</p>
+        </div>;
     }
 
     const pos = await db.query.purchaseOrder.findMany({

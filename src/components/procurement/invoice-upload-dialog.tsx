@@ -101,6 +101,12 @@ export function InvoiceUploadDialog({
         reason?: string;
     }>({ status: null });
 
+    // Editable fields - these can be modified by user if AI extraction fails or is wrong
+    const [editableInvoiceNumber, setEditableInvoiceNumber] = useState("");
+    const [editableAmount, setEditableAmount] = useState("");
+    const [editableDate, setEditableDate] = useState("");
+    const [editableDueDate, setEditableDueDate] = useState("");
+
     // File dropzone
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
         const selectedFile = acceptedFiles[0];
@@ -156,7 +162,14 @@ export function InvoiceUploadDialog({
             const { data } = await extractResponse.json();
             setExtractedData(data);
 
+            // Initialize editable fields from extracted data
+            setEditableInvoiceNumber(data.invoiceNumber || "");
+            setEditableAmount(data.totalAmount ? String(data.totalAmount) : "");
+            setEditableDate(data.date ? data.date.split("T")[0] : "");
+            setEditableDueDate(data.dueDate ? data.dueDate.split("T")[0] : "");
+
             toast.success("Invoice data extracted successfully!");
+
         } catch (error) {
             console.error("Upload/extraction error:", error);
             toast.error("Failed to process invoice");
@@ -219,20 +232,20 @@ export function InvoiceUploadDialog({
     // Handle milestone selection
     const handleMilestoneChange = (milestoneId: string) => {
         setSelectedMilestoneId(milestoneId);
-        if (extractedData?.totalAmount) {
-            validateAgainstMilestone(milestoneId, extractedData.totalAmount);
+        if (editableAmount) {
+            validateAgainstMilestone(milestoneId, parseFloat(editableAmount));
         }
     };
 
     // Submit invoice for approval
     const handleSubmit = async () => {
-        if (!extractedData || !documentUrl) {
+        if (!documentUrl) {
             toast.error("Please upload an invoice first");
             return;
         }
 
-        if (!extractedData.invoiceNumber || !extractedData.totalAmount) {
-            toast.error("Could not extract invoice number or amount");
+        if (!editableInvoiceNumber || !editableAmount) {
+            toast.error("Invoice number and amount are required");
             return;
         }
 
@@ -246,10 +259,10 @@ export function InvoiceUploadDialog({
                     action: "submitForApproval",
                     purchaseOrderId,
                     supplierId,
-                    invoiceNumber: extractedData.invoiceNumber,
-                    amount: extractedData.totalAmount,
-                    invoiceDate: extractedData.date || new Date().toISOString(),
-                    dueDate: extractedData.dueDate,
+                    invoiceNumber: editableInvoiceNumber,
+                    amount: parseFloat(editableAmount),
+                    invoiceDate: editableDate || new Date().toISOString().split("T")[0],
+                    dueDate: editableDueDate || null,
                     milestoneId: selectedMilestoneId,
                     documentUrl,
                     extractedData,
@@ -287,6 +300,11 @@ export function InvoiceUploadDialog({
         setSelectedMilestoneId(undefined);
         setValidationResult({ status: null });
         setUploadProgress(0);
+        // Clear editable fields
+        setEditableInvoiceNumber("");
+        setEditableAmount("");
+        setEditableDate("");
+        setEditableDueDate("");
     };
 
     const approvedMilestones = milestones.filter(
@@ -353,7 +371,7 @@ export function InvoiceUploadDialog({
                         </div>
                     )}
 
-                    {/* Step 2: Extracted Data Display */}
+                    {/* Step 2: Extracted Data Display - Editable Fields */}
                     {extractedData && (
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
@@ -366,49 +384,80 @@ export function InvoiceUploadDialog({
                                 </Badge>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3 p-4 bg-muted/50 rounded-lg">
-                                <div className="flex items-center gap-2">
-                                    <Hash size={16} className="text-muted-foreground" />
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">Invoice Number</p>
-                                        <p className="font-medium">{extractedData.invoiceNumber || "Not found"}</p>
-                                    </div>
+                            <p className="text-xs text-muted-foreground">
+                                Review and edit any fields that weren&apos;t extracted correctly.
+                            </p>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                {/* Invoice Number */}
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                        <Hash size={12} />
+                                        Invoice Number *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editableInvoiceNumber}
+                                        onChange={(e) => setEditableInvoiceNumber(e.target.value)}
+                                        placeholder="Enter invoice number"
+                                        className={cn(
+                                            "w-full px-3 py-2 text-sm border rounded-md bg-background",
+                                            !editableInvoiceNumber && "border-amber-500 bg-amber-50/50"
+                                        )}
+                                    />
                                 </div>
 
-                                <div className="flex items-center gap-2">
-                                    <CurrencyDollar size={16} className="text-muted-foreground" />
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">Amount</p>
-                                        <p className="font-medium">
-                                            {extractedData.totalAmount
-                                                ? `${extractedData.currency || currency} ${extractedData.totalAmount.toLocaleString()}`
-                                                : "Not found"}
-                                        </p>
-                                    </div>
+                                {/* Amount */}
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                        <CurrencyDollar size={12} />
+                                        Amount ({currency}) *
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={editableAmount}
+                                        onChange={(e) => {
+                                            setEditableAmount(e.target.value);
+                                            // Re-validate if milestone selected
+                                            if (selectedMilestoneId && e.target.value) {
+                                                validateAgainstMilestone(selectedMilestoneId, parseFloat(e.target.value));
+                                            }
+                                        }}
+                                        placeholder="0.00"
+                                        className={cn(
+                                            "w-full px-3 py-2 text-sm border rounded-md bg-background",
+                                            !editableAmount && "border-amber-500 bg-amber-50/50"
+                                        )}
+                                    />
                                 </div>
 
-                                <div className="flex items-center gap-2">
-                                    <Calendar size={16} className="text-muted-foreground" />
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">Invoice Date</p>
-                                        <p className="font-medium">
-                                            {extractedData.date
-                                                ? format(new Date(extractedData.date), "MMM d, yyyy")
-                                                : "Not found"}
-                                        </p>
-                                    </div>
+                                {/* Invoice Date */}
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                        <Calendar size={12} />
+                                        Invoice Date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={editableDate}
+                                        onChange={(e) => setEditableDate(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm border rounded-md bg-background"
+                                    />
                                 </div>
 
-                                <div className="flex items-center gap-2">
-                                    <Calendar size={16} className="text-muted-foreground" />
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">Due Date</p>
-                                        <p className="font-medium">
-                                            {extractedData.dueDate
-                                                ? format(new Date(extractedData.dueDate), "MMM d, yyyy")
-                                                : "Not specified"}
-                                        </p>
-                                    </div>
+                                {/* Due Date */}
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                        <Calendar size={12} />
+                                        Due Date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={editableDueDate}
+                                        onChange={(e) => setEditableDueDate(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm border rounded-md bg-background"
+                                    />
                                 </div>
                             </div>
 
@@ -424,6 +473,7 @@ export function InvoiceUploadDialog({
                             </Button>
                         </div>
                     )}
+
 
                     {/* Step 3: Milestone Selection */}
                     {extractedData && (
@@ -481,11 +531,12 @@ export function InvoiceUploadDialog({
                             <Button
                                 className="flex-1"
                                 onClick={handleSubmit}
-                                disabled={isSubmitting || !extractedData.invoiceNumber || !extractedData.totalAmount}
+                                disabled={isSubmitting || !editableInvoiceNumber || !editableAmount}
                             >
                                 {isSubmitting && <CircleNotch className="mr-2 h-4 w-4 animate-spin" />}
                                 Submit for Approval
                             </Button>
+
                         </div>
                     )}
                 </div>

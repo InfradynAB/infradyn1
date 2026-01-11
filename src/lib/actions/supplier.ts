@@ -1,10 +1,39 @@
 'use server';
 
 import db from "@/db/drizzle";
-import { supplier, member } from "@/db/schema";
+import {
+    supplier,
+    member,
+    purchaseOrder,
+    invoice,
+    supplierDocument,
+    milestone,
+    boqItem,
+    poVersion,
+    financialLedger,
+    milestonePayment,
+    progressRecord,
+    changeOrder,
+    emailIngestion,
+    invoiceItem,
+    shipment,
+    delivery,
+    deliveryItem,
+    packingList,
+    conflictRecord,
+    ncr,
+    ncrComment,
+    evidenceBundle,
+    evidenceFile,
+    confidenceScore,
+    riskProfile,
+    emailAttachment,
+    document,
+    documentExtraction
+} from "@/db/schema";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as XLSX from 'xlsx';
 
@@ -238,7 +267,7 @@ export async function bulkInviteSuppliers() {
 }
 
 /**
- * Delete a supplier by ID
+ * Delete a supplier by ID - CASCADE deletes all related records
  */
 export async function deleteSupplier(supplierId: string) {
     const session = await auth.api.getSession({
@@ -265,13 +294,194 @@ export async function deleteSupplier(supplierId: string) {
             return { success: false, error: "Supplier not found" };
         }
 
+        // Get all POs for this supplier to cascade delete their children
+        const supplierPOs = await db
+            .select({ id: purchaseOrder.id })
+            .from(purchaseOrder)
+            .where(eq(purchaseOrder.supplierId, supplierId));
+
+        const poIds = supplierPOs.map(po => po.id);
+
+        // Invoices
+        const supplierInvoices = await db.select({ id: invoice.id }).from(invoice).where(eq(invoice.supplierId, supplierId));
+        const invoiceIds = supplierInvoices.map(inv => inv.id);
+
+        // Milestones
+        let milestoneIds: string[] = [];
+        if (poIds.length > 0) {
+            const poMilestones = await db.select({ id: milestone.id }).from(milestone).where(inArray(milestone.purchaseOrderId, poIds));
+            milestoneIds = poMilestones.map(m => m.id);
+        }
+
+        // Progress Records
+        let progressRecordIds: string[] = [];
+        if (milestoneIds.length > 0) {
+            const mProgress = await db.select({ id: progressRecord.id }).from(progressRecord).where(inArray(progressRecord.milestoneId, milestoneIds));
+            progressRecordIds = mProgress.map(p => p.id);
+        }
+
+        // Evidence Bundles
+        let evidenceBundleIds: string[] = [];
+        if (progressRecordIds.length > 0) {
+            const pBundles = await db.select({ id: evidenceBundle.id }).from(evidenceBundle).where(inArray(evidenceBundle.progressRecordId, progressRecordIds));
+            evidenceBundleIds = pBundles.map(b => b.id);
+        }
+
+        // Shipments
+        let shipmentIds: string[] = [];
+        if (poIds.length > 0) {
+            const poShipments = await db.select({ id: shipment.id }).from(shipment).where(inArray(shipment.purchaseOrderId, poIds));
+            shipmentIds = poShipments.map(s => s.id);
+        }
+
+        // Deliveries
+        let deliveryIds: string[] = [];
+        if (poIds.length > 0) {
+            const poDeliveries = await db.select({ id: delivery.id }).from(delivery).where(inArray(delivery.purchaseOrderId, poIds));
+            deliveryIds = poDeliveries.map(d => d.id);
+        }
+
+        // Change Orders
+        let changeOrderIds: string[] = [];
+        if (poIds.length > 0) {
+            const poCOs = await db.select({ id: changeOrder.id }).from(changeOrder).where(inArray(changeOrder.purchaseOrderId, poIds));
+            changeOrderIds = poCOs.map(co => co.id);
+        }
+
+        // NCRs
+        let ncrIds: string[] = [];
+        if (poIds.length > 0) {
+            const poNCRs = await db.select({ id: ncr.id }).from(ncr).where(inArray(ncr.purchaseOrderId, poIds));
+            ncrIds = poNCRs.map(n => n.id);
+        }
+
+        // Email Ingestions (Matched to supplier or POs)
+        const ingestionQuery = poIds.length > 0
+            ? or(eq(emailIngestion.matchedSupplierId, supplierId), inArray(emailIngestion.matchedPoId, poIds))
+            : eq(emailIngestion.matchedSupplierId, supplierId);
+
+        if (!ingestionQuery) {
+            throw new Error("Failed to construct ingestion query");
+        }
+
+        const matchedEmailIngestions = await db.select({ id: emailIngestion.id }).from(emailIngestion).where(ingestionQuery);
+        const emailIngestionIds = matchedEmailIngestions.map(ei => ei.id);
+
+        // Email Attachments
+        let emailAttachmentIds: string[] = [];
+        if (emailIngestionIds.length > 0) {
+            const eAttachments = await db.select({ id: emailAttachment.id }).from(emailAttachment).where(inArray(emailAttachment.emailIngestionId, emailIngestionIds));
+            emailAttachmentIds = eAttachments.map(ea => ea.id);
+        }
+
+        // Documents (Linked to supplier, POs, Invoices, NCRs, etc.)
+        const documentParentIds = [supplierId, ...poIds, ...invoiceIds, ...ncrIds, ...evidenceBundleIds].filter(Boolean);
+        let documentIds: string[] = [];
+        if (documentParentIds.length > 0) {
+            const supplierDocs = await db.select({ id: document.id }).from(document).where(inArray(document.parentId, documentParentIds as string[]));
+            documentIds = supplierDocs.map(d => d.id);
+        }
+
+        // Document Extractions
+        let extractionIds: string[] = [];
+        if (documentIds.length > 0) {
+            const dExtractions = await db.select({ id: documentExtraction.id }).from(documentExtraction).where(inArray(documentExtraction.documentId, documentIds));
+            extractionIds = dExtractions.map(e => e.id);
+        }
+
+        // --- 2. CASCADE DELETE (DEEPEST CHILDREN FIRST) ---
+
+        // Evidence files & bundles
+        if (evidenceBundleIds.length > 0) {
+            await db.delete(evidenceFile).where(inArray(evidenceFile.evidenceBundleId, evidenceBundleIds));
+            await db.delete(evidenceBundle).where(inArray(evidenceBundle.id, evidenceBundleIds));
+        }
+
+        // Progress stats
+        if (progressRecordIds.length > 0) {
+            await db.delete(confidenceScore).where(inArray(confidenceScore.progressRecordId, progressRecordIds));
+            await db.delete(progressRecord).where(inArray(progressRecord.id, progressRecordIds));
+        }
+
+        // Logistics children
+        if (shipmentIds.length > 0) {
+            await db.delete(packingList).where(inArray(packingList.shipmentId, shipmentIds));
+            await db.delete(shipment).where(inArray(shipment.id, shipmentIds));
+        }
+        if (deliveryIds.length > 0) {
+            await db.delete(deliveryItem).where(inArray(deliveryItem.deliveryId, deliveryIds));
+            await db.delete(delivery).where(inArray(delivery.id, deliveryIds));
+        }
+
+        // Quality children
+        if (ncrIds.length > 0) {
+            await db.delete(ncrComment).where(inArray(ncrComment.ncrId, ncrIds));
+            await db.delete(ncr).where(inArray(ncr.id, ncrIds));
+        }
+
+        // Financial children
+        if (invoiceIds.length > 0) {
+            await db.delete(milestonePayment).where(inArray(milestonePayment.invoiceId, invoiceIds));
+            await db.delete(financialLedger).where(inArray(financialLedger.invoiceId, invoiceIds));
+            await db.delete(invoiceItem).where(inArray(invoiceItem.invoiceId, invoiceIds));
+            await db.delete(invoice).where(inArray(invoice.id, invoiceIds));
+        }
+
+        // Remaining Financial/PO children
+        if (changeOrderIds.length > 0) {
+            await db.delete(financialLedger).where(inArray(financialLedger.changeOrderId, changeOrderIds));
+            await db.delete(changeOrder).where(inArray(changeOrder.id, changeOrderIds));
+        }
+
+        if (milestoneIds.length > 0) {
+            await db.delete(milestonePayment).where(inArray(milestonePayment.milestoneId, milestoneIds));
+            await db.delete(financialLedger).where(inArray(financialLedger.milestoneId, milestoneIds));
+            await db.delete(conflictRecord).where(inArray(conflictRecord.milestoneId, milestoneIds));
+            await db.delete(milestone).where(inArray(milestone.id, milestoneIds));
+        }
+
+        if (poIds.length > 0) {
+            await db.delete(conflictRecord).where(inArray(conflictRecord.purchaseOrderId, poIds));
+            await db.delete(boqItem).where(inArray(boqItem.purchaseOrderId, poIds));
+            await db.delete(poVersion).where(inArray(poVersion.purchaseOrderId, poIds));
+            await db.delete(riskProfile).where(inArray(riskProfile.purchaseOrderId, poIds));
+            await db.delete(purchaseOrder).where(inArray(purchaseOrder.id, poIds));
+        }
+
+        // --- PHASE 2: TECHNICAL RECORDS & INGESTIONS ---
+        // (These must be deleted AFTER the business records they support)
+
+        if (emailAttachmentIds.length > 0) {
+            await db.delete(emailAttachment).where(inArray(emailAttachment.id, emailAttachmentIds));
+        }
+        if (extractionIds.length > 0) {
+            await db.delete(documentExtraction).where(inArray(documentExtraction.id, extractionIds));
+        }
+        if (documentIds.length > 0) {
+            await db.delete(document).where(inArray(document.id, documentIds));
+        }
+        if (emailIngestionIds.length > 0) {
+            await db.delete(emailIngestion).where(inArray(emailIngestion.id, emailIngestionIds));
+        }
+
+        // Phase D: Supplier Documents & Supplier Root
+        await db.delete(riskProfile).where(eq(riskProfile.supplierId, supplierId));
+        await db.delete(supplierDocument).where(eq(supplierDocument.supplierId, supplierId));
+
+        // Finally delete the root supplier record
         await db.delete(supplier).where(eq(supplier.id, supplierId));
 
         revalidatePath("/dashboard/suppliers");
-        return { success: true };
+        revalidatePath("/dashboard/procurement");
+
+        console.log(`[deleteSupplier] Success. Fully wiped supplier: ${supplierId}`);
+        return { success: true, message: "Supplier and all related history wiped successfully" };
     } catch (error) {
-        console.error("[deleteSupplier] Error:", error);
-        return { success: false, error: "Failed to delete supplier" };
+        console.error("[deleteSupplier] Full Wipe Error:", error);
+        return {
+            success: false,
+            error: "Failed to fully delete supplier records. There may be deep dependencies still active."
+        };
     }
 }
 
