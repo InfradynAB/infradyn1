@@ -13,7 +13,17 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { TruckIcon, MagnifyingGlassIcon, SealCheckIcon, ArrowsClockwiseIcon, DotsThreeIcon, EyeIcon, TrashIcon, UsersThreeIcon, CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { TruckIcon, MagnifyingGlassIcon, SealCheckIcon, ArrowsClockwiseIcon, DotsThreeIcon, EyeIcon, TrashIcon, UsersThreeIcon, CaretLeftIcon, CaretRightIcon, WarningCircleIcon, CircleNotch } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { deleteSupplier, inviteSelectedSuppliers } from "@/lib/actions/supplier";
@@ -38,6 +48,11 @@ export function SuppliersClient({ suppliers }: SuppliersClientProps) {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [currentPage, setCurrentPage] = useState(1);
     const [isInviting, setIsInviting] = useState(false);
+
+    // Delete confirmation state
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [supplierToDelete, setSupplierToDelete] = useState<{ id: string; name: string } | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Filter suppliers by search
     const filtered = useMemo(() => {
@@ -87,13 +102,24 @@ export function SuppliersClient({ suppliers }: SuppliersClientProps) {
     });
 
     // Actions
-    const handleDelete = async (id: string, name: string) => {
-        if (!confirm(`Delete supplier "${name}"?`)) return;
-        const result = await deleteSupplier(id);
+    const openDeleteConfirm = (id: string, name: string) => {
+        setSupplierToDelete({ id, name });
+        setDeleteConfirmOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!supplierToDelete) return;
+        setIsDeleting(true);
+        const result = await deleteSupplier(supplierToDelete.id);
+        setIsDeleting(false);
+        setDeleteConfirmOpen(false);
+        setSupplierToDelete(null);
         if (result.success) {
-            toast.success("Supplier deleted");
+            toast.success("Supplier deleted", {
+                description: "All related data has been permanently removed.",
+            });
         } else {
-            toast.error(result.error || "Failed to delete");
+            toast.error(result.error || "Failed to delete supplier");
         }
     };
 
@@ -259,7 +285,7 @@ export function SuppliersClient({ suppliers }: SuppliersClientProps) {
                                                     </Link>
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem
-                                                    onClick={() => handleDelete(s.id, s.name)}
+                                                    onClick={() => openDeleteConfirm(s.id, s.name)}
                                                     className="text-red-600 focus:text-red-600"
                                                 >
                                                     <TrashIcon className="h-4 w-4 mr-2" />
@@ -304,6 +330,58 @@ export function SuppliersClient({ suppliers }: SuppliersClientProps) {
                     </div>
                 </div>
             )}
+
+            {/* Delete Confirmation Modal */}
+            <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <AlertDialogContent className="z-[100]">
+
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+                            <WarningCircleIcon className="h-5 w-5" weight="fill" />
+                            Delete Supplier Permanently?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="space-y-3">
+                            <p>
+                                You are about to delete <strong>{supplierToDelete?.name}</strong>.
+                            </p>
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
+                                <p className="font-semibold mb-1">⚠️ This will permanently delete:</p>
+                                <ul className="list-disc list-inside space-y-0.5 text-xs">
+                                    <li>All Purchase Orders for this supplier</li>
+                                    <li>All Invoices and payments</li>
+                                    <li>All Milestones and progress records</li>
+                                    <li>All Documents and email logs</li>
+                                    <li>All NCRs, Change Orders, and audit history</li>
+                                </ul>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                This action cannot be undone.
+                            </p>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleConfirmDelete}
+                            disabled={isDeleting}
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                        >
+                            {isDeleting ? (
+                                <>
+                                    <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                <>
+                                    <TrashIcon className="h-4 w-4 mr-2" />
+                                    Delete Everything
+                                </>
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
+

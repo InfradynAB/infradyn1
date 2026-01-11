@@ -103,25 +103,46 @@ export default async function SupplierDashboardPage() {
     if (!supplierData) {
         console.log("[SUPPLIER-DASHBOARD] No supplier found by any method. User email:", session.user.email);
 
+        // Full-screen overlay that blocks all navigation
         return (
-            <div className="p-8">
-                <Card className="border-dashed bg-muted/50">
-                    <CardHeader className="text-center py-12">
+            <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center">
+
+                <Card className="max-w-md w-full mx-4 border-amber-200 bg-amber-50/80 shadow-2xl">
+                    <CardHeader className="text-center py-10">
                         <div className="flex justify-center mb-4">
-                            <WarningCircle className="h-12 w-12 text-muted-foreground" />
+                            <div className="h-16 w-16 rounded-full bg-amber-100 flex items-center justify-center">
+                                <WarningCircle className="h-8 w-8 text-amber-600" weight="fill" />
+                            </div>
                         </div>
-                        <CardTitle>Supplier Account Not Linked</CardTitle>
-                        <p className="text-muted-foreground mt-2">
-                            We could not find a supplier profile linked to your account.
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-4 font-mono">
-                            Debug: User ID = {session.user.id}
+                        <CardTitle className="text-amber-900 text-xl">Account Not Available</CardTitle>
+                        <p className="text-amber-800 mt-3 text-sm">
+                            Your supplier account is not currently linked to any organization, or it may have been removed.
                         </p>
                     </CardHeader>
+                    <CardContent className="text-center space-y-4 pb-8">
+                        <div className="bg-white/80 border border-amber-200 rounded-lg p-4 text-left">
+                            <p className="text-sm text-amber-900 font-medium mb-2">This could mean:</p>
+                            <ul className="text-xs text-amber-800 space-y-1 list-disc list-inside">
+                                <li>Your supplier account was removed by the organization</li>
+                                <li>You have not yet accepted an invitation</li>
+                                <li>The invitation link may have expired</li>
+                            </ul>
+                        </div>
+                        <p className="text-xs text-amber-700">
+                            If you believe this is an error, please contact the organization that invited you.
+                        </p>
+                        <div className="pt-4">
+                            <Button asChild className="w-full bg-amber-600 hover:bg-amber-700 text-white">
+                                <Link href="/sign-out">Sign Out</Link>
+                            </Button>
+                        </div>
+                    </CardContent>
                 </Card>
             </div>
         );
     }
+
+
 
     // Fetch all assigned POs with their projects and milestones
     const pos = await db.query.purchaseOrder.findMany({

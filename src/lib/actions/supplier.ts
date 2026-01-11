@@ -2,6 +2,7 @@
 
 import db from "@/db/drizzle";
 import {
+
     supplier,
     member,
     purchaseOrder,
@@ -29,13 +30,21 @@ import {
     riskProfile,
     emailAttachment,
     document,
-    documentExtraction
+    documentExtraction,
+    invitation,
+    organization
 } from "@/db/schema";
+
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { eq, inArray, sql, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as XLSX from 'xlsx';
+import { Resend } from "resend";
+import { render } from "@react-email/render";
+import SupplierRemovedEmail from "@/emails/supplier-removed-email";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Helper to get all organization IDs for the user
 async function getUserOrganizationIds(userId: string): Promise<string[]> {
@@ -294,6 +303,18 @@ export async function deleteSupplier(supplierId: string) {
             return { success: false, error: "Supplier not found" };
         }
 
+        // Capture supplier details for email notification BEFORE deletion
+        const supplierEmail = existing.contactEmail;
+        const supplierName = existing.name;
+        const organizationId = existing.organizationId;
+
+        // Get organization name for the email
+        const org = await db.query.organization.findFirst({
+            where: eq(organization.id, organizationId),
+            columns: { name: true }
+        });
+        const orgName = org?.name || "the organization";
+
         // Get all POs for this supplier to cascade delete their children
         const supplierPOs = await db
             .select({ id: purchaseOrder.id })
@@ -440,6 +461,15 @@ export async function deleteSupplier(supplierId: string) {
             await db.delete(milestone).where(inArray(milestone.id, milestoneIds));
         }
 
+        // --- EMAIL INGESTION (MUST be deleted BEFORE purchase_order due to matchedPoId FK) ---
+        if (emailAttachmentIds.length > 0) {
+            await db.delete(emailAttachment).where(inArray(emailAttachment.id, emailAttachmentIds));
+        }
+        if (emailIngestionIds.length > 0) {
+            await db.delete(emailIngestion).where(inArray(emailIngestion.id, emailIngestionIds));
+        }
+
+        // --- PURCHASE ORDER & CHILDREN ---
         if (poIds.length > 0) {
             await db.delete(conflictRecord).where(inArray(conflictRecord.purchaseOrderId, poIds));
             await db.delete(boqItem).where(inArray(boqItem.purchaseOrderId, poIds));
@@ -448,25 +478,21 @@ export async function deleteSupplier(supplierId: string) {
             await db.delete(purchaseOrder).where(inArray(purchaseOrder.id, poIds));
         }
 
-        // --- PHASE 2: TECHNICAL RECORDS & INGESTIONS ---
-        // (These must be deleted AFTER the business records they support)
-
-        if (emailAttachmentIds.length > 0) {
-            await db.delete(emailAttachment).where(inArray(emailAttachment.id, emailAttachmentIds));
-        }
+        // --- DOCUMENT RECORDS ---
         if (extractionIds.length > 0) {
             await db.delete(documentExtraction).where(inArray(documentExtraction.id, extractionIds));
         }
         if (documentIds.length > 0) {
             await db.delete(document).where(inArray(document.id, documentIds));
         }
-        if (emailIngestionIds.length > 0) {
-            await db.delete(emailIngestion).where(inArray(emailIngestion.id, emailIngestionIds));
-        }
+
 
         // Phase D: Supplier Documents & Supplier Root
         await db.delete(riskProfile).where(eq(riskProfile.supplierId, supplierId));
         await db.delete(supplierDocument).where(eq(supplierDocument.supplierId, supplierId));
+
+        // Delete invitations linked to this supplier
+        await db.delete(invitation).where(eq(invitation.supplierId, supplierId));
 
         // Finally delete the root supplier record
         await db.delete(supplier).where(eq(supplier.id, supplierId));
@@ -475,6 +501,30 @@ export async function deleteSupplier(supplierId: string) {
         revalidatePath("/dashboard/procurement");
 
         console.log(`[deleteSupplier] Success. Fully wiped supplier: ${supplierId}`);
+
+        // Send removal notification email if supplier had an email
+        if (supplierEmail) {
+            try {
+                const emailHtml = await render(
+                    SupplierRemovedEmail({
+                        supplierName: supplierName,
+                        organizationName: orgName,
+                    })
+                );
+
+                await resend.emails.send({
+                    from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+                    to: supplierEmail,
+                    subject: `Your supplier account with ${orgName} has been removed`,
+                    html: emailHtml
+                });
+                console.log(`[deleteSupplier] Removal notification sent to: ${supplierEmail}`);
+            } catch (emailError) {
+                // Don't fail the deletion if email fails
+                console.error("[deleteSupplier] Failed to send removal email:", emailError);
+            }
+        }
+
         return { success: true, message: "Supplier and all related history wiped successfully" };
     } catch (error) {
         console.error("[deleteSupplier] Full Wipe Error:", error);
