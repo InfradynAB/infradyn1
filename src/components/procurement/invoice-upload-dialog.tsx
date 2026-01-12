@@ -308,8 +308,9 @@ export function InvoiceUploadDialog({
     };
 
     const approvedMilestones = milestones.filter(
-        (m) => m.status === "APPROVED" || m.status === "INVOICED" || m.status === "PARTIALLY_PAID"
+        (m) => m.status === "APPROVED" || m.status === "INVOICED" || m.status === "PARTIALLY_PAID" || m.status === "PENDING"
     );
+
 
     return (
         <Dialog open={open} onOpenChange={(isOpen) => {

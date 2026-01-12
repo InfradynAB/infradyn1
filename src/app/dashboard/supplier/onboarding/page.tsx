@@ -2,9 +2,10 @@ import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import db from "@/db/drizzle";
-import { supplier, supplierDocument } from "@/db/schema";
+import { supplier } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { OnboardingForm } from "@/components/supplier/onboarding-form";
+import { ProfileManagement } from "@/components/supplier/profile-management";
 
 export default async function SupplierOnboardingPage() {
     const session = await auth.api.getSession({
@@ -26,6 +27,22 @@ export default async function SupplierOnboardingPage() {
         return <div>Error: Supplier profile not found.</div>;
     }
 
+    // If supplier is fully onboarded (100% readiness), show profile management view
+    const readinessScore = Number(supplierData.readinessScore) || 0;
+    const isFullyOnboarded = readinessScore >= 100;
+
+
+    if (isFullyOnboarded) {
+        return (
+            <ProfileManagement
+                supplier={supplierData}
+                userName={session.user.name || ""}
+                userEmail={session.user.email || ""}
+            />
+        );
+    }
+
+    // Otherwise show onboarding wizard
     return (
         <div className="max-w-4xl mx-auto py-8">
             <div className="mb-8">

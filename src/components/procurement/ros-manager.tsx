@@ -459,151 +459,154 @@ export function ROSManager({ boqItems, onChange, currency = "USD" }: ROSManagerP
                 {/* BOQ Table */}
                 {boqItems.length > 0 ? (
                     <div className="border rounded-lg overflow-hidden">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-[50px]">
-                                        Critical
-                                    </TableHead>
-                                    <TableHead className="w-[60px]">
-                                        Item #
-                                    </TableHead>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead className="w-[80px] text-right">
-                                        Qty
-                                    </TableHead>
-                                    <TableHead className="w-[100px] text-right">
-                                        Unit Price
-                                    </TableHead>
-                                    <TableHead className="w-[100px] text-right">
-                                        Total
-                                    </TableHead>
-                                    <TableHead className="w-[130px]">
-                                        ROS Date
-                                    </TableHead>
-                                    <TableHead className="w-[90px]">
-                                        Status
-                                    </TableHead>
-                                    <TableHead className="w-[80px]"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {boqItems.map((item, index) => (
-                                    <TableRow
-                                        key={index}
-                                        className={
-                                            item.isCritical &&
-                                                item.rosStatus === "NOT_SET"
-                                                ? "bg-amber-50/50 dark:bg-amber-950/20"
-                                                : ""
-                                        }
-                                    >
-                                        <TableCell>
-                                            <Checkbox
-                                                checked={item.isCritical}
-                                                onCheckedChange={(checked) =>
-                                                    updateItem(index, {
-                                                        isCritical:
-                                                            checked === true,
-                                                    })
-                                                }
-                                            />
-                                        </TableCell>
-                                        <TableCell className="font-mono text-sm">
-                                            {item.itemNumber}
-                                        </TableCell>
-                                        <TableCell className="max-w-[150px] truncate">
-                                            {item.description}
-                                        </TableCell>
-                                        <TableCell className="text-right font-mono text-sm">
-                                            {item.quantity}
-                                        </TableCell>
-                                        <TableCell className="text-right font-mono text-sm">
-                                            {(item.unitPrice ?? 0).toLocaleString()}
-                                        </TableCell>
-                                        <TableCell className="text-right font-mono text-sm font-medium">
-                                            {(item.totalPrice ?? 0).toLocaleString()}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Input
-                                                type="date"
-                                                value={item.rosDate || ""}
-                                                onChange={(e) =>
-                                                    updateItem(index, {
-                                                        rosDate:
-                                                            e.target.value ||
-                                                            undefined,
-                                                    })
-                                                }
-                                                disabled={
-                                                    item.rosStatus === "TBD"
-                                                }
-                                                className="h-8"
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            <Select
-                                                value={item.rosStatus}
-                                                onValueChange={(value) => {
-                                                    if (value === "TBD") {
-                                                        setTBD(index);
-                                                    } else if (
-                                                        value === "NOT_SET"
-                                                    ) {
-                                                        updateItem(index, {
-                                                            rosDate: undefined,
-                                                            rosStatus:
-                                                                "NOT_SET",
-                                                        });
-                                                    }
-                                                }}
-                                            >
-                                                <SelectTrigger className="h-8 w-[80px]">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="NOT_SET">
-                                                        --
-                                                    </SelectItem>
-                                                    <SelectItem value="SET">
-                                                        Set
-                                                    </SelectItem>
-                                                    <SelectItem value="TBD">
-                                                        TBD
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex gap-1">
-                                                <Button
-                                                    type="button"
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    className="h-8 w-8"
-                                                    onClick={() =>
-                                                        openEditDialog(index)
-                                                    }
-                                                >
-                                                    <PencilSimpleIcon className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    className="h-8 w-8 text-destructive"
-                                                    onClick={() =>
-                                                        deleteItem(index)
-                                                    }
-                                                >
-                                                    <TrashIcon className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
+                        <div className="max-h-[400px] overflow-y-auto">
+                            <Table>
+
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-[50px]">
+                                            Critical
+                                        </TableHead>
+                                        <TableHead className="w-[60px]">
+                                            Item #
+                                        </TableHead>
+                                        <TableHead>Description</TableHead>
+                                        <TableHead className="w-[80px] text-right">
+                                            Qty
+                                        </TableHead>
+                                        <TableHead className="w-[100px] text-right">
+                                            Unit Price
+                                        </TableHead>
+                                        <TableHead className="w-[100px] text-right">
+                                            Total
+                                        </TableHead>
+                                        <TableHead className="w-[130px]">
+                                            ROS Date
+                                        </TableHead>
+                                        <TableHead className="w-[90px]">
+                                            Status
+                                        </TableHead>
+                                        <TableHead className="w-[80px]"></TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {boqItems.map((item, index) => (
+                                        <TableRow
+                                            key={index}
+                                            className={
+                                                item.isCritical &&
+                                                    item.rosStatus === "NOT_SET"
+                                                    ? "bg-amber-50/50 dark:bg-amber-950/20"
+                                                    : ""
+                                            }
+                                        >
+                                            <TableCell>
+                                                <Checkbox
+                                                    checked={item.isCritical}
+                                                    onCheckedChange={(checked) =>
+                                                        updateItem(index, {
+                                                            isCritical:
+                                                                checked === true,
+                                                        })
+                                                    }
+                                                />
+                                            </TableCell>
+                                            <TableCell className="font-mono text-sm">
+                                                {item.itemNumber}
+                                            </TableCell>
+                                            <TableCell className="max-w-[150px] truncate">
+                                                {item.description}
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-sm">
+                                                {item.quantity}
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-sm">
+                                                {(item.unitPrice ?? 0).toLocaleString()}
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-sm font-medium">
+                                                {(item.totalPrice ?? 0).toLocaleString()}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Input
+                                                    type="date"
+                                                    value={item.rosDate || ""}
+                                                    onChange={(e) =>
+                                                        updateItem(index, {
+                                                            rosDate:
+                                                                e.target.value ||
+                                                                undefined,
+                                                        })
+                                                    }
+                                                    disabled={
+                                                        item.rosStatus === "TBD"
+                                                    }
+                                                    className="h-8"
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Select
+                                                    value={item.rosStatus}
+                                                    onValueChange={(value) => {
+                                                        if (value === "TBD") {
+                                                            setTBD(index);
+                                                        } else if (
+                                                            value === "NOT_SET"
+                                                        ) {
+                                                            updateItem(index, {
+                                                                rosDate: undefined,
+                                                                rosStatus:
+                                                                    "NOT_SET",
+                                                            });
+                                                        }
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="h-8 w-[80px]">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="NOT_SET">
+                                                            --
+                                                        </SelectItem>
+                                                        <SelectItem value="SET">
+                                                            Set
+                                                        </SelectItem>
+                                                        <SelectItem value="TBD">
+                                                            TBD
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex gap-1">
+                                                    <Button
+                                                        type="button"
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-8 w-8"
+                                                        onClick={() =>
+                                                            openEditDialog(index)
+                                                        }
+                                                    >
+                                                        <PencilSimpleIcon className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-8 w-8 text-destructive"
+                                                        onClick={() =>
+                                                            deleteItem(index)
+                                                        }
+                                                    >
+                                                        <TrashIcon className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </div>
                 ) : (
                     <div className="text-center py-8 border-2 border-dashed rounded-lg">
@@ -616,6 +619,7 @@ export function ROSManager({ boqItems, onChange, currency = "USD" }: ROSManagerP
                         </Button>
                     </div>
                 )}
+
 
                 {/* Add/Edit Dialog */}
                 <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>

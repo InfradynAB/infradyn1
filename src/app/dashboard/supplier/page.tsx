@@ -28,6 +28,7 @@ import { SupplierStatsCard } from "@/components/supplier/supplier-stats-card";
 import { UpcomingMilestones } from "@/components/supplier/upcoming-milestones";
 import { ProgressUpdateSheetWrapper } from "@/components/supplier/progress-update-sheet-wrapper";
 import { getSupplierPerformance } from "@/lib/actions/supplier-performance";
+import { SignOutButton } from "@/components/sign-out-button";
 
 export default async function SupplierDashboardPage() {
     const session = await auth.api.getSession({
@@ -132,9 +133,7 @@ export default async function SupplierDashboardPage() {
                             If you believe this is an error, please contact the organization that invited you.
                         </p>
                         <div className="pt-4">
-                            <Button asChild className="w-full bg-amber-600 hover:bg-amber-700 text-white">
-                                <Link href="/sign-out">Sign Out</Link>
-                            </Button>
+                            <SignOutButton fullWidth className="bg-amber-600 hover:bg-amber-700" />
                         </div>
                     </CardContent>
                 </Card>

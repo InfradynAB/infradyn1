@@ -727,54 +727,56 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                         </CardHeader>
                         <CardContent>
                             {(po as any).boqItems?.length > 0 ? (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Item #</TableHead>
-                                            <TableHead>Description</TableHead>
-                                            <TableHead>Unit</TableHead>
-                                            <TableHead className="text-right">
-                                                Qty
-                                            </TableHead>
-                                            <TableHead className="text-right">
-                                                Unit Price
-                                            </TableHead>
-                                            <TableHead className="text-right">
-                                                Total
-                                            </TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {(po as any).boqItems.map((item: any) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell>
-                                                    {item.itemNumber}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {item.description}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {item.unit}
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono">
-                                                    {Number(
-                                                        item.quantity ?? 0
-                                                    ).toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono">
-                                                    {Number(
-                                                        item.unitPrice ?? 0
-                                                    ).toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono">
-                                                    {Number(
-                                                        item.totalPrice ?? 0
-                                                    ).toLocaleString()}
-                                                </TableCell>
+                                <div className="max-h-[400px] overflow-y-auto border rounded-lg">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Item #</TableHead>
+                                                <TableHead>Description</TableHead>
+                                                <TableHead>Unit</TableHead>
+                                                <TableHead className="text-right">
+                                                    Qty
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    Unit Price
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    Total
+                                                </TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {(po as any).boqItems.map((item: any) => (
+                                                <TableRow key={item.id}>
+                                                    <TableCell>
+                                                        {item.itemNumber}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {item.description}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {item.unit}
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-mono">
+                                                        {Number(
+                                                            item.quantity ?? 0
+                                                        ).toLocaleString()}
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-mono">
+                                                        {Number(
+                                                            item.unitPrice ?? 0
+                                                        ).toLocaleString()}
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-mono">
+                                                        {Number(
+                                                            item.totalPrice ?? 0
+                                                        ).toLocaleString()}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             ) : (
                                 <div className="text-center py-12 text-muted-foreground">
                                     <FileTextIcon className="h-10 w-10 mx-auto mb-3 opacity-50" />
@@ -785,6 +787,7 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                     </p>
                                 </div>
                             )}
+
                         </CardContent>
                     </Card>
                 </TabsContent>

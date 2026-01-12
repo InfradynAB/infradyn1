@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import db from "@/db/drizzle";
-import { invoice, document } from "@/db/schema";
+import { invoice, document, purchaseOrder } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { createInvoice, validateInvoiceAmount, updatePaymentStatus, getPendingInvoices, getPaymentSummary } from "@/lib/actions/finance-engine";
 
@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
         switch (action) {
             case "create": {
                 const result = await createInvoice({
+
                     purchaseOrderId: data.purchaseOrderId,
                     milestoneId: data.milestoneId,
                     invoiceNumber: data.invoiceNumber,
@@ -31,11 +32,29 @@ export async function POST(request: NextRequest) {
             }
 
             case "submitForApproval": {
+                // Determine Organization ID (Essential for multi-tenancy)
+                let orgId = session.user.organizationId;
+
+                // Fallback: If supplier is submitting, look up the PO's organization
+                if (!orgId || orgId === "") {
+                    const po = await db.query.purchaseOrder.findFirst({
+                        where: eq(purchaseOrder.id, data.purchaseOrderId),
+                        columns: { organizationId: true }
+                    });
+                    if (po) {
+                        orgId = po.organizationId;
+                    }
+                }
+
+                if (!orgId || orgId === "") {
+                    return NextResponse.json({ error: "Contextual Organization ID not found" }, { status: 400 });
+                }
+
                 // Create document record first if we have a URL
                 let documentId: string | undefined;
                 if (data.documentUrl) {
                     const [doc] = await db.insert(document).values({
-                        organizationId: session.user.organizationId || "",
+                        organizationId: orgId,
                         parentId: data.purchaseOrderId,
                         parentType: "PO",
                         fileName: `Invoice_${data.invoiceNumber}.pdf`,
