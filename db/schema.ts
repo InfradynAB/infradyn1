@@ -18,6 +18,18 @@ export const ingestionSourceEnum = pgEnum('ingestion_source', ['MANUAL_UPLOAD', 
 export const emailIngestionStatusEnum = pgEnum('email_ingestion_status', ['PENDING', 'PROCESSING', 'PROCESSED', 'FAILED', 'IGNORED']);
 export const syncProviderEnum = pgEnum('sync_provider', ['SMARTSHEET', 'EXCEL_SCHEDULED', 'GOOGLE_SHEETS']);
 
+// Phase 6: Logistics & Delivery Tracking Enums
+export const shipmentStatusEnum = pgEnum('shipment_status', [
+    'PENDING', 'DISPATCHED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY',
+    'DELIVERED', 'PARTIALLY_DELIVERED', 'FAILED', 'EXCEPTION'
+]);
+export const etaConfidenceEnum = pgEnum('eta_confidence', ['HIGH', 'MEDIUM', 'LOW']);
+export const conflictSeverityEnum = pgEnum('conflict_severity', ['LOW', 'MEDIUM', 'HIGH']);
+export const qaTaskStatusEnum = pgEnum('qa_task_status', ['PENDING', 'IN_PROGRESS', 'PASSED', 'FAILED', 'WAIVED']);
+export const commentParentTypeEnum = pgEnum('comment_parent_type', ['PO', 'SHIPMENT', 'DELIVERY', 'QA_TASK', 'INVOICE']);
+export const shipmentEventTypeEnum = pgEnum('shipment_event_type', ['LOCATION_SCAN', 'ETA_UPDATE', 'EXCEPTION', 'DELIVERED', 'PICKUP', 'CUSTOMS', 'OTHER']);
+
+
 // --- SHARED COLUMNS ---
 const baseColumns = {
     id: uuid('id').defaultRandom().primaryKey(),
@@ -201,9 +213,12 @@ export const purchaseOrder = pgTable('purchase_order', {
     retentionPercentage: numeric('retention_percentage').default('0'), // Retention %
     complianceStatus: text('compliance_status').default('PENDING'), // PENDING, PASSED, FAILED
     complianceNotes: text('compliance_notes'), // Validator notes/flags
+    // Phase 6 additions
+    progressPercentage: numeric('progress_percentage').default('0'), // Overall delivery progress
 }, (t) => ({
     poNumberIdx: uniqueIndex('po_number_idx').on(t.projectId, t.poNumber),
 }));
+
 
 export const poVersion = pgTable('po_version', {
     ...baseColumns,
@@ -226,7 +241,10 @@ export const boqItem = pgTable('boq_item', {
     rosDate: timestamp('ros_date'), // Required on site date
     isCritical: boolean('is_critical').default(false), // Critical material flag
     rosStatus: text('ros_status').default('NOT_SET'), // NOT_SET, SET, TBD
+    // Phase 6 additions - Delivery tracking
+    quantityDelivered: numeric('quantity_delivered').default('0'),
 });
+
 
 export const milestone = pgTable('milestone', {
     ...baseColumns,
@@ -371,16 +389,60 @@ export const usageEvent = pgTable('usage_event', {
     orgDateIdx: index('usage_event_org_date_idx').on(t.organizationId, t.createdAt),
 }));
 
-// --- 5. LOGISTICS & DELIVERY ---
+// --- 5. LOGISTICS & DELIVERY (Phase 6 Extended) ---
 
 export const shipment = pgTable('shipment', {
     ...baseColumns,
     purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrder.id).notNull(),
+    boqItemId: uuid('boq_item_id').references(() => boqItem.id), // Optional: link to specific BOQ item
+    supplierId: uuid('supplier_id').references(() => supplier.id),
+
+    // Core tracking
     trackingNumber: text('tracking_number'),
     carrier: text('carrier'),
-    eta: timestamp('eta'),
-    status: text('status').default('IN_TRANSIT'),
+    carrierNormalized: text('carrier_normalized'), // Standardized carrier code for AfterShip
+
+    // Dates
+    dispatchDate: timestamp('dispatch_date'),
+    supplierAos: timestamp('supplier_aos'), // Supplier-declared Arrival on Site
+    logisticsEta: timestamp('logistics_eta'), // API-provided ETA
+    rosDate: timestamp('ros_date'), // Required on Site date (from BOQ item)
+    actualDeliveryDate: timestamp('actual_delivery_date'),
+
+    // Status & Confidence
+    status: shipmentStatusEnum('status').default('PENDING'),
+    etaConfidence: etaConfidenceEnum('eta_confidence'),
+    isTrackingLinked: boolean('is_tracking_linked').default(false),
+
+    // Metadata
+    destination: text('destination'),
+    originLocation: text('origin_location'),
+    lastKnownLocation: text('last_known_location'),
+    lastApiSyncAt: timestamp('last_api_sync_at'),
+    aftershipId: text('aftership_id'), // AfterShip tracking ID
+
+    // Documents
+    packingListDocId: uuid('packing_list_doc_id').references(() => document.id),
+    cmrDocId: uuid('cmr_doc_id').references(() => document.id),
+
+    // Quantities
+    declaredQty: numeric('declared_qty'),
+    unit: text('unit'),
 });
+
+// Shipment event stream (tracking events from API or manual)
+export const shipmentEvent = pgTable('shipment_event', {
+    ...baseColumns,
+    shipmentId: uuid('shipment_id').references(() => shipment.id).notNull(),
+    eventType: shipmentEventTypeEnum('event_type').notNull(),
+    eventTime: timestamp('event_time').notNull(),
+    location: text('location'),
+    description: text('description'),
+    rawApiData: jsonb('raw_api_data'),
+    source: text('source').default('LOGISTICS_API'), // LOGISTICS_API, SUPPLIER, MANUAL
+}, (t) => ({
+    shipmentTimeIdx: index('shipment_event_time_idx').on(t.shipmentId, t.eventTime),
+}));
 
 export const packingList = pgTable('packing_list', {
     ...baseColumns,
@@ -392,9 +454,14 @@ export const delivery = pgTable('delivery', {
     ...baseColumns,
     projectId: uuid('project_id').references(() => project.id).notNull(),
     purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrder.id).notNull(),
+    shipmentId: uuid('shipment_id').references(() => shipment.id), // Phase 6: link to shipment
     shippingNoteNumber: text('shipping_note_number'),
     receivedDate: timestamp('received_date').defaultNow(),
     receivedBy: text('received_by').references(() => user.id),
+    // Phase 6: Delivery confirmation fields
+    isPartial: boolean('is_partial').default(false),
+    signatureCaptured: boolean('signature_captured').default(false),
+    signatureDocId: uuid('signature_doc_id').references(() => document.id),
 });
 
 export const deliveryItem = pgTable('delivery_item', {
@@ -402,10 +469,54 @@ export const deliveryItem = pgTable('delivery_item', {
     deliveryId: uuid('delivery_id').references(() => delivery.id).notNull(),
     boqItemId: uuid('boq_item_id').references(() => boqItem.id).notNull(),
     quantityDelivered: numeric('quantity_delivered').notNull(),
+    quantityDeclared: numeric('quantity_declared'), // Phase 6: supplier-declared qty
+    condition: text('condition'), // GOOD, DAMAGED, MISSING_ITEMS
+    variancePercent: numeric('variance_percent'), // Phase 6: auto-calculated
+    notes: text('notes'),
+});
+
+// Phase 6: Delivery receipt for site confirmation
+export const deliveryReceipt = pgTable('delivery_receipt', {
+    ...baseColumns,
+    shipmentId: uuid('shipment_id').references(() => shipment.id).notNull(),
+    deliveryId: uuid('delivery_id').references(() => delivery.id),
+    receivedAt: timestamp('received_at').defaultNow(),
+    receivedBy: text('received_by').references(() => user.id),
+
+    // Quantities
+    declaredQty: numeric('declared_qty'),
+    receivedQty: numeric('received_qty').notNull(),
+    variancePercent: numeric('variance_percent'),
+
+    // Status
+    isPartial: boolean('is_partial').default(false),
     condition: text('condition'),
+    notes: text('notes'),
+
+    // Evidence
+    photoDocIds: jsonb('photo_doc_ids').$type<string[]>(),
+});
+
+// Phase 6: QA Inspection tasks (auto-created on delivery)
+export const qaInspectionTask = pgTable('qa_inspection_task', {
+    ...baseColumns,
+    deliveryReceiptId: uuid('delivery_receipt_id').references(() => deliveryReceipt.id).notNull(),
+    purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrder.id).notNull(),
+
+    status: qaTaskStatusEnum('status').default('PENDING'),
+    assignedTo: text('assigned_to').references(() => user.id),
+    dueDate: timestamp('due_date'),
+    completedAt: timestamp('completed_at'),
+
+    // Findings
+    inspectionNotes: text('inspection_notes'),
+    passedItems: integer('passed_items').default(0),
+    failedItems: integer('failed_items').default(0),
+    ncrRequired: boolean('ncr_required').default(false),
 });
 
 // --- 6. SUPPLIER & INTERNAL PROGRESS (Dual Path) ---
+
 
 export const progressRecord = pgTable('progress_record', {
     ...baseColumns,
@@ -458,7 +569,28 @@ export const conflictRecord = pgTable('conflict_record', {
     isCriticalPath: boolean('is_critical_path').default(false),
     isFinancialMilestone: boolean('is_financial_milestone').default(false),
     lastReminderAt: timestamp('last_reminder_at'),
+
+    // Phase 6: Enhanced conflict tracking
+    severity: conflictSeverityEnum('severity').default('MEDIUM'),
+    shipmentId: uuid('shipment_id').references(() => shipment.id),
+    deliveryReceiptId: uuid('delivery_receipt_id').references(() => deliveryReceipt.id),
+    invoiceId: uuid('invoice_id').references(() => invoice.id),
+
+    // Comparison values for conflict queue display
+    supplierValue: text('supplier_value'),
+    logisticsValue: text('logistics_value'),
+    fieldValue: text('field_value'),
+
+    // Auto-resolution tracking
+    autoResolved: boolean('auto_resolved').default(false),
+    autoResolvedAt: timestamp('auto_resolved_at'),
+    autoResolvedReason: text('auto_resolved_reason'),
+
+    // Digest tracking
+    includedInDigest: boolean('included_in_digest').default(false),
+    digestSentAt: timestamp('digest_sent_at'),
 });
+
 
 // --- 8. CONFIDENCE & RISK ---
 
@@ -645,7 +777,60 @@ export const integrationKey = pgTable('integration_key', {
     isActive: boolean('is_active').default(true),
 });
 
+// --- Phase 6: COMMENTING SYSTEM ---
+
+export const comment = pgTable('comment', {
+    ...baseColumns,
+    parentType: commentParentTypeEnum('parent_type').notNull(),
+    parentId: uuid('parent_id').notNull(),
+
+    userId: text('user_id').references(() => user.id).notNull(),
+    userRole: text('user_role').notNull(), // SUPPLIER, PM, QA_QC
+
+    content: text('content').notNull(),
+    version: integer('version').default(1),
+    previousVersionId: uuid('previous_version_id'),
+    isEdited: boolean('is_edited').default(false),
+    editedAt: timestamp('edited_at'),
+}, (t) => ({
+    parentIdx: index('comment_parent_idx').on(t.parentType, t.parentId),
+}));
+
+// --- Phase 6: SYSTEM CONFIGURATION ---
+
+export const systemConfig = pgTable('system_config', {
+    ...baseColumns,
+    organizationId: uuid('organization_id').references(() => organization.id), // null = global default
+
+    configKey: text('config_key').notNull(),
+    configValue: text('config_value').notNull(),
+    configType: text('config_type').notNull(), // NUMBER, BOOLEAN, STRING, JSON
+    description: text('description'),
+}, (t) => ({
+    keyOrgIdx: uniqueIndex('config_key_org_idx').on(t.organizationId, t.configKey),
+}));
+
+// --- Phase 6: SUPPLIER ACCURACY TRACKING ---
+
+export const supplierAccuracy = pgTable('supplier_accuracy', {
+    ...baseColumns,
+    supplierId: uuid('supplier_id').references(() => supplier.id).notNull(),
+
+    // Accuracy metrics
+    totalShipments: integer('total_shipments').default(0),
+    onTimeDeliveries: integer('on_time_deliveries').default(0),
+    lateDeliveries: integer('late_deliveries').default(0),
+    accuracyScore: numeric('accuracy_score').default('0'), // 0-100
+
+    // Auto-accept policy
+    autoAcceptEnabled: boolean('auto_accept_enabled').default(false),
+    autoAcceptThreshold: numeric('auto_accept_threshold').default('90'), // Min accuracy score for auto-accept
+
+    lastCalculatedAt: timestamp('last_calculated_at').defaultNow(),
+});
+
 // --- RELATIONS ---
+
 
 export const organizationRelations = relations(organization, ({ many }) => ({
     projects: many(project),
@@ -767,8 +952,44 @@ export const invoiceItemRelations = relations(invoiceItem, ({ one }) => ({
 
 export const shipmentRelations = relations(shipment, ({ one, many }) => ({
     purchaseOrder: one(purchaseOrder, { fields: [shipment.purchaseOrderId], references: [purchaseOrder.id] }),
+    supplier: one(supplier, { fields: [shipment.supplierId], references: [supplier.id] }),
+    boqItem: one(boqItem, { fields: [shipment.boqItemId], references: [boqItem.id] }),
+    packingListDoc: one(document, { fields: [shipment.packingListDocId], references: [document.id] }),
+    cmrDoc: one(document, { fields: [shipment.cmrDocId], references: [document.id] }),
     packingLists: many(packingList),
+    events: many(shipmentEvent),
+    deliveryReceipts: many(deliveryReceipt),
 }));
+
+export const shipmentEventRelations = relations(shipmentEvent, ({ one }) => ({
+    shipment: one(shipment, { fields: [shipmentEvent.shipmentId], references: [shipment.id] }),
+}));
+
+export const deliveryReceiptRelations = relations(deliveryReceipt, ({ one, many }) => ({
+    shipment: one(shipment, { fields: [deliveryReceipt.shipmentId], references: [shipment.id] }),
+    delivery: one(delivery, { fields: [deliveryReceipt.deliveryId], references: [delivery.id] }),
+    receiver: one(user, { fields: [deliveryReceipt.receivedBy], references: [user.id] }),
+    qaTasks: many(qaInspectionTask),
+}));
+
+export const qaInspectionTaskRelations = relations(qaInspectionTask, ({ one }) => ({
+    deliveryReceipt: one(deliveryReceipt, { fields: [qaInspectionTask.deliveryReceiptId], references: [deliveryReceipt.id] }),
+    purchaseOrder: one(purchaseOrder, { fields: [qaInspectionTask.purchaseOrderId], references: [purchaseOrder.id] }),
+    assignee: one(user, { fields: [qaInspectionTask.assignedTo], references: [user.id] }),
+}));
+
+export const commentRelations = relations(comment, ({ one }) => ({
+    user: one(user, { fields: [comment.userId], references: [user.id] }),
+}));
+
+export const systemConfigRelations = relations(systemConfig, ({ one }) => ({
+    organization: one(organization, { fields: [systemConfig.organizationId], references: [organization.id] }),
+}));
+
+export const supplierAccuracyRelations = relations(supplierAccuracy, ({ one }) => ({
+    supplier: one(supplier, { fields: [supplierAccuracy.supplierId], references: [supplier.id] }),
+}));
+
 
 export const packingListRelations = relations(packingList, ({ one }) => ({
     shipment: one(shipment, { fields: [packingList.shipmentId], references: [shipment.id] }),
@@ -778,9 +999,11 @@ export const packingListRelations = relations(packingList, ({ one }) => ({
 export const deliveryRelations = relations(delivery, ({ one, many }) => ({
     project: one(project, { fields: [delivery.projectId], references: [project.id] }),
     purchaseOrder: one(purchaseOrder, { fields: [delivery.purchaseOrderId], references: [purchaseOrder.id] }),
+    shipment: one(shipment, { fields: [delivery.shipmentId], references: [shipment.id] }),
     receiver: one(user, { fields: [delivery.receivedBy], references: [user.id] }),
     items: many(deliveryItem),
 }));
+
 
 export const deliveryItemRelations = relations(deliveryItem, ({ one }) => ({
     delivery: one(delivery, { fields: [deliveryItem.deliveryId], references: [delivery.id] }),
