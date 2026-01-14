@@ -2,16 +2,20 @@ import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import db from "@/db/drizzle";
-import { purchaseOrder, supplier, invoice } from "@/db/schema";
+import { purchaseOrder, supplier, invoice, shipment } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SupplierPOActions } from "@/components/supplier/po-actions";
-import { FileTextIcon, CalendarIcon, PackageIcon, StackIcon, TruckIcon, InvoiceIcon, Receipt, ClockCountdown, CheckCircle, HourglassHigh } from "@phosphor-icons/react/dist/ssr";
+import { FileTextIcon, CalendarIcon, PackageIcon, StackIcon, TruckIcon, InvoiceIcon, Receipt, ClockCountdown, CheckCircle, HourglassHigh, Airplane } from "@phosphor-icons/react/dist/ssr";
 import { SupplierInvoiceUpload } from "@/components/supplier/invoice-upload";
 import { findSupplierForUser } from "@/lib/actions/supplier-lookup";
+// Phase 6 Shipment Components
+import { ShipmentSubmitForm } from "@/components/supplier/shipment-submit-form";
+import { ShipmentStatusCard } from "@/components/supplier/shipment-status-card";
+import { ShipmentTimeline } from "@/components/supplier/shipment-timeline";
 
 export default async function SupplierPODetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -44,7 +48,16 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
             boqItems: true,
             milestones: true,
             organization: true,
-            invoices: true
+            invoices: true,
+            shipments: {
+                orderBy: desc(shipment.createdAt),
+                with: {
+                    events: {
+                        limit: 1,
+                        orderBy: desc(shipment.createdAt),
+                    }
+                }
+            }
         }
     });
 
@@ -257,6 +270,79 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
                             </CardContent>
                         </Card>
                     )}
+
+                    {/* Shipments Section - Phase 6 */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between px-2">
+                            <h3 className="text-2xl font-black tracking-tight flex items-center gap-2">
+                                <Airplane className="h-7 w-7 text-blue-500" weight="duotone" />
+                                Shipments
+                            </h3>
+                            <ShipmentSubmitForm
+                                purchaseOrderId={po.id}
+                                supplierId={supplierData.id}
+                                boqItems={po.boqItems.map(item => ({
+                                    id: item.id,
+                                    description: item.description || '',
+                                    quantity: String(item.quantity),
+                                    unit: item.unit || 'units',
+                                }))}
+                            />
+                        </div>
+                        {(po as any).shipments && (po as any).shipments.length > 0 ? (
+                            <div className="grid gap-3">
+                                {(po as any).shipments.map((ship: any) => (
+                                    <div key={ship.id} className="group bg-card/60 backdrop-blur-md p-5 rounded-xl border border-muted/50 flex items-center justify-between shadow-md">
+                                        <div className="flex items-center gap-4">
+                                            <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${ship.status === 'DELIVERED' ? 'bg-green-500/10 text-green-600' :
+                                                    ship.status === 'IN_TRANSIT' || ship.status === 'OUT_FOR_DELIVERY' ? 'bg-blue-500/10 text-blue-600' :
+                                                        ship.status === 'EXCEPTION' || ship.status === 'FAILED' ? 'bg-red-500/10 text-red-600' :
+                                                            'bg-amber-500/10 text-amber-600'
+                                                }`}>
+                                                {ship.status === 'DELIVERED' ? (
+                                                    <CheckCircle className="h-5 w-5" weight="fill" />
+                                                ) : ship.status === 'IN_TRANSIT' || ship.status === 'OUT_FOR_DELIVERY' ? (
+                                                    <TruckIcon className="h-5 w-5" weight="fill" />
+                                                ) : (
+                                                    <PackageIcon className="h-5 w-5" weight="fill" />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <div className="font-bold">{ship.trackingNumber || 'No Tracking'}</div>
+                                                <div className="text-sm text-muted-foreground">
+                                                    {ship.carrier || 'Unknown Carrier'} • {ship.dispatchDate ? new Date(ship.dispatchDate).toLocaleDateString() : 'Pending'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className="text-right">
+                                                {ship.supplierAos && (
+                                                    <div className="text-xs text-muted-foreground">
+                                                        ETA: {new Date(ship.supplierAos).toLocaleDateString()}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <Badge className={`font-bold ${ship.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :
+                                                    ship.status === 'IN_TRANSIT' || ship.status === 'OUT_FOR_DELIVERY' ? 'bg-blue-100 text-blue-700' :
+                                                        ship.status === 'EXCEPTION' || ship.status === 'FAILED' ? 'bg-red-100 text-red-700' :
+                                                            'bg-amber-100 text-amber-700'
+                                                }`}>
+                                                {ship.status?.replace('_', ' ')}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <Card className="border-dashed bg-muted/20">
+                                <CardContent className="py-8 text-center text-muted-foreground">
+                                    <Airplane className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                                    <p className="font-medium">No shipments yet</p>
+                                    <p className="text-sm mt-1">Submit a shipment to track your delivery</p>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
 
 
 
