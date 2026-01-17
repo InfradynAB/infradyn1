@@ -393,20 +393,10 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                                 Invoices
                                             </CardTitle>
                                             <CardDescription>
-                                                Upload and track invoices for this PO
+                                                Review and approve invoices submitted by supplier
                                             </CardDescription>
                                         </div>
-                                        <InvoiceUploadSheet
-                                            purchaseOrderId={po.id}
-                                            milestones={(po as any).milestones?.map((m: any) => ({
-                                                id: m.id,
-                                                title: m.title,
-                                                amount: m.amount,
-                                                paymentPercentage: m.paymentPercentage,
-                                                status: m.status,
-                                            })) || []}
-                                            poTotalValue={Number(po.totalValue)}
-                                        />
+                                        {/* PM doesn't upload invoices - suppliers do */}
                                     </div>
                                 </CardHeader>
                                 <CardContent>
@@ -450,8 +440,8 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                     ) : (
                                         <div className="text-center py-8 text-muted-foreground">
                                             <Receipt className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                                            <p>No invoices uploaded yet</p>
-                                            <p className="text-sm">Upload an invoice to track payments</p>
+                                            <p>No invoices submitted yet</p>
+                                            <p className="text-sm">Invoices will appear here when submitted by supplier</p>
                                         </div>
                                     )}
                                 </CardContent>

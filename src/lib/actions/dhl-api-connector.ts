@@ -11,76 +11,21 @@ import db from "@/db/drizzle";
 import { shipment, shipmentEvent } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-// ============================================================================
-// Types
-// ============================================================================
+// Import utility functions and types for internal use
+// Note: External consumers should import directly from "@/lib/utils/dhl-utils"
+import {
+    validateWaybillNumber,
+    mapDHLStatus,
+    mapDHLEventType,
+    type DHLStatusCode,
+    type DHLShipment,
+    type DHLStatus,
+    type DHLEvent,
+    type DHLWebhookPayload,
+} from "@/lib/utils/dhl-utils";
 
-export interface DHLShipment {
-    id: string;
-    service: 'express' | 'freight';
-    origin: {
-        address: {
-            addressLocality: string;
-            countryCode: string;
-        };
-    };
-    destination: {
-        address: {
-            addressLocality: string;
-            countryCode: string;
-        };
-    };
-    status: DHLStatus;
-    estimatedTimeOfDelivery?: string;
-    events: DHLEvent[];
-    details?: {
-        proofOfDelivery?: {
-            signed: boolean;
-            signatureUrl?: string;
-            signedBy?: string;
-            timestamp?: string;
-        };
-        weight?: {
-            value: number;
-            unitText: string;
-        };
-    };
-}
-
-export interface DHLStatus {
-    timestamp: string;
-    location?: {
-        address: {
-            addressLocality: string;
-        };
-    };
-    statusCode: DHLStatusCode;
-    description: string;
-}
-
-export interface DHLEvent {
-    timestamp: string;
-    location?: {
-        address: {
-            addressLocality: string;
-        };
-    };
-    statusCode: DHLStatusCode;
-    description: string;
-}
-
-export type DHLStatusCode =
-    | 'pre-transit'
-    | 'transit'
-    | 'out-for-delivery'
-    | 'delivered'
-    | 'failure'
-    | 'unknown';
-
-export interface DHLWebhookPayload {
-    'event-type': 'shipment';
-    shipments: DHLShipment[];
-}
+// Note: All DHL interfaces (DHLShipment, DHLStatus, DHLEvent, DHLWebhookPayload, DHLStatusCode)
+// are imported from @/lib/utils/dhl-utils
 
 // ============================================================================
 // DHL API Configuration
@@ -129,45 +74,7 @@ async function makeDHLRequest(
     }
 }
 
-// ============================================================================
-// Waybill Validation
-// ============================================================================
-
-/**
- * Validate DHL waybill number and determine service type
- * Express: 10 digits
- * Freight: Alphanumeric (various formats)
- */
-export function validateWaybillNumber(waybill: string): {
-    valid: boolean;
-    service?: 'express' | 'freight';
-    error?: string;
-    normalized?: string;
-} {
-    if (!waybill) {
-        return { valid: false, error: "Waybill number is required" };
-    }
-
-    // Normalize: uppercase and remove spaces/dashes
-    const normalized = waybill.toUpperCase().replace(/[\s-]/g, '');
-
-    // DHL Express: 10 digits
-    const expressRegex = /^\d{10}$/;
-    if (expressRegex.test(normalized)) {
-        return { valid: true, service: 'express', normalized };
-    }
-
-    // DHL Freight: 7-10 alphanumeric characters
-    const freightRegex = /^[A-Z0-9]{7,15}$/;
-    if (freightRegex.test(normalized)) {
-        return { valid: true, service: 'freight', normalized };
-    }
-
-    return {
-        valid: false,
-        error: "Invalid format. Express: 10 digits. Freight: 7-15 alphanumeric."
-    };
-}
+// Note: validateWaybillNumber moved to @/lib/utils/dhl-utils.ts
 
 // ============================================================================
 // Tracking Operations
@@ -231,39 +138,7 @@ export async function getProofOfDelivery(
     };
 }
 
-// ============================================================================
-// Status Mapping
-// ============================================================================
-
-const DHL_STATUS_MAP: Record<DHLStatusCode, typeof shipment.$inferSelect.status> = {
-    'pre-transit': 'PENDING',
-    'transit': 'IN_TRANSIT',
-    'out-for-delivery': 'OUT_FOR_DELIVERY',
-    'delivered': 'DELIVERED',
-    'failure': 'EXCEPTION',
-    'unknown': 'PENDING',
-};
-
-export function mapDHLStatus(
-    statusCode: DHLStatusCode
-): "PENDING" | "DISPATCHED" | "IN_TRANSIT" | "OUT_FOR_DELIVERY" | "DELIVERED" | "PARTIALLY_DELIVERED" | "FAILED" | "EXCEPTION" {
-    return DHL_STATUS_MAP[statusCode] || 'PENDING';
-}
-
-const DHL_EVENT_TYPE_MAP: Record<DHLStatusCode, typeof shipmentEvent.$inferSelect.eventType> = {
-    'pre-transit': 'PRE_TRANSIT',
-    'transit': 'IN_TRANSIT',
-    'out-for-delivery': 'OUT_FOR_DELIVERY',
-    'delivered': 'DELIVERED',
-    'failure': 'EXCEPTION',
-    'unknown': 'OTHER',
-};
-
-export function mapDHLEventType(
-    statusCode: DHLStatusCode
-): typeof shipmentEvent.$inferSelect.eventType {
-    return DHL_EVENT_TYPE_MAP[statusCode] || 'OTHER';
-}
+// Note: Status mapping functions moved to @/lib/utils/dhl-utils.ts
 
 // ============================================================================
 // Sync Operations

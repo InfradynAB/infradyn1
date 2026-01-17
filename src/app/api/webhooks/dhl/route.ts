@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { processDHLWebhook, DHLWebhookPayload } from '@/lib/actions/dhl-api-connector';
+import { processDHLWebhook } from '@/lib/actions/dhl-api-connector';
+import { DHLWebhookPayload } from '@/lib/utils/dhl-utils';
 import { checkAndCreateDelayConflict } from '@/lib/actions/logistics-engine';
 import db from '@/db/drizzle';
 import { shipment } from '@/db/schema';

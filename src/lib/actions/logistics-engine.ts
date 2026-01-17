@@ -32,6 +32,7 @@ export interface CreateShipmentInput {
     billOfLading?: string;
     // DHL tracking
     waybillNumber?: string;
+    dhlService?: 'express' | 'freight';
     // Common fields
     supplierWeight?: number;
     // Dates

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { processMaerskWebhook, checkEtaDrift, MaerskWebhookPayload } from '@/lib/actions/maersk-api-connector';
+import { processMaerskWebhook, checkEtaDrift } from '@/lib/actions/maersk-api-connector';
+import { MaerskWebhookPayload } from '@/lib/utils/maersk-utils';
 import { checkAndCreateDelayConflict } from '@/lib/actions/logistics-engine';
 import db from '@/db/drizzle';
 import { shipment } from '@/db/schema';

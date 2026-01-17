@@ -83,10 +83,15 @@ export async function POST(request: NextRequest) {
                     boqItemId: data.boqItemId,
                     trackingNumber: data.trackingNumber,
                     carrier: data.carrier,
+                    // Provider selection
+                    provider: data.provider, // 'MAERSK' | 'DHL_EXPRESS' | 'DHL_FREIGHT' | 'OTHER'
                     // Maersk container fields
                     containerNumber: data.containerNumber,
                     billOfLading: data.billOfLading,
                     supplierWeight: data.supplierWeight,
+                    // DHL fields
+                    waybillNumber: data.waybillNumber,
+                    dhlService: data.provider === 'DHL_EXPRESS' ? 'express' : data.provider === 'DHL_FREIGHT' ? 'freight' : undefined,
                     // Dates
                     dispatchDate: data.dispatchDate ? new Date(data.dispatchDate) : undefined,
                     supplierAos: data.supplierAos ? new Date(data.supplierAos) : undefined,
@@ -98,13 +103,20 @@ export async function POST(request: NextRequest) {
                     cmrDocId: data.cmrDocId,
                 });
 
-                // Auto-subscribe to Maersk tracking if container number provided
-                if (result.success && result.shipment?.id && data.containerNumber) {
+                // Auto-subscribe to tracking based on provider
+                if (result.success && result.shipment?.id) {
                     try {
-                        const { subscribeToContainer } = await import("@/lib/actions/maersk-api-connector");
-                        await subscribeToContainer(data.containerNumber, result.shipment.id);
+                        if (data.provider === 'MAERSK' && data.containerNumber) {
+                            const { subscribeToContainer } = await import("@/lib/actions/maersk-api-connector");
+                            await subscribeToContainer(data.containerNumber, result.shipment.id);
+                        } else if ((data.provider === 'DHL_EXPRESS' || data.provider === 'DHL_FREIGHT') && data.waybillNumber) {
+                            // DHL uses sync via waybill, no subscription needed
+                            const { syncDHLToShipment } = await import("@/lib/actions/dhl-api-connector");
+                            await syncDHLToShipment(result.shipment.id);
+                        }
+                        // For 'OTHER' provider, no auto-tracking
                     } catch (subError) {
-                        console.warn("Maersk subscription failed (non-blocking):", subError);
+                        console.warn("Tracking subscription/sync failed (non-blocking):", subError);
                     }
                 }
 
@@ -151,7 +163,8 @@ export async function POST(request: NextRequest) {
             }
 
             case "subscribeContainer": {
-                const { subscribeToContainer, validateContainerNumber } = await import("@/lib/actions/maersk-api-connector");
+                const { subscribeToContainer } = await import("@/lib/actions/maersk-api-connector");
+                const { validateContainerNumber } = await import("@/lib/utils/maersk-utils");
 
                 const validation = validateContainerNumber(data.containerNumber);
                 if (!validation.valid) {

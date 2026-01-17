@@ -429,7 +429,7 @@ export async function getPendingInvoices(projectId?: string, purchaseOrderId?: s
         let query = db.query.invoice.findMany({
             where: and(
                 purchaseOrderId ? eq(invoice.purchaseOrderId, purchaseOrderId) : sql`1=1`,
-                sql`${invoice.status} IN ('PENDING', 'PARTIALLY_PAID', 'OVERDUE')`
+                sql`${invoice.status} IN ('PENDING', 'PENDING_APPROVAL', 'APPROVED', 'PARTIALLY_PAID', 'OVERDUE')`
             ),
             with: {
                 milestone: true,
