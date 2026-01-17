@@ -25,6 +25,16 @@ export interface CreateShipmentInput {
     boqItemId?: string;
     trackingNumber?: string;
     carrier?: string;
+    // Multi-provider support
+    provider?: 'DHL_EXPRESS' | 'DHL_FREIGHT' | 'MAERSK' | 'OTHER';
+    // Maersk container tracking
+    containerNumber?: string;
+    billOfLading?: string;
+    // DHL tracking
+    waybillNumber?: string;
+    // Common fields
+    supplierWeight?: number;
+    // Dates
     dispatchDate?: Date;
     supplierAos?: Date; // Supplier-declared Arrival on Site
     destination?: string;
@@ -42,13 +52,21 @@ export interface ShipmentUpdateInput {
     logisticsEta?: Date;
     status?: "PENDING" | "DISPATCHED" | "IN_TRANSIT" | "OUT_FOR_DELIVERY" | "DELIVERED" | "PARTIALLY_DELIVERED" | "FAILED" | "EXCEPTION";
     lastKnownLocation?: string;
-    aftershipId?: string;
+    maerskSubscriptionId?: string; // Replaced aftershipId
     actualDeliveryDate?: Date;
 }
 
 export interface ShipmentEventInput {
     shipmentId: string;
-    eventType: "LOCATION_SCAN" | "ETA_UPDATE" | "EXCEPTION" | "DELIVERED" | "PICKUP" | "CUSTOMS" | "OTHER";
+    eventType:
+    // Maersk DCSA codes
+    | "GATE_IN" | "LOADED" | "VESSEL_DEPARTURE" | "TRANSSHIPMENT"
+    | "DISCHARGE" | "GATE_OUT" | "VESSEL_DELAY"
+    // DHL status codes
+    | "PRE_TRANSIT" | "PICKUP" | "IN_TRANSIT" | "OUT_FOR_DELIVERY"
+    | "DELIVERED" | "EXCEPTION" | "HELD_CUSTOMS" | "RETURNED"
+    // Common
+    | "ETA_UPDATE" | "LOCATION_SCAN" | "OTHER";
     eventTime: Date;
     location?: string;
     description?: string;
@@ -85,6 +103,17 @@ export async function createShipment(input: CreateShipmentInput) {
             trackingNumber: input.trackingNumber,
             carrier: input.carrier,
             carrierNormalized: input.carrier ? normalizeCarrierCode(input.carrier) : null,
+            // Multi-provider
+            provider: input.provider,
+            // Maersk container fields
+            containerNumber: input.containerNumber,
+            billOfLading: input.billOfLading,
+            // DHL fields
+            waybillNumber: input.waybillNumber,
+            dhlService: input.provider === 'DHL_EXPRESS' ? 'express' : input.provider === 'DHL_FREIGHT' ? 'freight' : null,
+            // Common
+            supplierWeight: input.supplierWeight ? String(input.supplierWeight) : null,
+            // Dates
             dispatchDate: input.dispatchDate,
             supplierAos: input.supplierAos,
             rosDate,
@@ -95,7 +124,7 @@ export async function createShipment(input: CreateShipmentInput) {
             packingListDocId: input.packingListDocId,
             cmrDocId: input.cmrDocId,
             status: input.dispatchDate ? "DISPATCHED" : "PENDING",
-            etaConfidence: input.trackingNumber ? null : "MEDIUM", // Will be calculated
+            etaConfidence: input.trackingNumber || input.containerNumber || input.waybillNumber ? null : "MEDIUM",
         }).returning();
 
         // Create initial event
@@ -134,8 +163,8 @@ export async function updateShipment(input: ShipmentUpdateInput) {
         if (input.logisticsEta !== undefined) updateData.logisticsEta = input.logisticsEta;
         if (input.status !== undefined) updateData.status = input.status;
         if (input.lastKnownLocation !== undefined) updateData.lastKnownLocation = input.lastKnownLocation;
-        if (input.aftershipId !== undefined) {
-            updateData.aftershipId = input.aftershipId;
+        if (input.maerskSubscriptionId !== undefined) {
+            updateData.maerskSubscriptionId = input.maerskSubscriptionId;
             updateData.isTrackingLinked = true;
         }
         if (input.actualDeliveryDate !== undefined) updateData.actualDeliveryDate = input.actualDeliveryDate;

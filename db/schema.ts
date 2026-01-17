@@ -27,7 +27,22 @@ export const etaConfidenceEnum = pgEnum('eta_confidence', ['HIGH', 'MEDIUM', 'LO
 export const conflictSeverityEnum = pgEnum('conflict_severity', ['LOW', 'MEDIUM', 'HIGH']);
 export const qaTaskStatusEnum = pgEnum('qa_task_status', ['PENDING', 'IN_PROGRESS', 'PASSED', 'FAILED', 'WAIVED']);
 export const commentParentTypeEnum = pgEnum('comment_parent_type', ['PO', 'SHIPMENT', 'DELIVERY', 'QA_TASK', 'INVOICE']);
-export const shipmentEventTypeEnum = pgEnum('shipment_event_type', ['LOCATION_SCAN', 'ETA_UPDATE', 'EXCEPTION', 'DELIVERED', 'PICKUP', 'CUSTOMS', 'OTHER']);
+
+// Multi-provider logistics
+export const logisticsProviderEnum = pgEnum('logistics_provider', [
+    'DHL_EXPRESS', 'DHL_FREIGHT', 'MAERSK', 'OTHER'
+]);
+
+export const shipmentEventTypeEnum = pgEnum('shipment_event_type', [
+    // Maersk DCSA codes
+    'GATE_IN', 'LOADED', 'VESSEL_DEPARTURE', 'TRANSSHIPMENT',
+    'DISCHARGE', 'GATE_OUT', 'VESSEL_DELAY',
+    // DHL status codes
+    'PRE_TRANSIT', 'PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY',
+    'DELIVERED', 'EXCEPTION', 'HELD_CUSTOMS', 'RETURNED',
+    // Common
+    'ETA_UPDATE', 'LOCATION_SCAN', 'OTHER'
+]);
 
 
 // --- SHARED COLUMNS ---
@@ -397,10 +412,37 @@ export const shipment = pgTable('shipment', {
     boqItemId: uuid('boq_item_id').references(() => boqItem.id), // Optional: link to specific BOQ item
     supplierId: uuid('supplier_id').references(() => supplier.id),
 
-    // Core tracking
+    // Multi-provider support
+    provider: logisticsProviderEnum('provider'), // DHL_EXPRESS, DHL_FREIGHT, MAERSK, OTHER
+
+    // Core tracking (legacy/fallback)
     trackingNumber: text('tracking_number'),
     carrier: text('carrier'),
-    carrierNormalized: text('carrier_normalized'), // Standardized carrier code for AfterShip
+    carrierNormalized: text('carrier_normalized'),
+
+    // === MAERSK Container Tracking ===
+    containerNumber: text('container_number'), // Format: MSKU1234567 (4 letters + 7 digits)
+    billOfLading: text('bill_of_lading'),
+    vesselName: text('vessel_name'),
+    voyageNumber: text('voyage_number'),
+    sealNumber: text('seal_number'),
+    maerskSubscriptionId: text('maersk_subscription_id'),
+
+    // === DHL Tracking ===
+    waybillNumber: text('waybill_number'), // 10 digits (Express) or alphanumeric (Freight)
+    dhlService: text('dhl_service'), // 'express' | 'freight'
+    podSignatureUrl: text('pod_signature_url'), // Proof of Delivery signature image URL
+    podSignedBy: text('pod_signed_by'),
+    podSignedAt: timestamp('pod_signed_at'),
+
+    // Coordinates for map visualization
+    lastLatitude: numeric('last_latitude'),
+    lastLongitude: numeric('last_longitude'),
+
+    // Weight reconciliation (Maersk)
+    maerskWeight: numeric('maersk_weight'), // Weight from Maersk API
+    supplierWeight: numeric('supplier_weight'), // Weight from supplier packing list
+    receivedWeight: numeric('received_weight'), // Weight measured at site
 
     // Dates
     dispatchDate: timestamp('dispatch_date'),
@@ -413,13 +455,14 @@ export const shipment = pgTable('shipment', {
     status: shipmentStatusEnum('status').default('PENDING'),
     etaConfidence: etaConfidenceEnum('eta_confidence'),
     isTrackingLinked: boolean('is_tracking_linked').default(false),
+    isVesselDelayed: boolean('is_vessel_delayed').default(false), // VSD flag (Maersk)
+    isException: boolean('is_exception').default(false), // Exception flag (DHL)
 
     // Metadata
     destination: text('destination'),
     originLocation: text('origin_location'),
     lastKnownLocation: text('last_known_location'),
     lastApiSyncAt: timestamp('last_api_sync_at'),
-    aftershipId: text('aftership_id'), // AfterShip tracking ID
 
     // Documents
     packingListDocId: uuid('packing_list_doc_id').references(() => document.id),
@@ -428,6 +471,10 @@ export const shipment = pgTable('shipment', {
     // Quantities
     declaredQty: numeric('declared_qty'),
     unit: text('unit'),
+
+    // Site reception (Maersk)
+    isSealIntact: boolean('is_seal_intact'),
+    isContainerStripped: boolean('is_container_stripped').default(false),
 });
 
 // Shipment event stream (tracking events from API or manual)

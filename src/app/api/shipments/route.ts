@@ -83,6 +83,11 @@ export async function POST(request: NextRequest) {
                     boqItemId: data.boqItemId,
                     trackingNumber: data.trackingNumber,
                     carrier: data.carrier,
+                    // Maersk container fields
+                    containerNumber: data.containerNumber,
+                    billOfLading: data.billOfLading,
+                    supplierWeight: data.supplierWeight,
+                    // Dates
                     dispatchDate: data.dispatchDate ? new Date(data.dispatchDate) : undefined,
                     supplierAos: data.supplierAos ? new Date(data.supplierAos) : undefined,
                     destination: data.destination,
@@ -92,6 +97,17 @@ export async function POST(request: NextRequest) {
                     packingListDocId: data.packingListDocId,
                     cmrDocId: data.cmrDocId,
                 });
+
+                // Auto-subscribe to Maersk tracking if container number provided
+                if (result.success && result.shipment?.id && data.containerNumber) {
+                    try {
+                        const { subscribeToContainer } = await import("@/lib/actions/maersk-api-connector");
+                        await subscribeToContainer(data.containerNumber, result.shipment.id);
+                    } catch (subError) {
+                        console.warn("Maersk subscription failed (non-blocking):", subError);
+                    }
+                }
+
                 return NextResponse.json(result);
             }
 
@@ -119,11 +135,30 @@ export async function POST(request: NextRequest) {
             }
 
             case "syncTracking": {
-                const result = await syncTrackingToShipment(
-                    data.shipmentId,
-                    data.trackingNumber,
-                    data.carrier
-                );
+                // Support both AfterShip (legacy) and Maersk sync
+                if (data.containerNumber) {
+                    const { syncMaerskToShipment } = await import("@/lib/actions/maersk-api-connector");
+                    const result = await syncMaerskToShipment(data.shipmentId);
+                    return NextResponse.json(result);
+                } else {
+                    const result = await syncTrackingToShipment(
+                        data.shipmentId,
+                        data.trackingNumber,
+                        data.carrier
+                    );
+                    return NextResponse.json(result);
+                }
+            }
+
+            case "subscribeContainer": {
+                const { subscribeToContainer, validateContainerNumber } = await import("@/lib/actions/maersk-api-connector");
+
+                const validation = validateContainerNumber(data.containerNumber);
+                if (!validation.valid) {
+                    return NextResponse.json({ success: false, error: validation.error }, { status: 400 });
+                }
+
+                const result = await subscribeToContainer(validation.normalized!, data.shipmentId);
                 return NextResponse.json(result);
             }
 

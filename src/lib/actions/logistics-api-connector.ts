@@ -205,11 +205,11 @@ function mapAfterShipStatus(tag: AfterShipStatus): "PENDING" | "DISPATCHED" | "I
     return STATUS_MAP[tag] || "IN_TRANSIT";
 }
 
-function mapCheckpointToEventType(tag: string): "LOCATION_SCAN" | "ETA_UPDATE" | "EXCEPTION" | "DELIVERED" | "PICKUP" | "CUSTOMS" | "OTHER" {
+function mapCheckpointToEventType(tag: string): "LOCATION_SCAN" | "ETA_UPDATE" | "EXCEPTION" | "DELIVERED" | "PICKUP" | "HELD_CUSTOMS" | "OTHER" {
     const lowerTag = tag.toLowerCase();
     if (lowerTag.includes("deliver")) return "DELIVERED";
     if (lowerTag.includes("pickup") || lowerTag.includes("collected")) return "PICKUP";
-    if (lowerTag.includes("customs")) return "CUSTOMS";
+    if (lowerTag.includes("customs")) return "HELD_CUSTOMS";
     if (lowerTag.includes("exception") || lowerTag.includes("fail")) return "EXCEPTION";
     return "LOCATION_SCAN";
 }
@@ -240,7 +240,6 @@ export async function syncTrackingToShipment(
         status: mapAfterShipStatus(tracking.tag),
         logisticsEta: tracking.expected_delivery ? new Date(tracking.expected_delivery) : undefined,
         lastKnownLocation: tracking.checkpoints[0]?.location || undefined,
-        aftershipId: tracking.id,
     });
 
     // Import checkpoints as events
@@ -283,7 +282,6 @@ export async function linkTrackingToShipment(
         shipmentId,
         trackingNumber,
         carrier: carrierSlug,
-        aftershipId: createResult.aftershipId,
     });
 
     if (!updateResult.success) {
