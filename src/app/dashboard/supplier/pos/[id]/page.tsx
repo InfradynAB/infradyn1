@@ -136,7 +136,7 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
                         <CardContent className="px-4 py-4 space-y-4">
                             {/* Total Value - Prominent */}
                             <div className="bg-muted/30 rounded-lg p-3 text-center">
-                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Total Value</p>
+                                <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Total Value</p>
                                 <p className="text-2xl font-bold tabular-nums">
                                     <span className="text-sm text-muted-foreground mr-1">{po.currency}</span>
                                     {Number(po.totalValue).toLocaleString()}
@@ -146,24 +146,24 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
                             {/* Details Grid */}
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between py-1.5 border-b border-dashed border-muted">
-                                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Issued</span>
-                                    <span className="text-xs font-medium">{po.createdAt.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                    <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Issued</span>
+                                    <span className="text-sm font-medium">{po.createdAt.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                                 </div>
                                 <div className="flex items-center justify-between py-1.5 border-b border-dashed border-muted">
-                                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Incoterms</span>
-                                    <span className="text-xs font-medium">{po.incoterms || "N/A"}</span>
+                                    <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Incoterms</span>
+                                    <span className="text-sm font-medium">{po.incoterms || "N/A"}</span>
                                 </div>
                                 <div className="flex items-center justify-between py-1.5 border-b border-dashed border-muted">
-                                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Payment</span>
-                                    <span className="text-xs font-medium truncate max-w-[140px]">{po.paymentTerms || "Net 30"}</span>
+                                    <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Payment</span>
+                                    <span className="text-sm font-medium truncate max-w-[140px]">{po.paymentTerms || "Net 30"}</span>
                                 </div>
                             </div>
 
                             {/* Scope - Integrated */}
                             {po.scope && (
                                 <div className="pt-2 border-t border-muted">
-                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5">Scope</p>
-                                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-4">
+                                    <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-1.5">Scope</p>
+                                    <p className="text-sm text-muted-foreground leading-relaxed line-clamp-4">
                                         {po.scope}
                                     </p>
                                 </div>
@@ -195,30 +195,30 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
                                 <table className="w-full">
                                     <thead className="sticky top-0 bg-muted/60 border-b">
                                         <tr>
-                                            <th className="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wide text-foreground/70 w-10">#</th>
-                                            <th className="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wide text-foreground/70">Description</th>
-                                            <th className="py-2 px-3 text-right text-[10px] font-bold uppercase tracking-wide text-foreground/70 w-20">Qty</th>
-                                            <th className="py-2 px-3 text-right text-[10px] font-bold uppercase tracking-wide text-foreground/70 w-20">Rate</th>
-                                            <th className="py-2 px-3 text-right text-[10px] font-bold uppercase tracking-wide text-foreground/70 w-24">Amount</th>
+                                            <th className="py-2 px-3 text-left text-xs font-bold uppercase tracking-wide text-foreground/70 w-10">#</th>
+                                            <th className="py-2 px-3 text-left text-xs font-bold uppercase tracking-wide text-foreground/70">Description</th>
+                                            <th className="py-2 px-3 text-right text-xs font-bold uppercase tracking-wide text-foreground/70 w-20">Qty</th>
+                                            <th className="py-2 px-3 text-right text-xs font-bold uppercase tracking-wide text-foreground/70 w-20">Rate</th>
+                                            <th className="py-2 px-3 text-right text-xs font-bold uppercase tracking-wide text-foreground/70 w-24">Amount</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-muted/20">
                                         {po.boqItems.map((item, idx) => (
                                             <tr key={item.id} className="group hover:bg-muted/10 transition-colors">
-                                                <td className="py-2 px-3 text-[11px] text-muted-foreground">{idx + 1}</td>
-                                                <td className="py-2 px-3">
-                                                    <p className="text-[11px] font-medium leading-snug">{item.description}</p>
-                                                    <p className="text-[9px] text-muted-foreground/60 mt-0.5 font-mono">{item.itemNumber}</p>
+                                                <td className="py-2.5 px-3 text-sm text-muted-foreground">{idx + 1}</td>
+                                                <td className="py-2.5 px-3">
+                                                    <p className="text-sm font-medium leading-snug">{item.description}</p>
+                                                    <p className="text-xs text-muted-foreground/60 mt-0.5 font-mono">{item.itemNumber}</p>
                                                 </td>
-                                                <td className="py-2 px-3 text-right">
-                                                    <p className="text-[11px] font-medium tabular-nums">{Number(item.quantity).toLocaleString()}</p>
-                                                    <p className="text-[9px] text-muted-foreground/60">{item.unit}</p>
+                                                <td className="py-2.5 px-3 text-right">
+                                                    <p className="text-sm font-medium tabular-nums">{Number(item.quantity).toLocaleString()}</p>
+                                                    <p className="text-xs text-muted-foreground/60">{item.unit}</p>
                                                 </td>
-                                                <td className="py-2 px-3 text-right text-[11px] text-muted-foreground tabular-nums">
+                                                <td className="py-2.5 px-3 text-right text-sm text-muted-foreground tabular-nums">
                                                     {Number(item.unitPrice).toLocaleString()}
                                                 </td>
-                                                <td className="py-2 px-3 text-right">
-                                                    <p className="text-[11px] font-semibold tabular-nums">{Number(item.totalPrice).toLocaleString()}</p>
+                                                <td className="py-2.5 px-3 text-right">
+                                                    <p className="text-sm font-semibold tabular-nums">{Number(item.totalPrice).toLocaleString()}</p>
                                                 </td>
                                             </tr>
                                         ))}
@@ -245,21 +245,21 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
                             <CardContent className="p-0">
                                 <div className="max-h-[240px] overflow-y-auto divide-y divide-muted/20">
                                     {po.milestones.map((ms) => (
-                                        <div key={ms.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/10 transition-colors">
+                                        <div key={ms.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors">
                                             <div className="flex items-center gap-3">
-                                                <div className="h-7 w-7 rounded bg-amber-100 text-amber-700 flex items-center justify-center text-[10px] font-bold">
+                                                <div className="h-8 w-8 rounded bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold">
                                                     {ms.paymentPercentage || ms.title.substring(0, 2)}
                                                 </div>
                                                 <div>
-                                                    <p className="text-[11px] font-medium">{ms.title}</p>
-                                                    <p className="text-[9px] text-muted-foreground">
+                                                    <p className="text-sm font-medium">{ms.title}</p>
+                                                    <p className="text-xs text-muted-foreground">
                                                         {ms.expectedDate ? new Date(ms.expectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : "TBD"}
                                                     </p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <p className="text-[11px] font-medium tabular-nums">{po.currency} {Number(ms.amount).toLocaleString()}</p>
-                                                <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${ms.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                                                <p className="text-sm font-medium tabular-nums">{po.currency} {Number(ms.amount).toLocaleString()}</p>
+                                                <span className={`text-xs font-medium px-2 py-0.5 rounded ${ms.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
                                                     ms.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
                                                         'bg-gray-100 text-gray-600'
                                                     }`}>{ms.status}</span>
@@ -295,9 +295,9 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
                                     <div key={ship.id} className="group bg-card/60 backdrop-blur-md p-5 rounded-xl border border-muted/50 flex items-center justify-between shadow-md">
                                         <div className="flex items-center gap-4">
                                             <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${ship.status === 'DELIVERED' ? 'bg-green-500/10 text-green-600' :
-                                                    ship.status === 'IN_TRANSIT' || ship.status === 'OUT_FOR_DELIVERY' ? 'bg-blue-500/10 text-blue-600' :
-                                                        ship.status === 'EXCEPTION' || ship.status === 'FAILED' ? 'bg-red-500/10 text-red-600' :
-                                                            'bg-amber-500/10 text-amber-600'
+                                                ship.status === 'IN_TRANSIT' || ship.status === 'OUT_FOR_DELIVERY' ? 'bg-blue-500/10 text-blue-600' :
+                                                    ship.status === 'EXCEPTION' || ship.status === 'FAILED' ? 'bg-red-500/10 text-red-600' :
+                                                        'bg-amber-500/10 text-amber-600'
                                                 }`}>
                                                 {ship.status === 'DELIVERED' ? (
                                                     <CheckCircle className="h-5 w-5" weight="fill" />
@@ -323,9 +323,9 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
                                                 )}
                                             </div>
                                             <Badge className={`font-bold ${ship.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :
-                                                    ship.status === 'IN_TRANSIT' || ship.status === 'OUT_FOR_DELIVERY' ? 'bg-blue-100 text-blue-700' :
-                                                        ship.status === 'EXCEPTION' || ship.status === 'FAILED' ? 'bg-red-100 text-red-700' :
-                                                            'bg-amber-100 text-amber-700'
+                                                ship.status === 'IN_TRANSIT' || ship.status === 'OUT_FOR_DELIVERY' ? 'bg-blue-100 text-blue-700' :
+                                                    ship.status === 'EXCEPTION' || ship.status === 'FAILED' ? 'bg-red-100 text-red-700' :
+                                                        'bg-amber-100 text-amber-700'
                                                 }`}>
                                                 {ship.status?.replace('_', ' ')}
                                             </Badge>
