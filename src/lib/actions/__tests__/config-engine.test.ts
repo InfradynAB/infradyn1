@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
-import { getConfig, getConfigTyped, DEFAULT_CONFIGS } from '@/lib/actions/config-engine';
+import { getConfig, getConfigTyped } from '@/lib/actions/config-engine';
+import { DEFAULT_CONFIGS } from '@/lib/config/config-defaults';
 import db from '@/db/drizzle';
 
 // Mock the database

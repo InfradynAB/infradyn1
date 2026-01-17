@@ -26,7 +26,7 @@ async function getAuthContext() {
     return { session, organizationId: membership?.organizationId || null };
 }
 
-export interface EmailIngestionItem {
+interface EmailIngestionItem {
     id: string;
     fromEmail: string;
     subject: string;

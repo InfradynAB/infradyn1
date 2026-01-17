@@ -19,7 +19,7 @@ import { getVarianceThresholds } from "./config-engine";
 // Types
 // ============================================================================
 
-export interface ConfirmDeliveryInput {
+interface ConfirmDeliveryInput {
     shipmentId: string;
     receivedBy: string;
     receivedAt?: Date;
@@ -35,7 +35,7 @@ export interface ConfirmDeliveryInput {
     notes?: string;
 }
 
-export interface DeliveryReceiptData {
+interface DeliveryReceiptData {
     shipmentId: string;
     deliveryId?: string;
     receivedBy: string;

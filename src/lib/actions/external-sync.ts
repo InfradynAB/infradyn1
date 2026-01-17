@@ -27,7 +27,7 @@ async function getAuthContext() {
     return { session, organizationId: membership?.organizationId || null };
 }
 
-export interface CreateSyncConfig {
+interface CreateSyncConfig {
     provider: "SMARTSHEET" | "EXCEL_SCHEDULED" | "GOOGLE_SHEETS";
     name: string;
     apiKey: string;

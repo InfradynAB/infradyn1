@@ -60,9 +60,19 @@ async function makeDHLRequest(
         if (!response.ok) {
             const errorText = await response.text();
             console.error(`DHL API error (${response.status}):`, errorText);
+
+            let errorMessage = `API error: ${response.status}`;
+            if (response.status === 401) {
+                errorMessage = "DHL API authentication failed - please check your DHL_API_KEY";
+            } else if (response.status === 403) {
+                errorMessage = "DHL API permission denied - your key may not have tracking access";
+            } else if (response.status === 429) {
+                errorMessage = "DHL API rate limit exceeded - please try again later";
+            }
+
             return {
                 success: false,
-                error: `API error: ${response.status}`
+                error: errorMessage
             };
         }
 
@@ -75,6 +85,41 @@ async function makeDHLRequest(
 }
 
 // Note: validateWaybillNumber moved to @/lib/utils/dhl-utils.ts
+
+// ============================================================================
+// Waybill Verification
+// ============================================================================
+
+/**
+ * Verify a DHL waybill exists in the DHL system
+ * Returns success=true only if the waybill is valid and found in DHL's system
+ */
+export async function verifyDHLWaybill(
+    waybillNumber: string
+): Promise<{ success: boolean; valid: boolean; error?: string }> {
+    // First validate the format
+    const validation = validateWaybillNumber(waybillNumber);
+    if (!validation.valid) {
+        return { success: true, valid: false, error: validation.error };
+    }
+
+    // Check DHL API for this waybill
+    const result = await makeDHLRequest(
+        `/track/shipments?trackingNumber=${validation.normalized}`
+    );
+
+    if (!result.success) {
+        // API error (not necessarily invalid waybill)
+        return { success: false, valid: false, error: result.error };
+    }
+
+    const response = result.data as { shipments?: unknown[] };
+    if (!response.shipments || response.shipments.length === 0) {
+        return { success: true, valid: false, error: "Waybill not found in DHL system" };
+    }
+
+    return { success: true, valid: true };
+}
 
 // ============================================================================
 // Tracking Operations

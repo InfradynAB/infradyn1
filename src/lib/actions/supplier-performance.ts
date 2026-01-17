@@ -12,7 +12,7 @@ import {
 import { eq, and, desc, gte, count, sql } from "drizzle-orm";
 
 // --- Types ---
-export interface SupplierPerformanceMetrics {
+interface SupplierPerformanceMetrics {
     supplierId: string;
     supplierName: string;
     // Adoption Metrics
@@ -32,7 +32,7 @@ export interface SupplierPerformanceMetrics {
     reliabilityScore: number; // 0-100
 }
 
-export interface SupplierHistoryItem {
+interface SupplierHistoryItem {
     type: "progress" | "conflict" | "milestone" | "document";
     date: Date;
     title: string;

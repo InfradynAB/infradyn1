@@ -8,10 +8,8 @@ import {
     getShipment,
     getShipmentTimeline
 } from "@/lib/actions/logistics-engine";
-import {
-    linkTrackingToShipment,
-    syncTrackingToShipment
-} from "@/lib/actions/logistics-api-connector";
+
+// Note: Only Maersk and DHL tracking are supported
 
 export async function GET(request: NextRequest) {
     try {
@@ -77,6 +75,38 @@ export async function POST(request: NextRequest) {
 
         switch (action) {
             case "create": {
+                // Validate DHL waybill before creating shipment
+                if ((data.provider === 'DHL_EXPRESS' || data.provider === 'DHL_FREIGHT') && data.waybillNumber) {
+                    const { verifyDHLWaybill } = await import("@/lib/actions/dhl-api-connector");
+                    const verification = await verifyDHLWaybill(data.waybillNumber);
+
+                    if (!verification.success) {
+                        return NextResponse.json(
+                            { success: false, error: verification.error || "DHL API error - Authentication failed" },
+                            { status: 503 }
+                        );
+                    }
+
+                    if (!verification.valid) {
+                        return NextResponse.json(
+                            { success: false, error: verification.error || "Invalid DHL waybill number - not found in DHL system" },
+                            { status: 400 }
+                        );
+                    }
+                }
+
+                // Validate Maersk container before creating shipment
+                if (data.provider === 'MAERSK' && data.containerNumber) {
+                    const { validateContainerNumber } = await import("@/lib/utils/maersk-utils");
+                    const validation = validateContainerNumber(data.containerNumber);
+                    if (!validation.valid) {
+                        return NextResponse.json(
+                            { success: false, error: validation.error || "Invalid Maersk container number" },
+                            { status: 400 }
+                        );
+                    }
+                }
+
                 const result = await createShipment({
                     purchaseOrderId: data.purchaseOrderId,
                     supplierId: data.supplierId,
@@ -137,28 +167,32 @@ export async function POST(request: NextRequest) {
             }
 
             case "linkTracking": {
-                const result = await linkTrackingToShipment(
-                    data.shipmentId,
-                    data.trackingNumber,
-                    data.carrier,
-                    data.purchaseOrderId
-                );
-                return NextResponse.json(result);
+                // Link tracking for Maersk or DHL
+                if (data.containerNumber) {
+                    const { subscribeToContainer } = await import("@/lib/actions/maersk-api-connector");
+                    const result = await subscribeToContainer(data.containerNumber, data.shipmentId);
+                    return NextResponse.json(result);
+                } else if (data.waybillNumber) {
+                    const { syncDHLToShipment } = await import("@/lib/actions/dhl-api-connector");
+                    const result = await syncDHLToShipment(data.shipmentId);
+                    return NextResponse.json(result);
+                } else {
+                    return NextResponse.json({ success: false, error: "Container number or waybill required" }, { status: 400 });
+                }
             }
 
             case "syncTracking": {
-                // Support both AfterShip (legacy) and Maersk sync
+                // Sync tracking for Maersk or DHL
                 if (data.containerNumber) {
                     const { syncMaerskToShipment } = await import("@/lib/actions/maersk-api-connector");
                     const result = await syncMaerskToShipment(data.shipmentId);
                     return NextResponse.json(result);
-                } else {
-                    const result = await syncTrackingToShipment(
-                        data.shipmentId,
-                        data.trackingNumber,
-                        data.carrier
-                    );
+                } else if (data.waybillNumber) {
+                    const { syncDHLToShipment } = await import("@/lib/actions/dhl-api-connector");
+                    const result = await syncDHLToShipment(data.shipmentId);
                     return NextResponse.json(result);
+                } else {
+                    return NextResponse.json({ success: false, error: "Container number or waybill required for sync" }, { status: 400 });
                 }
             }
 

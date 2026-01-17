@@ -15,67 +15,18 @@ import {
 import { eq, and, desc, sql, lt, gt, isNull, isNotNull } from "drizzle-orm";
 import { getDelayThresholds, getVarianceThresholds } from "./config-engine";
 
-// ============================================================================
-// Types
-// ============================================================================
+// Import types from separate file (not "use server")
+import type {
+    CreateShipmentInput,
+    ShipmentUpdateInput,
+    ShipmentEventInput,
+    ConflictSeverity,
+} from "@/lib/types/logistics-types";
 
-export interface CreateShipmentInput {
-    purchaseOrderId: string;
-    supplierId: string;
-    boqItemId?: string;
-    trackingNumber?: string;
-    carrier?: string;
-    // Multi-provider support
-    provider?: 'DHL_EXPRESS' | 'DHL_FREIGHT' | 'MAERSK' | 'OTHER';
-    // Maersk container tracking
-    containerNumber?: string;
-    billOfLading?: string;
-    // DHL tracking
-    waybillNumber?: string;
-    dhlService?: 'express' | 'freight';
-    // Common fields
-    supplierWeight?: number;
-    // Dates
-    dispatchDate?: Date;
-    supplierAos?: Date; // Supplier-declared Arrival on Site
-    destination?: string;
-    originLocation?: string;
-    declaredQty?: number;
-    unit?: string;
-    packingListDocId?: string;
-    cmrDocId?: string;
-}
+// Note: All types are imported from @/lib/types/logistics-types.ts
 
-export interface ShipmentUpdateInput {
-    shipmentId: string;
-    trackingNumber?: string;
-    carrier?: string;
-    logisticsEta?: Date;
-    status?: "PENDING" | "DISPATCHED" | "IN_TRANSIT" | "OUT_FOR_DELIVERY" | "DELIVERED" | "PARTIALLY_DELIVERED" | "FAILED" | "EXCEPTION";
-    lastKnownLocation?: string;
-    maerskSubscriptionId?: string; // Replaced aftershipId
-    actualDeliveryDate?: Date;
-}
-
-export interface ShipmentEventInput {
-    shipmentId: string;
-    eventType:
-    // Maersk DCSA codes
-    | "GATE_IN" | "LOADED" | "VESSEL_DEPARTURE" | "TRANSSHIPMENT"
-    | "DISCHARGE" | "GATE_OUT" | "VESSEL_DELAY"
-    // DHL status codes
-    | "PRE_TRANSIT" | "PICKUP" | "IN_TRANSIT" | "OUT_FOR_DELIVERY"
-    | "DELIVERED" | "EXCEPTION" | "HELD_CUSTOMS" | "RETURNED"
-    // Common
-    | "ETA_UPDATE" | "LOCATION_SCAN" | "OTHER";
-    eventTime: Date;
-    location?: string;
-    description?: string;
-    rawApiData?: object;
-    source?: "LOGISTICS_API" | "SUPPLIER" | "MANUAL";
-}
-
-export type ConflictSeverity = "LOW" | "MEDIUM" | "HIGH";
+// Note: CreateShipmentInput, ShipmentUpdateInput, ShipmentEventInput, ConflictSeverity
+// are imported from @/lib/types/logistics-types.ts
 
 // ============================================================================
 // Shipment CRUD Operations

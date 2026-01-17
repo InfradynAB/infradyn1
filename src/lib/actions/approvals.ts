@@ -11,7 +11,7 @@ import { revalidatePath } from "next/cache";
 // APPROVAL ACTIONS
 // ============================================================================
 
-export interface PendingApproval {
+interface PendingApproval {
     id: string;
     milestoneId: string;
     milestoneTitle: string;
@@ -26,6 +26,9 @@ export interface PendingApproval {
     isFinancialMilestone: boolean;
     escalationLevel: number;
 }
+
+// Export type for external consumers (type-only export is erased at runtime)
+export type { PendingApproval };
 
 /**
  * Get conflicts requiring PM approval
