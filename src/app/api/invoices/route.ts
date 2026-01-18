@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import db from "@/db/drizzle";
-import { invoice, document, purchaseOrder } from "@/db/schema";
+import { invoice, document, purchaseOrder, supplier, organization } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { createInvoice, validateInvoiceAmount, updatePaymentStatus, getPendingInvoices, getPaymentSummary } from "@/lib/actions/finance-engine";
+import { sendEmail, buildInvoiceCreatedEmail } from "@/lib/services/email";
 
 export async function POST(request: NextRequest) {
     try {
@@ -83,6 +84,59 @@ export async function POST(request: NextRequest) {
                     submittedBy: session.user.id,
                     submittedAt: new Date(),
                 }).returning();
+
+                // Send email notifications to supplier and PM
+                try {
+                    const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+                    // Get PO details for email
+                    const po = await db.query.purchaseOrder.findFirst({
+                        where: eq(purchaseOrder.id, data.purchaseOrderId),
+                    });
+
+                    // Get supplier details
+                    const supplierData = await db.query.supplier.findFirst({
+                        where: eq(supplier.id, data.supplierId),
+                    });
+
+                    // Get organization details (for PM contact)
+                    const orgData = po ? await db.query.organization.findFirst({
+                        where: eq(organization.id, po.organizationId),
+                    }) : null;
+
+                    const emailData = {
+                        supplierName: supplierData?.name || "Supplier",
+                        poNumber: po?.poNumber || "",
+                        invoiceNumber: data.invoiceNumber,
+                        amount: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(data.amount),
+                        dueDate: data.dueDate ? new Date(data.dueDate).toLocaleDateString() : undefined,
+                        dashboardUrl: `${APP_URL}/dashboard/procurement/${data.purchaseOrderId}`,
+                    };
+
+                    // Send to supplier (confirmation)
+                    if (supplierData?.contactEmail) {
+                        const supplierEmail = await buildInvoiceCreatedEmail({
+                            ...emailData,
+                            recipientName: supplierData.name,
+                            isSupplier: true,
+                        });
+                        await sendEmail({ ...supplierEmail, to: supplierData.contactEmail });
+                        console.log("[submitForApproval] Sent confirmation email to supplier:", supplierData.contactEmail);
+                    }
+
+                    // Send to Organization PM (approval request)
+                    if (orgData?.contactEmail) {
+                        const pmEmail = await buildInvoiceCreatedEmail({
+                            ...emailData,
+                            recipientName: "Procurement Team",
+                            isSupplier: false,
+                        });
+                        await sendEmail({ ...pmEmail, to: orgData.contactEmail });
+                        console.log("[submitForApproval] Sent approval request email to PM:", orgData.contactEmail);
+                    }
+                } catch (emailError) {
+                    console.warn("[submitForApproval] Email notification failed (non-blocking):", emailError);
+                }
 
                 return NextResponse.json({
                     success: true,

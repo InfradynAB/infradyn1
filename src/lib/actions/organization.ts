@@ -119,6 +119,7 @@ export async function updateOrganization(formData: FormData) {
     const name = formData.get("name") as string;
     const slug = formData.get("slug") as string;
     const retentionPolicyDays = formData.get("retentionPolicyDays") as string;
+    const contactEmail = formData.get("contactEmail") as string | null;
 
     if (!orgId || !name || !slug) {
         return { error: "Missing required fields" };
@@ -143,6 +144,7 @@ export async function updateOrganization(formData: FormData) {
                 name,
                 slug,
                 retentionPolicyDays: retentionPolicyDays ? parseInt(retentionPolicyDays) : 365,
+                contactEmail: contactEmail || null,
                 updatedAt: new Date(),
             })
             .where(eq(organization.id, orgId));

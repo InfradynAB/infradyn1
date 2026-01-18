@@ -17,6 +17,7 @@ type Organization = {
     slug: string;
     retentionPolicyDays: number;
     logo?: string | null;
+    contactEmail?: string | null;
 };
 
 function OrgEditForm({ org }: { org: Organization }) {
@@ -46,6 +47,20 @@ function OrgEditForm({ org }: { org: Organization }) {
                     <Label htmlFor={`slug-${org.id}`}>Slug (URL Identifier)</Label>
                     <Input id={`slug-${org.id}`} name="slug" defaultValue={org.slug} required />
                 </div>
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor={`contactEmail-${org.id}`}>Contact Email (for notifications)</Label>
+                <Input
+                    id={`contactEmail-${org.id}`}
+                    name="contactEmail"
+                    type="email"
+                    defaultValue={org.contactEmail || ""}
+                    placeholder="pm@yourcompany.com"
+                />
+                <p className="text-xs text-muted-foreground">
+                    Invoice approval requests and other notifications will be sent to this email.
+                </p>
             </div>
 
             <div className="space-y-2">
