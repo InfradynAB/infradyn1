@@ -107,7 +107,7 @@ export function ChangeOrderForm({
     const [step, setStep] = useState(initialInstructionId ? 2 : 1);
 
     const form = useForm<ChangeOrderFormData>({
-        resolver: zodResolver(changeOrderSchema),
+        resolver: zodResolver(changeOrderSchema) as any,
         defaultValues: {
             reason: "",
             type: initialType,
