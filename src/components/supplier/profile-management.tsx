@@ -96,8 +96,8 @@ export function ProfileManagement({ supplier, userName, userEmail }: ProfileMana
         <div className="space-y-6">
             {/* Header */}
             <div className="border-b pb-4">
-                <h1 className="text-2xl font-bold">Profile & Compliance</h1>
-                <p className="text-sm text-muted-foreground">Manage your organization details and compliance documents</p>
+                <h1 className="text-3xl font-bold tracking-tight">Profile & Compliance</h1>
+                <p className="text-muted-foreground">Manage your organization details and compliance documents</p>
             </div>
 
             <div className="grid gap-6 lg:grid-cols-3">
