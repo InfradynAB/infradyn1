@@ -9,6 +9,9 @@ import {
     auditLog,
     notification,
     user,
+    clientInstruction,
+    boqItem,
+    project,
 } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { auth } from "@/auth";
@@ -45,6 +48,57 @@ interface COImpactSummary {
     affectedMilestones: number;
 }
 
+// --- Phase 5 Revised: Client-Driven CO Types ---
+
+interface CreateClientInstructionInput {
+    projectId: string;
+    instructionNumber: string;
+    dateReceived: Date;
+    type: "SITE_INSTRUCTION" | "ARCHITECT_INSTRUCTION" | "EMAIL_VARIATION";
+    description?: string;
+    attachmentUrl: string; // Mandatory
+}
+
+interface CreateVariationOrderInput {
+    purchaseOrderId: string;
+    clientInstructionId: string;
+    items: Array<{
+        itemNumber: string;
+        description: string;
+        unit: string;
+        quantity: number;
+        unitPrice: number;
+    }>;
+    reason: string;
+}
+
+interface CreateDeScopeInput {
+    purchaseOrderId: string;
+    clientInstructionId: string;
+    boqItemId: string;
+    revisedQuantity: number;
+    reason: string;
+}
+
+interface UpdateProgressInput {
+    boqItemId: string;
+    quantityInstalled?: number;
+    quantityCertified?: number;
+}
+
+interface NetContractSummary {
+    originalContract: number;
+    additions: number;
+    omissions: number;
+    revisedTotal: number;
+    variationOrders: Array<{
+        voNumber: string;
+        description: string;
+        amount: number;
+        status: string;
+    }>;
+}
+
 // --- Helper Functions ---
 
 async function getCurrentUser() {
@@ -53,9 +107,9 @@ async function getCurrentUser() {
 }
 
 async function logAudit(action: string, entityType: string, entityId: string, metadata?: object) {
-    const user = await getCurrentUser();
+    const currentUser = await getCurrentUser();
     await db.insert(auditLog).values({
-        userId: user?.id || null,
+        userId: currentUser?.id || null,
         action,
         entityType,
         entityId,
@@ -78,6 +132,20 @@ async function generateCONumber(purchaseOrderId: string): Promise<string> {
 
     const coCount = Number(existingCOs[0]?.count || 0) + 1;
     return `${po.poNumber}-CO${coCount.toString().padStart(2, '0')}`;
+}
+
+async function generateVONumber(projectId: string): Promise<string> {
+    // Count existing VOs (BOQ items with isVariation = true) in the project
+    const existingVOs = await db.select({ count: sql<number>`count(DISTINCT variation_order_number)` })
+        .from(boqItem)
+        .innerJoin(purchaseOrder, eq(boqItem.purchaseOrderId, purchaseOrder.id))
+        .where(and(
+            eq(purchaseOrder.projectId, projectId),
+            eq(boqItem.isVariation, true)
+        ));
+
+    const voCount = Number(existingVOs[0]?.count || 0) + 1;
+    return `VO-${voCount.toString().padStart(3, '0')}`;
 }
 
 // --- Change Order Actions ---
@@ -462,5 +530,388 @@ export async function getChangeOrdersForPO(purchaseOrderId: string) {
     } catch (error) {
         console.error("[getChangeOrdersForPO] Error:", error);
         return { success: false, error: error instanceof Error ? error.message : "Failed to get change orders" };
+    }
+}
+
+// --- Phase 5 Revised: Client-Driven Change Order Functions ---
+
+/**
+ * Create a new client instruction (letter/email reference for variations).
+ * Requires mandatory attachment for legal traceability.
+ */
+export async function createClientInstruction(input: CreateClientInstructionInput) {
+    try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        if (!input.attachmentUrl) {
+            return { success: false, error: "Attachment is mandatory for client instructions" };
+        }
+
+        const [newInstruction] = await db.insert(clientInstruction).values({
+            projectId: input.projectId,
+            instructionNumber: input.instructionNumber,
+            dateReceived: input.dateReceived,
+            type: input.type,
+            description: input.description,
+            attachmentUrl: input.attachmentUrl,
+            status: "PENDING_ESTIMATE",
+        }).returning();
+
+        await logAudit("CLIENT_INSTRUCTION_CREATED", "client_instruction", newInstruction.id, {
+            projectId: input.projectId,
+            instructionNumber: input.instructionNumber,
+            type: input.type,
+        });
+
+        revalidatePath("/procurement");
+        return { success: true, data: newInstruction };
+    } catch (error) {
+        console.error("[createClientInstruction] Error:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Failed to create client instruction" };
+    }
+}
+
+/**
+ * Create a Variation Order - adds new BOQ items linked to a client instruction.
+ */
+export async function createVariationOrder(input: CreateVariationOrderInput) {
+    try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        // Get PO and project
+        const po = await db.query.purchaseOrder.findFirst({
+            where: eq(purchaseOrder.id, input.purchaseOrderId),
+        });
+
+        if (!po) {
+            return { success: false, error: "Purchase order not found" };
+        }
+
+        // Generate VO number
+        const voNumber = await generateVONumber(po.projectId);
+
+        // Calculate total for all new items
+        let totalAddition = 0;
+        const newItems: any[] = [];
+
+        for (const item of input.items) {
+            const totalPrice = item.quantity * item.unitPrice;
+            totalAddition += totalPrice;
+
+            const [newItem] = await db.insert(boqItem).values({
+                purchaseOrderId: input.purchaseOrderId,
+                itemNumber: item.itemNumber,
+                description: item.description,
+                unit: item.unit,
+                quantity: item.quantity.toString(),
+                unitPrice: item.unitPrice.toString(),
+                totalPrice: totalPrice.toString(),
+                isVariation: true,
+                variationOrderNumber: voNumber,
+                clientInstructionId: input.clientInstructionId,
+                originalQuantity: item.quantity.toString(),
+            }).returning();
+
+            newItems.push(newItem);
+        }
+
+        // Create change order record
+        const currentValue = Number(po.totalValue) || 0;
+        const newTotalValue = currentValue + totalAddition;
+        const changeNumber = await generateCONumber(input.purchaseOrderId);
+
+        const [newCO] = await db.insert(changeOrder).values({
+            purchaseOrderId: input.purchaseOrderId,
+            changeNumber,
+            reason: input.reason,
+            amountDelta: totalAddition.toString(),
+            newTotalValue: newTotalValue.toString(),
+            status: "SUBMITTED",
+            requestedBy: user.id,
+            requestedAt: new Date(),
+            changeOrderType: "ADDITION",
+            clientInstructionId: input.clientInstructionId,
+            affectedBoqItemIds: newItems.map(item => item.id),
+        }).returning();
+
+        // Update PO total value
+        await db.update(purchaseOrder)
+            .set({ totalValue: newTotalValue.toString(), updatedAt: new Date() })
+            .where(eq(purchaseOrder.id, input.purchaseOrderId));
+
+        await logAudit("VARIATION_ORDER_CREATED", "change_order", newCO.id, {
+            voNumber,
+            itemCount: newItems.length,
+            totalAddition,
+            clientInstructionId: input.clientInstructionId,
+        });
+
+        revalidatePath("/procurement");
+        return { success: true, data: { changeOrder: newCO, items: newItems, voNumber } };
+    } catch (error) {
+        console.error("[createVariationOrder] Error:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Failed to create variation order" };
+    }
+}
+
+/**
+ * Create a De-Scope - reduces existing BOQ item quantity.
+ * SAFETY: Cannot reduce below certified quantity.
+ */
+export async function createDeScope(input: CreateDeScopeInput) {
+    try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        // Get BOQ item
+        const item = await db.query.boqItem.findFirst({
+            where: eq(boqItem.id, input.boqItemId),
+        });
+
+        if (!item) {
+            return { success: false, error: "BOQ item not found" };
+        }
+
+        // SAFETY CHECK: Cannot de-scope below certified quantity
+        const certifiedQty = Number(item.quantityCertified) || 0;
+        if (input.revisedQuantity < certifiedQty) {
+            return {
+                success: false,
+                error: `Cannot reduce quantity below certified amount (${certifiedQty}). ${certifiedQty} items have already been certified for payment.`
+            };
+        }
+
+        // Calculate financial impact
+        const originalQty = Number(item.originalQuantity || item.quantity);
+        const unitPrice = Number(item.unitPrice);
+        const quantityReduction = originalQty - input.revisedQuantity;
+        const amountOmission = quantityReduction * unitPrice;
+
+        // Get PO
+        const po = await db.query.purchaseOrder.findFirst({
+            where: eq(purchaseOrder.id, item.purchaseOrderId),
+        });
+
+        if (!po) {
+            return { success: false, error: "Purchase order not found" };
+        }
+
+        // Update BOQ item
+        await db.update(boqItem)
+            .set({
+                originalQuantity: item.originalQuantity || item.quantity,
+                revisedQuantity: input.revisedQuantity.toString(),
+                totalPrice: (input.revisedQuantity * unitPrice).toString(),
+                updatedAt: new Date(),
+            })
+            .where(eq(boqItem.id, input.boqItemId));
+
+        // Create change order for de-scope
+        const currentValue = Number(po.totalValue) || 0;
+        const newTotalValue = currentValue - amountOmission;
+        const changeNumber = await generateCONumber(input.purchaseOrderId);
+
+        const [newCO] = await db.insert(changeOrder).values({
+            purchaseOrderId: input.purchaseOrderId,
+            changeNumber,
+            reason: input.reason,
+            amountDelta: (-amountOmission).toString(), // Negative for omission
+            newTotalValue: newTotalValue.toString(),
+            status: "SUBMITTED",
+            requestedBy: user.id,
+            requestedAt: new Date(),
+            changeOrderType: "OMISSION",
+            clientInstructionId: input.clientInstructionId,
+            affectedBoqItemIds: [input.boqItemId],
+        }).returning();
+
+        // Update PO total
+        await db.update(purchaseOrder)
+            .set({ totalValue: newTotalValue.toString(), updatedAt: new Date() })
+            .where(eq(purchaseOrder.id, input.purchaseOrderId));
+
+        await logAudit("DE_SCOPE_CREATED", "change_order", newCO.id, {
+            boqItemId: input.boqItemId,
+            originalQuantity: originalQty,
+            revisedQuantity: input.revisedQuantity,
+            amountOmission,
+        });
+
+        revalidatePath("/procurement");
+        return { success: true, data: newCO };
+    } catch (error) {
+        console.error("[createDeScope] Error:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Failed to create de-scope" };
+    }
+}
+
+/**
+ * Update quantity installed (Site Engineer action).
+ * CONSTRAINT: Cannot install more than delivered.
+ */
+export async function updateQuantityInstalled(input: UpdateProgressInput) {
+    try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const item = await db.query.boqItem.findFirst({
+            where: eq(boqItem.id, input.boqItemId),
+        });
+
+        if (!item) {
+            return { success: false, error: "BOQ item not found" };
+        }
+
+        if (input.quantityInstalled !== undefined) {
+            const delivered = Number(item.quantityDelivered) || 0;
+            if (input.quantityInstalled > delivered) {
+                return {
+                    success: false,
+                    error: `Cannot install more than delivered (${delivered})`
+                };
+            }
+
+            await db.update(boqItem)
+                .set({
+                    quantityInstalled: input.quantityInstalled.toString(),
+                    updatedAt: new Date(),
+                })
+                .where(eq(boqItem.id, input.boqItemId));
+        }
+
+        await logAudit("QUANTITY_INSTALLED_UPDATED", "boq_item", input.boqItemId, {
+            quantityInstalled: input.quantityInstalled,
+        });
+
+        revalidatePath("/procurement");
+        return { success: true };
+    } catch (error) {
+        console.error("[updateQuantityInstalled] Error:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Failed to update quantity installed" };
+    }
+}
+
+/**
+ * Certify quantity for payment (QS/PM action).
+ * CONSTRAINT: Cannot certify more than installed.
+ */
+export async function certifyQuantity(input: UpdateProgressInput) {
+    try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const item = await db.query.boqItem.findFirst({
+            where: eq(boqItem.id, input.boqItemId),
+        });
+
+        if (!item) {
+            return { success: false, error: "BOQ item not found" };
+        }
+
+        if (input.quantityCertified !== undefined) {
+            const installed = Number(item.quantityInstalled) || 0;
+            if (input.quantityCertified > installed) {
+                return {
+                    success: false,
+                    error: `Cannot certify more than installed (${installed})`
+                };
+            }
+
+            await db.update(boqItem)
+                .set({
+                    quantityCertified: input.quantityCertified.toString(),
+                    lockedForDeScope: input.quantityCertified > 0, // Lock if any certified
+                    updatedAt: new Date(),
+                })
+                .where(eq(boqItem.id, input.boqItemId));
+        }
+
+        await logAudit("QUANTITY_CERTIFIED", "boq_item", input.boqItemId, {
+            quantityCertified: input.quantityCertified,
+        });
+
+        revalidatePath("/procurement");
+        return { success: true };
+    } catch (error) {
+        console.error("[certifyQuantity] Error:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Failed to certify quantity" };
+    }
+}
+
+/**
+ * Get Net Contract Summary for Bridge Chart (Project Level).
+ * Returns: Original + Additions - Omissions = Revised Total
+ */
+export async function getNetContractSummary(projectId: string): Promise<{ success: boolean; data?: NetContractSummary; error?: string }> {
+    try {
+        // Get all POs for project
+        const pos = await db.query.purchaseOrder.findMany({
+            where: eq(purchaseOrder.projectId, projectId),
+        });
+
+        if (pos.length === 0) {
+            return { success: true, data: { originalContract: 0, additions: 0, omissions: 0, revisedTotal: 0, variationOrders: [] } };
+        }
+
+        const poIds = pos.map(p => p.id);
+
+        // Get all change orders for these POs
+        const cos = await db.query.changeOrder.findMany({
+            where: sql`${changeOrder.purchaseOrderId} IN (${sql.join(poIds.map(id => sql`${id}`), sql`, `)})`,
+            with: {
+                clientInstruction: true,
+            }
+        });
+
+        let additions = 0;
+        let omissions = 0;
+        const variationOrders: NetContractSummary["variationOrders"] = [];
+
+        for (const co of cos) {
+            if (co.status !== "APPROVED") continue;
+
+            const amount = Number(co.amountDelta) || 0;
+            if (co.changeOrderType === "ADDITION" || amount > 0) {
+                additions += Math.abs(amount);
+                variationOrders.push({
+                    voNumber: co.changeNumber,
+                    description: co.reason || "",
+                    amount: Math.abs(amount),
+                    status: co.status,
+                });
+            } else {
+                omissions += Math.abs(amount);
+            }
+        }
+
+        // Calculate original contract by subtracting net changes from current totals
+        const currentTotal = pos.reduce((sum, po) => sum + (Number(po.totalValue) || 0), 0);
+        const originalContract = currentTotal - additions + omissions;
+
+        return {
+            success: true,
+            data: {
+                originalContract,
+                additions,
+                omissions,
+                revisedTotal: currentTotal,
+                variationOrders,
+            },
+        };
+    } catch (error) {
+        console.error("[getNetContractSummary] Error:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Failed to get net contract summary" };
     }
 }

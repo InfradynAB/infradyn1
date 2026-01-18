@@ -11,7 +11,7 @@ export const ncrSeverityEnum = pgEnum('ncr_severity', ['LOW', 'MEDIUM', 'HIGH', 
 export const ncrStatusEnum = pgEnum('ncr_status', ['OPEN', 'REVIEW', 'REMEDIATION', 'CLOSED']);
 export const ledgerStatusEnum = pgEnum('ledger_status', ['COMMITTED', 'PAID', 'PENDING', 'CANCELLED']);
 export const trustLevelEnum = pgEnum('trust_level', ['VERIFIED', 'INTERNAL', 'FORECAST']);
-export const documentTypeEnum = pgEnum('document_type', ['INVOICE', 'PACKING_LIST', 'CMR', 'NCR_REPORT', 'EVIDENCE', 'PROGRESS_REPORT', 'OTHER']);
+export const documentTypeEnum = pgEnum('document_type', ['INVOICE', 'PACKING_LIST', 'CMR', 'NCR_REPORT', 'EVIDENCE', 'PROGRESS_REPORT', 'CLIENT_INSTRUCTION', 'OTHER']);
 
 // Phase 5: Advanced Ingestion Enums
 export const ingestionSourceEnum = pgEnum('ingestion_source', ['MANUAL_UPLOAD', 'EMAIL_INBOUND', 'SMARTSHEET_SYNC', 'EXCEL_IMPORT', 'API_INTEGRATION']);
@@ -258,6 +258,16 @@ export const boqItem = pgTable('boq_item', {
     rosStatus: text('ros_status').default('NOT_SET'), // NOT_SET, SET, TBD
     // Phase 6 additions - Delivery tracking
     quantityDelivered: numeric('quantity_delivered').default('0'),
+    // Phase 5 Revised - Progress Tracking Hierarchy: Certified ≤ Installed ≤ Delivered
+    quantityInstalled: numeric('quantity_installed').default('0'), // Site Engineer logs physical work
+    quantityCertified: numeric('quantity_certified').default('0'), // QS/PM approves for payment
+    // Phase 5 Revised - Variation Order Support
+    isVariation: boolean('is_variation').default(false), // True if this is a VO item
+    variationOrderNumber: text('variation_order_number'), // e.g., VO-001
+    clientInstructionId: uuid('client_instruction_id'), // Link to ClientInstruction (added later, no FK yet)
+    originalQuantity: numeric('original_quantity'), // Original before de-scope
+    revisedQuantity: numeric('revised_quantity'), // After de-scope (null = use quantity)
+    lockedForDeScope: boolean('locked_for_de_scope').default(false), // True if cannot reduce further
 });
 
 
@@ -697,6 +707,22 @@ export const invoiceItem = pgTable('invoice_item', {
     lineTotal: numeric('line_total').notNull(),
 });
 
+// Phase 5 Revised - Client Instruction Entity (for Variation Orders)
+export const clientInstruction = pgTable('client_instruction', {
+    ...baseColumns,
+    projectId: uuid('project_id').references(() => project.id).notNull(),
+    instructionNumber: text('instruction_number').notNull(), // CVI-001, AI-045
+    dateReceived: timestamp('date_received').notNull(),
+    type: text('type').notNull(), // SITE_INSTRUCTION, ARCHITECT_INSTRUCTION, EMAIL_VARIATION
+    description: text('description'),
+    attachmentUrl: text('attachment_url').notNull(), // Mandatory PDF/Image for legal traceability
+    status: text('status').default('PENDING_ESTIMATE'), // PENDING_ESTIMATE, COSTED, APPROVED, REJECTED
+    estimatedCost: numeric('estimated_cost'),
+    approvedCost: numeric('approved_cost'),
+    approvedBy: text('approved_by').references(() => user.id),
+    approvedAt: timestamp('approved_at'),
+});
+
 export const changeOrder = pgTable('change_order', {
     ...baseColumns,
     purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrder.id).notNull(),
@@ -714,6 +740,10 @@ export const changeOrder = pgTable('change_order', {
     scopeChange: text('scope_change'), // Description of scope impact
     scheduleImpactDays: integer('schedule_impact_days').default(0),
     rejectionReason: text('rejection_reason'),
+    // Phase 5 Revised - Client-Driven CO
+    changeOrderType: text('change_order_type').default('ADDITION'), // ADDITION, OMISSION
+    clientInstructionId: uuid('client_instruction_id').references(() => clientInstruction.id),
+    affectedBoqItemIds: jsonb('affected_boq_item_ids').$type<string[]>(), // BOQ items affected
 });
 
 export const financialLedger = pgTable('financial_ledger', {
@@ -1144,6 +1174,13 @@ export const changeOrderRelations = relations(changeOrder, ({ one }) => ({
     purchaseOrder: one(purchaseOrder, { fields: [changeOrder.purchaseOrderId], references: [purchaseOrder.id] }),
     approver: one(user, { fields: [changeOrder.approvedBy], references: [user.id] }),
     requester: one(user, { fields: [changeOrder.requestedBy], references: [user.id] }),
+    clientInstruction: one(clientInstruction, { fields: [changeOrder.clientInstructionId], references: [clientInstruction.id] }),
+}));
+
+export const clientInstructionRelations = relations(clientInstruction, ({ one, many }) => ({
+    project: one(project, { fields: [clientInstruction.projectId], references: [project.id] }),
+    approver: one(user, { fields: [clientInstruction.approvedBy], references: [user.id] }),
+    changeOrders: many(changeOrder),
 }));
 
 export const financialLedgerRelations = relations(financialLedger, ({ one }) => ({

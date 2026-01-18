@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import db from "@/db/drizzle";
-import { document, purchaseOrder } from "@/db/schema";
+import { document, purchaseOrder, project } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { uploadFile, generateS3Key } from "@/lib/services/s3";
 
 /**
  * POST /api/documents/upload
- * Handles multipart/form-data upload for documents (Invoices, etc.)
+ * Handles multipart/form-data upload for documents (Invoices, Client Instructions, etc.)
+ * Supports both PO-level uploads (purchaseOrderId) and project-level uploads (projectId)
  */
 export async function POST(request: NextRequest) {
     try {
@@ -22,24 +23,59 @@ export async function POST(request: NextRequest) {
 
         const formData = await request.formData();
         const file = formData.get("file") as File;
-        const purchaseOrderId = formData.get("purchaseOrderId") as string;
+        const purchaseOrderId = formData.get("purchaseOrderId") as string | null;
+        const projectId = formData.get("projectId") as string | null;
         const documentType = (formData.get("documentType") as any) || "INVOICE";
 
-        if (!file || !purchaseOrderId) {
-            return NextResponse.json({ error: "Missing file or purchaseOrderId" }, { status: 400 });
+        if (!file) {
+            return NextResponse.json({ error: "Missing file" }, { status: 400 });
         }
 
-        // 1. Get PO details to find Org and Project
-        const po = await db.query.purchaseOrder.findFirst({
-            where: eq(purchaseOrder.id, purchaseOrderId),
-            columns: {
-                organizationId: true,
-                projectId: true,
-            }
-        });
+        let organizationId: string;
+        let targetProjectId: string;
+        let parentId: string | null = null;
+        let parentType: "PO" | "BOQ" | "INVOICE" | "PACKING_LIST" | "CMR" | "NCR" | "EVIDENCE" = "PO";
 
-        if (!po) {
-            return NextResponse.json({ error: "Purchase Order not found" }, { status: 404 });
+        // Handle PO-level uploads
+        if (purchaseOrderId) {
+            const po = await db.query.purchaseOrder.findFirst({
+                where: eq(purchaseOrder.id, purchaseOrderId),
+                columns: {
+                    organizationId: true,
+                    projectId: true,
+                }
+            });
+
+            if (!po) {
+                return NextResponse.json({ error: "Purchase Order not found" }, { status: 404 });
+            }
+
+            organizationId = po.organizationId;
+            targetProjectId = po.projectId;
+            parentId = purchaseOrderId;
+            parentType = "PO";
+        }
+        // Handle project-level uploads (e.g., Client Instructions)
+        else if (projectId) {
+            const proj = await db.query.project.findFirst({
+                where: eq(project.id, projectId),
+                columns: {
+                    organizationId: true,
+                    id: true,
+                }
+            });
+
+            if (!proj) {
+                return NextResponse.json({ error: "Project not found" }, { status: 404 });
+            }
+
+            organizationId = proj.organizationId;
+            targetProjectId = proj.id;
+            parentId = projectId;
+            parentType = "EVIDENCE"; // Use EVIDENCE for client instruction attachments
+        }
+        else {
+            return NextResponse.json({ error: "Missing purchaseOrderId or projectId" }, { status: 400 });
         }
 
         // 2. Upload to S3
@@ -49,8 +85,8 @@ export async function POST(request: NextRequest) {
         // Convert documentType to lowercase for S3 key convention (po, boq, invoice, etc.)
         const s3DocType = documentType.toLowerCase().replace("_report", "") as any;
         const key = generateS3Key(
-            po.organizationId,
-            po.projectId,
+            organizationId,
+            targetProjectId,
             s3DocType,
             file.name
         );
@@ -59,10 +95,10 @@ export async function POST(request: NextRequest) {
 
         // 3. Create document record
         const [newDoc] = await db.insert(document).values({
-            organizationId: po.organizationId,
-            projectId: po.projectId,
-            parentId: purchaseOrderId,
-            parentType: "PO",
+            organizationId: organizationId,
+            projectId: targetProjectId,
+            parentId: parentId,
+            parentType: parentType,
             fileName: file.name,
             fileUrl: fileUrl,
             mimeType: file.type,
@@ -82,3 +118,4 @@ export async function POST(request: NextRequest) {
         );
     }
 }
+

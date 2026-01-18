@@ -53,6 +53,8 @@ import { ChangeOrderForm } from "@/components/procurement/change-order-form";
 import { PaymentStatusBadge, COStatusBadge } from "@/components/procurement/payment-status-badge";
 import { getPaymentSummary, getPendingInvoices } from "@/lib/actions/finance-engine";
 import { getChangeOrdersForPO, getCOImpactSummary } from "@/lib/actions/change-order-engine";
+// Phase 5 Revised - Client-Driven CO imports
+import { ClientInstructionUpload } from "@/components/procurement/client-instruction-upload";
 import {
     CurrencyDollar,
     Receipt,
@@ -504,18 +506,23 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                                 Change Orders
                                             </CardTitle>
                                             <CardDescription>
-                                                Request and track changes to this PO
+                                                Client-driven variations and scope changes
                                             </CardDescription>
                                         </div>
-                                        <ChangeOrderForm
-                                            purchaseOrderId={po.id}
-                                            currentPOValue={Number(po.totalValue)}
-                                            milestones={(po as any).milestones?.map((m: any) => ({
-                                                id: m.id,
-                                                title: m.title,
-                                                status: m.status,
-                                            })) || []}
-                                        />
+                                        <div className="flex gap-2">
+                                            <ClientInstructionUpload
+                                                projectId={(po as any).projectId}
+                                            />
+                                            <ChangeOrderForm
+                                                purchaseOrderId={po.id}
+                                                currentPOValue={Number(po.totalValue)}
+                                                milestones={(po as any).milestones?.map((m: any) => ({
+                                                    id: m.id,
+                                                    title: m.title,
+                                                    status: m.status,
+                                                })) || []}
+                                            />
+                                        </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent>
@@ -535,7 +542,19 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                                                 }`} />
                                                         </div>
                                                         <div>
-                                                            <p className="font-medium">{co.changeNumber}</p>
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="font-medium">{co.changeNumber}</p>
+                                                                {co.changeOrderType === "ADDITION" && (
+                                                                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                                                                        Variation
+                                                                    </Badge>
+                                                                )}
+                                                                {co.changeOrderType === "OMISSION" && (
+                                                                    <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300">
+                                                                        De-Scope
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
                                                             <p className="text-sm text-muted-foreground truncate max-w-[200px]">
                                                                 {co.reason}
                                                             </p>
