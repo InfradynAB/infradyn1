@@ -9,7 +9,8 @@ import EscalationEmail, { type EscalationEmailProps } from "@/emails/escalation-
 
 // Email configuration
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = process.env.FROM_EMAIL || "notifications@infradyn.com";
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || process.env.FROM_EMAIL || "notifications@materials.infradyn.com";
+const REPLY_TO = process.env.RESEND_REPLY_TO;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 export interface EmailPayload {
@@ -41,6 +42,7 @@ export async function sendEmail(payload: EmailPayload): Promise<{ success: boole
                 subject: payload.subject,
                 html: payload.html,
                 text: payload.text,
+                reply_to: REPLY_TO,
             }),
         });
 
@@ -92,5 +94,42 @@ export async function buildEscalationEmail(data: EscalationData): Promise<EmailP
         subject: `[ESCALATION L${data.escalationLevel}] ${data.poNumber} - No Response from ${data.supplierName}`,
         html,
         text: `Escalation L${data.escalationLevel}: ${data.poNumber}\n\nSupplier ${data.supplierName} has not responded for ${data.daysOverdue} days.\nMilestone: ${data.milestoneTitle}\n\nPlease take action: ${data.dashboardUrl}`,
+    };
+}
+
+// --- Invoice & Payment Email Types and Builders ---
+
+import InvoiceCreatedEmail, { type InvoiceCreatedEmailProps } from "@/emails/invoice-created-email";
+import PaymentUpdateEmail, { type PaymentUpdateEmailProps } from "@/emails/payment-update-email";
+
+export type InvoiceCreatedData = InvoiceCreatedEmailProps;
+export type PaymentUpdateData = PaymentUpdateEmailProps;
+
+/**
+ * Build invoice created email using React Email template
+ */
+export async function buildInvoiceCreatedEmail(data: InvoiceCreatedData): Promise<EmailPayload> {
+    const html = await render(InvoiceCreatedEmail(data));
+
+    return {
+        to: "",
+        subject: `Invoice ${data.invoiceNumber} Created - ${data.poNumber}`,
+        html,
+        text: `Invoice Created\n\nHi ${data.recipientName},\n\n${data.isSupplier ? 'Your invoice has been submitted.' : `${data.supplierName} has submitted a new invoice.`}\n\nInvoice: ${data.invoiceNumber}\nPO: ${data.poNumber}\nAmount: ${data.amount}\n${data.dueDate ? `Due Date: ${data.dueDate}\n` : ''}\nView: ${data.dashboardUrl}`,
+    };
+}
+
+/**
+ * Build payment update email using React Email template
+ */
+export async function buildPaymentUpdateEmail(data: PaymentUpdateData): Promise<EmailPayload> {
+    const html = await render(PaymentUpdateEmail(data));
+    const statusText = data.status === "PAID" ? "Payment Complete" : "Partial Payment";
+
+    return {
+        to: "",
+        subject: `[${statusText}] ${data.invoiceNumber} - ${data.poNumber}`,
+        html,
+        text: `${statusText}\n\nHi ${data.recipientName},\n\n${data.status === "PAID" ? 'Invoice fully paid.' : 'Partial payment received.'}\n\nInvoice: ${data.invoiceNumber}\nThis Payment: ${data.amountPaid}\nTotal Paid: ${data.totalPaid}\nInvoice Total: ${data.totalAmount}\n${data.paymentReference ? `Reference: ${data.paymentReference}\n` : ''}\nView: ${data.dashboardUrl}`,
     };
 }

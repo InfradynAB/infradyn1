@@ -11,11 +11,13 @@ import {
     auditLog,
     notification,
     user,
+    organization,
 } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { sendEmail, buildInvoiceCreatedEmail, buildPaymentUpdateEmail } from "@/lib/services/email";
 
 // --- Types ---
 
@@ -71,8 +73,8 @@ async function logAudit(action: string, entityType: string, entityId: string, me
  */
 export async function createInvoice(input: CreateInvoiceInput) {
     try {
-        const user = await getCurrentUser();
-        if (!user) {
+        const currentUser = await getCurrentUser();
+        if (!currentUser) {
             return { success: false, error: "Unauthorized" };
         }
 
@@ -163,7 +165,54 @@ export async function createInvoice(input: CreateInvoiceInput) {
             invoiceNumber: input.invoiceNumber,
             amount: input.amount,
             milestoneId: input.milestoneId,
+            actorId: currentUser.id
         });
+
+        // Send email notifications to supplier and PM
+        try {
+            const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+            // Get supplier details
+            const supplierData = await db.query.supplier.findFirst({
+                where: eq(supplier.id, po.supplierId),
+            });
+
+            // Get Organization details (for contact email)
+            const orgData = await db.query.organization.findFirst({
+                where: eq(organization.id, po.organizationId),
+            });
+
+            const emailData = {
+                supplierName: supplierData?.name || "Supplier",
+                poNumber: po.poNumber,
+                invoiceNumber: input.invoiceNumber,
+                amount: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(input.amount),
+                dueDate: input.dueDate ? input.dueDate.toLocaleDateString() : undefined,
+                dashboardUrl: `${APP_URL}/dashboard/procurement/${input.purchaseOrderId}`,
+            };
+
+            // Send to supplier (if email exists)
+            if (supplierData?.contactEmail) {
+                const supplierEmail = await buildInvoiceCreatedEmail({
+                    ...emailData,
+                    recipientName: supplierData.name,
+                    isSupplier: true,
+                });
+                await sendEmail({ ...supplierEmail, to: supplierData.contactEmail });
+            }
+
+            // Send to Organization Contact (as PM)
+            if (orgData?.contactEmail) {
+                const pmEmail = await buildInvoiceCreatedEmail({
+                    ...emailData,
+                    recipientName: "Procurement Team",
+                    isSupplier: false,
+                });
+                await sendEmail({ ...pmEmail, to: orgData.contactEmail });
+            }
+        } catch (emailError) {
+            console.warn("[createInvoice] Email notification failed (non-blocking):", emailError);
+        }
 
         revalidatePath("/procurement");
         return { success: true, data: newInvoice };
@@ -179,8 +228,8 @@ export async function createInvoice(input: CreateInvoiceInput) {
  */
 export async function updatePaymentStatus(input: UpdatePaymentInput) {
     try {
-        const user = await getCurrentUser();
-        if (!user) {
+        const currentUser = await getCurrentUser();
+        if (!currentUser) {
             return { success: false, error: "Unauthorized" };
         }
 
@@ -263,6 +312,58 @@ export async function updatePaymentStatus(input: UpdatePaymentInput) {
             status,
             reference: input.paymentReference,
         });
+
+        // Send email notifications to supplier and PM
+        try {
+            const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+            // Get supplier details
+            const supplierData = await db.query.supplier.findFirst({
+                where: eq(supplier.id, inv.supplierId),
+            });
+
+            // Get Organization details (for contact email)
+            const orgData = await db.query.organization.findFirst({
+                where: eq(organization.id, po.organizationId),
+            });
+
+            const formatCurrency = (val: number) =>
+                new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+
+            const emailData = {
+                supplierName: supplierData?.name || "Supplier",
+                poNumber: po.poNumber,
+                invoiceNumber: inv.invoiceNumber || "",
+                amountPaid: formatCurrency(input.paidAmount),
+                totalPaid: formatCurrency(totalPaid),
+                totalAmount: formatCurrency(totalAmount),
+                status: status as "PARTIALLY_PAID" | "PAID",
+                paymentReference: input.paymentReference,
+                dashboardUrl: `${APP_URL}/dashboard/procurement/${inv.purchaseOrderId}`,
+            };
+
+            // Send to supplier (if email exists)
+            if (supplierData?.contactEmail) {
+                const supplierEmail = await buildPaymentUpdateEmail({
+                    ...emailData,
+                    recipientName: supplierData.name,
+                    isSupplier: true,
+                });
+                await sendEmail({ ...supplierEmail, to: supplierData.contactEmail });
+            }
+
+            // Send to Organization Contact (as PM)
+            if (orgData?.contactEmail) {
+                const pmEmail = await buildPaymentUpdateEmail({
+                    ...emailData,
+                    recipientName: "Procurement Team",
+                    isSupplier: false,
+                });
+                await sendEmail({ ...pmEmail, to: orgData.contactEmail });
+            }
+        } catch (emailError) {
+            console.warn("[updatePaymentStatus] Email notification failed (non-blocking):", emailError);
+        }
 
         revalidatePath("/procurement");
         return { success: true, data: { status, totalPaid } };
