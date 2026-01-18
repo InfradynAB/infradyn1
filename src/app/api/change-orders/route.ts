@@ -10,6 +10,8 @@ import {
     getPendingChangeOrders,
     getCOImpactSummary,
     getChangeOrdersForPO,
+    createVariationOrder,
+    createDeScope,
 } from "@/lib/actions/change-order-engine";
 
 export async function POST(request: NextRequest) {
@@ -52,6 +54,26 @@ export async function POST(request: NextRequest) {
                 const result = await rejectChangeOrder({
                     changeOrderId: data.changeOrderId,
                     rejectionReason: data.rejectionReason,
+                });
+                return NextResponse.json(result);
+            }
+
+            case "create_variation": {
+                const result = await createVariationOrder({
+                    purchaseOrderId: data.purchaseOrderId,
+                    clientInstructionId: data.clientInstructionId,
+                    reason: data.reason,
+                    items: data.items,
+                });
+                return NextResponse.json(result);
+            }
+
+            case "create_descope": {
+                const result = await createDeScope({
+                    purchaseOrderId: data.purchaseOrderId,
+                    clientInstructionId: data.clientInstructionId,
+                    reason: data.reason,
+                    items: data.items,
                 });
                 return NextResponse.json(result);
             }

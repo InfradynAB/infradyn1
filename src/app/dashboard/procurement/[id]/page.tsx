@@ -55,6 +55,7 @@ import { getPaymentSummary, getPendingInvoices } from "@/lib/actions/finance-eng
 import { getChangeOrdersForPO, getCOImpactSummary } from "@/lib/actions/change-order-engine";
 // Phase 5 Revised - Client-Driven CO imports
 import { ClientInstructionUpload } from "@/components/procurement/client-instruction-upload";
+import { ClientInstructionList } from "@/components/procurement/client-instruction-list";
 import {
     CurrencyDollar,
     Receipt,
@@ -521,72 +522,86 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                                     title: m.title,
                                                     status: m.status,
                                                 })) || []}
+                                                boqItems={(po as any).boqItems || []}
                                             />
                                         </div>
                                     </div>
                                 </CardHeader>
-                                <CardContent>
-                                    {changeOrders.length > 0 ? (
-                                        <div className="space-y-3">
-                                            {changeOrders.map((co: any) => (
-                                                <div
-                                                    key={co.id}
-                                                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${co.status === "APPROVED" ? "bg-green-100" :
-                                                            co.status === "REJECTED" ? "bg-red-100" : "bg-blue-100"
-                                                            }`}>
-                                                            <ArrowsClockwise className={`h-5 w-5 ${co.status === "APPROVED" ? "text-green-600" :
-                                                                co.status === "REJECTED" ? "text-red-600" : "text-blue-600"
-                                                                }`} />
-                                                        </div>
-                                                        <div>
-                                                            <div className="flex items-center gap-2">
-                                                                <p className="font-medium">{co.changeNumber}</p>
-                                                                {co.changeOrderType === "ADDITION" && (
-                                                                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
-                                                                        Variation
-                                                                    </Badge>
-                                                                )}
-                                                                {co.changeOrderType === "OMISSION" && (
-                                                                    <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300">
-                                                                        De-Scope
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
-                                                            <p className="text-sm text-muted-foreground truncate max-w-[200px]">
-                                                                {co.reason}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="text-right">
-                                                            <p className={`font-mono font-medium ${Number(co.amountDelta) > 0 ? "text-amber-600" :
-                                                                Number(co.amountDelta) < 0 ? "text-green-600" : ""
+                                <CardContent className="space-y-6">
+                                    <ClientInstructionList
+                                        projectId={(po as any).projectId}
+                                        purchaseOrderId={po.id}
+                                        currentPOValue={Number(po.totalValue)}
+                                        milestones={(po as any).milestones || []}
+                                    />
+
+                                    <div>
+                                        <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                                            <ArrowsClockwise size={16} className="text-muted-foreground" />
+                                            Processed Change Orders
+                                        </h3>
+                                        {changeOrders.length > 0 ? (
+                                            <div className="space-y-3">
+                                                {changeOrders.map((co: any) => (
+                                                    <div
+                                                        key={co.id}
+                                                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`h-10 w-10 rounded-full flex items-center justify-center ${co.status === "APPROVED" ? "bg-green-100" :
+                                                                co.status === "REJECTED" ? "bg-red-100" : "bg-blue-100"
                                                                 }`}>
-                                                                {Number(co.amountDelta) >= 0 ? "+" : ""}
-                                                                {po.currency} {Number(co.amountDelta).toLocaleString()}
-                                                            </p>
-                                                            <COStatusBadge status={co.status} />
+                                                                <ArrowsClockwise className={`h-5 w-5 ${co.status === "APPROVED" ? "text-green-600" :
+                                                                    co.status === "REJECTED" ? "text-red-600" : "text-blue-600"
+                                                                    }`} />
+                                                            </div>
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <p className="font-medium">{co.changeNumber}</p>
+                                                                    {co.changeOrderType === "ADDITION" && (
+                                                                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                                                                            Variation
+                                                                        </Badge>
+                                                                    )}
+                                                                    {co.changeOrderType === "OMISSION" && (
+                                                                        <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300">
+                                                                            De-Scope
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-sm text-muted-foreground truncate max-w-[200px]">
+                                                                    {co.reason}
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                        <COActions
-                                                            changeOrderId={co.id}
-                                                            changeNumber={co.changeNumber}
-                                                            status={co.status}
-                                                            amountDelta={Number(co.amountDelta)}
-                                                        />
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="text-right">
+                                                                <p className={`font-mono font-medium ${Number(co.amountDelta) > 0 ? "text-amber-600" :
+                                                                    Number(co.amountDelta) < 0 ? "text-green-600" : ""
+                                                                    }`}>
+                                                                    {Number(co.amountDelta) >= 0 ? "+" : ""}
+                                                                    {po.currency} {Number(co.amountDelta).toLocaleString()}
+                                                                </p>
+                                                                <COStatusBadge status={co.status} />
+                                                            </div>
+                                                            <COActions
+                                                                changeOrderId={co.id}
+                                                                changeNumber={co.changeNumber}
+                                                                status={co.status}
+                                                                amountDelta={Number(co.amountDelta)}
+                                                            />
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-8 text-muted-foreground">
-                                            <ArrowsClockwise className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                                            <p>No change orders</p>
-                                            <p className="text-sm">Submit a CO to request changes</p>
-                                        </div>
-                                    )}
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-8 text-muted-foreground">
+                                                <ArrowsClockwise className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                                                <p>No change orders</p>
+                                                <p className="text-sm">Submit a CO to request changes</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </CardContent>
                             </Card>
 

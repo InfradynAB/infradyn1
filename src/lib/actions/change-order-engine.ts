@@ -75,8 +75,10 @@ interface CreateVariationOrderInput {
 interface CreateDeScopeInput {
     purchaseOrderId: string;
     clientInstructionId: string;
-    boqItemId: string;
-    revisedQuantity: number;
+    items: Array<{
+        id: string;
+        reductionQuantity: number;
+    }>;
     reason: string;
 }
 
@@ -354,6 +356,20 @@ export async function approveChangeOrder(input: ApproveCOInput) {
                         .where(eq(milestone.id, msId));
                 }
             }
+        }
+        if (co.changeOrderType === "OMISSION" && co.affectedBoqItemIds) {
+            // Nothing extra needed for omission as safety checks were done at creation
+            // and quantity certification logic is separate.
+        }
+
+        // AUTO-UPDATE Client Instruction Status
+        if (co.clientInstructionId) {
+            await db.update(clientInstruction)
+                .set({
+                    status: "APPROVED",
+                    updatedAt: new Date()
+                })
+                .where(eq(clientInstruction.id, co.clientInstructionId));
         }
 
         await logAudit("CO_APPROVED", "change_order", input.changeOrderId, {
@@ -664,6 +680,10 @@ export async function createVariationOrder(input: CreateVariationOrderInput) {
  * Create a De-Scope - reduces existing BOQ item quantity.
  * SAFETY: Cannot reduce below certified quantity.
  */
+/**
+ * Create a De-Scope - reduces existing BOQ item quantities.
+ * SAFETY: Cannot reduce below certified quantity.
+ */
 export async function createDeScope(input: CreateDeScopeInput) {
     try {
         const user = await getCurrentUser();
@@ -671,66 +691,79 @@ export async function createDeScope(input: CreateDeScopeInput) {
             return { success: false, error: "Unauthorized" };
         }
 
-        // Get BOQ item
-        const item = await db.query.boqItem.findFirst({
-            where: eq(boqItem.id, input.boqItemId),
-        });
-
-        if (!item) {
-            return { success: false, error: "BOQ item not found" };
-        }
-
-        // SAFETY CHECK: Cannot de-scope below certified quantity
-        const certifiedQty = Number(item.quantityCertified) || 0;
-        if (input.revisedQuantity < certifiedQty) {
-            return {
-                success: false,
-                error: `Cannot reduce quantity below certified amount (${certifiedQty}). ${certifiedQty} items have already been certified for payment.`
-            };
-        }
-
-        // Calculate financial impact
-        const originalQty = Number(item.originalQuantity || item.quantity);
-        const unitPrice = Number(item.unitPrice);
-        const quantityReduction = originalQty - input.revisedQuantity;
-        const amountOmission = quantityReduction * unitPrice;
-
         // Get PO
         const po = await db.query.purchaseOrder.findFirst({
-            where: eq(purchaseOrder.id, item.purchaseOrderId),
+            where: eq(purchaseOrder.id, input.purchaseOrderId),
         });
 
         if (!po) {
             return { success: false, error: "Purchase order not found" };
         }
 
-        // Update BOQ item
-        await db.update(boqItem)
-            .set({
-                originalQuantity: item.originalQuantity || item.quantity,
-                revisedQuantity: input.revisedQuantity.toString(),
-                totalPrice: (input.revisedQuantity * unitPrice).toString(),
-                updatedAt: new Date(),
-            })
-            .where(eq(boqItem.id, input.boqItemId));
+        let totalAmountOmission = 0;
+        const affectedItemIds: string[] = [];
+        const processedItems: any[] = [];
+
+        // Validate and process each item
+        for (const inputItem of input.items) {
+            const item = await db.query.boqItem.findFirst({
+                where: eq(boqItem.id, inputItem.id),
+            });
+
+            if (!item) {
+                return { success: false, error: `BOQ item ${inputItem.id} not found` };
+            }
+
+            const currentQty = Number(item.originalQuantity || item.quantity);
+            const revisedQty = currentQty - inputItem.reductionQuantity;
+            const certifiedQty = Number(item.quantityCertified) || 0;
+
+            // SAFETY CHECK
+            if (revisedQty < certifiedQty) {
+                return {
+                    success: false,
+                    error: `Cannot reduce item "${item.description}" below certified amount (${certifiedQty}).`
+                };
+            }
+
+            const unitPrice = Number(item.unitPrice);
+            const amountOmission = inputItem.reductionQuantity * unitPrice;
+
+            totalAmountOmission += amountOmission;
+            affectedItemIds.push(item.id);
+            processedItems.push({ item, revisedQty, amountOmission });
+        }
+
+        // Apply updates
+        for (const p of processedItems) {
+            await db.update(boqItem)
+                .set({
+                    originalQuantity: p.item.originalQuantity || p.item.quantity,
+                    quantity: p.revisedQty.toString(), // Update main quantity
+                    revisedQuantity: p.revisedQty.toString(),
+                    totalPrice: (p.revisedQty * Number(p.item.unitPrice)).toString(),
+                    updatedAt: new Date(),
+                })
+                .where(eq(boqItem.id, p.item.id));
+        }
 
         // Create change order for de-scope
         const currentValue = Number(po.totalValue) || 0;
-        const newTotalValue = currentValue - amountOmission;
+        const newTotalValue = currentValue - totalAmountOmission;
         const changeNumber = await generateCONumber(input.purchaseOrderId);
 
         const [newCO] = await db.insert(changeOrder).values({
             purchaseOrderId: input.purchaseOrderId,
             changeNumber,
             reason: input.reason,
-            amountDelta: (-amountOmission).toString(), // Negative for omission
+            amountDelta: (-totalAmountOmission).toString(), // Negative for omission
             newTotalValue: newTotalValue.toString(),
             status: "SUBMITTED",
             requestedBy: user.id,
             requestedAt: new Date(),
             changeOrderType: "OMISSION",
             clientInstructionId: input.clientInstructionId,
-            affectedBoqItemIds: [input.boqItemId],
+            affectedBoqItemIds: affectedItemIds,
         }).returning();
 
         // Update PO total
@@ -739,10 +772,9 @@ export async function createDeScope(input: CreateDeScopeInput) {
             .where(eq(purchaseOrder.id, input.purchaseOrderId));
 
         await logAudit("DE_SCOPE_CREATED", "change_order", newCO.id, {
-            boqItemId: input.boqItemId,
-            originalQuantity: originalQty,
-            revisedQuantity: input.revisedQuantity,
-            amountOmission,
+            itemCount: processedItems.length,
+            totalAmountOmission,
+            clientInstructionId: input.clientInstructionId,
         });
 
         revalidatePath("/procurement");
