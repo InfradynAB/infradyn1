@@ -7,8 +7,10 @@ export const parentTypeEnum = pgEnum('parent_type', ['PO', 'BOQ', 'INVOICE', 'PA
 export const progressSourceEnum = pgEnum('progress_source', ['SRP', 'IRP', 'FORECAST']);
 export const conflictTypeEnum = pgEnum('conflict_type', ['QUANTITY_MISMATCH', 'PROGRESS_MISMATCH', 'DATE_VARIANCE', 'EVIDENCE_FAILURE', 'NCR_CONFLICT']);
 export const conflictStateEnum = pgEnum('conflict_state', ['OPEN', 'REVIEW', 'ESCALATED', 'RESOLVED', 'CLOSED']);
-export const ncrSeverityEnum = pgEnum('ncr_severity', ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
-export const ncrStatusEnum = pgEnum('ncr_status', ['OPEN', 'REVIEW', 'REMEDIATION', 'CLOSED']);
+export const ncrSeverityEnum = pgEnum('ncr_severity', ['MINOR', 'MAJOR', 'CRITICAL']);
+export const ncrStatusEnum = pgEnum('ncr_status', ['OPEN', 'SUPPLIER_RESPONDED', 'REINSPECTION', 'REVIEW', 'REMEDIATION', 'CLOSED']);
+export const ncrIssueTypeEnum = pgEnum('ncr_issue_type', ['DAMAGED', 'WRONG_SPEC', 'DOC_MISSING', 'QUANTITY_SHORT', 'QUALITY_DEFECT', 'OTHER']);
+export const ncrAttachmentCategoryEnum = pgEnum('ncr_attachment_category', ['EVIDENCE', 'CORRECTIVE_ACTION', 'INSPECTION_REPORT', 'CREDIT_NOTE', 'OTHER']);
 export const ledgerStatusEnum = pgEnum('ledger_status', ['COMMITTED', 'PAID', 'PENDING', 'CANCELLED']);
 export const trustLevelEnum = pgEnum('trust_level', ['VERIFIED', 'INTERNAL', 'FORECAST']);
 export const documentTypeEnum = pgEnum('document_type', ['INVOICE', 'PACKING_LIST', 'CMR', 'NCR_REPORT', 'EVIDENCE', 'PROGRESS_REPORT', 'CLIENT_INSTRUCTION', 'OTHER']);
@@ -572,6 +574,109 @@ export const qaInspectionTask = pgTable('qa_inspection_task', {
     ncrRequired: boolean('ncr_required').default(false),
 });
 
+// --- Phase 7: NCR (Non-Conformance Report) Management ---
+
+export const ncr = pgTable('ncr', {
+    ...baseColumns,
+    organizationId: uuid('organization_id').references(() => organization.id).notNull(),
+    projectId: uuid('project_id').references(() => project.id).notNull(),
+    purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrder.id).notNull(),
+
+    // Identification
+    ncrNumber: text('ncr_number').notNull(), // Auto-generated: NCR-001
+
+    // Classification
+    severity: ncrSeverityEnum('severity').notNull(),
+    status: ncrStatusEnum('status').default('OPEN').notNull(),
+    issueType: ncrIssueTypeEnum('issue_type').notNull(),
+
+    // Details
+    title: text('title').notNull(),
+    description: text('description'),
+
+    // Links
+    affectedBoqItemId: uuid('affected_boq_item_id').references(() => boqItem.id),
+    batchId: text('batch_id'),
+    supplierId: uuid('supplier_id').references(() => supplier.id).notNull(),
+    qaInspectionTaskId: uuid('qa_inspection_task_id').references(() => qaInspectionTask.id),
+    sourceDocumentId: uuid('source_document_id').references(() => document.id), // Uploaded external NCR
+
+    // Workflow
+    reportedBy: text('reported_by').references(() => user.id).notNull(),
+    reportedAt: timestamp('reported_at').defaultNow().notNull(),
+    assignedTo: text('assigned_to').references(() => user.id),
+
+    // SLA
+    slaDueAt: timestamp('sla_due_at'),
+    escalationLevel: integer('escalation_level').default(0),
+
+    // Closure
+    closedBy: text('closed_by').references(() => user.id),
+    closedAt: timestamp('closed_at'),
+    closedReason: text('closed_reason'),
+    proofOfFixDocId: uuid('proof_of_fix_doc_id').references(() => document.id),
+
+    // Payment Shield
+    requiresCreditNote: boolean('requires_credit_note').default(false),
+    creditNoteDocId: uuid('credit_note_doc_id').references(() => document.id),
+    creditNoteVerifiedAt: timestamp('credit_note_verified_at'),
+    milestonesLockedIds: jsonb('milestones_locked_ids').$type<string[]>(),
+
+    // AI Summarizer
+    aiSummary: text('ai_summary'),
+    aiSummaryUpdatedAt: timestamp('ai_summary_updated_at'),
+}, (t) => ({
+    ncrNumberIdx: uniqueIndex('ncr_number_org_idx').on(t.organizationId, t.ncrNumber),
+    statusIdx: index('ncr_status_idx').on(t.status),
+    severityIdx: index('ncr_severity_idx').on(t.severity),
+}));
+
+export const ncrComment = pgTable('ncr_comment', {
+    ...baseColumns,
+    ncrId: uuid('ncr_id').references(() => ncr.id).notNull(),
+
+    // Author (either logged-in user or via magic link)
+    userId: text('user_id').references(() => user.id),
+    magicLinkToken: text('magic_link_token'), // If submitted via supplier magic link
+    authorRole: text('author_role'), // SUPPLIER, QA, PM, etc.
+
+    // Content
+    content: text('content'),
+    attachmentUrls: jsonb('attachment_urls').$type<string[]>(),
+    voiceNoteUrl: text('voice_note_url'), // S3 URL for audio file
+
+    // Visibility
+    isInternal: boolean('is_internal').default(false), // Hidden from supplier
+});
+
+export const ncrAttachment = pgTable('ncr_attachment', {
+    ...baseColumns,
+    ncrId: uuid('ncr_id').references(() => ncr.id).notNull(),
+
+    fileUrl: text('file_url').notNull(),
+    fileName: text('file_name').notNull(),
+    mimeType: text('mime_type'),
+    fileSize: integer('file_size'),
+
+    category: ncrAttachmentCategoryEnum('category').notNull(),
+    uploadedBy: text('uploaded_by').references(() => user.id),
+    uploadedAt: timestamp('uploaded_at').defaultNow(),
+});
+
+export const ncrMagicLink = pgTable('ncr_magic_link', {
+    ...baseColumns,
+    ncrId: uuid('ncr_id').references(() => ncr.id).notNull(),
+    supplierId: uuid('supplier_id').references(() => supplier.id).notNull(),
+
+    token: text('token').notNull().unique(),
+    expiresAt: timestamp('expires_at').notNull(),
+
+    // Audit trail
+    viewedAt: timestamp('viewed_at'),
+    lastActionAt: timestamp('last_action_at'),
+    actionsCount: integer('actions_count').default(0),
+});
+
 // --- 6. SUPPLIER & INTERNAL PROGRESS (Dual Path) ---
 
 
@@ -779,26 +884,6 @@ export const milestonePayment = pgTable('milestone_payment', {
     dueDate: timestamp('due_date'),
     paidAt: timestamp('paid_at'),
     notes: text('notes'),
-});
-
-// --- 10. QUALITY (NCR) ---
-
-export const ncr = pgTable('ncr', {
-    ...baseColumns,
-    purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrder.id).notNull(),
-    boqItemId: uuid('boq_item_id').references(() => boqItem.id), // Optional, could be general PO NCR
-    title: text('title').notNull(),
-    description: text('description').notNull(),
-    severity: ncrSeverityEnum('severity').notNull(),
-    status: ncrStatusEnum('status').default('OPEN').notNull(),
-    raisedBy: text('raised_by').references(() => user.id).notNull(),
-});
-
-export const ncrComment = pgTable('ncr_comment', {
-    ...baseColumns,
-    ncrId: uuid('ncr_id').references(() => ncr.id).notNull(),
-    userId: text('user_id').references(() => user.id).notNull(),
-    content: text('content').notNull(),
 });
 
 // --- 11. OFFLINE SYNC (PWA) ---
@@ -1189,4 +1274,63 @@ export const financialLedgerRelations = relations(financialLedger, ({ one }) => 
     invoice: one(invoice, { fields: [financialLedger.invoiceId], references: [invoice.id] }),
     changeOrder: one(changeOrder, { fields: [financialLedger.changeOrderId], references: [changeOrder.id] }),
     milestone: one(milestone, { fields: [financialLedger.milestoneId], references: [milestone.id] }),
+}));
+
+// --- Phase 7: NCR Relations ---
+
+export const ncrRelations = relations(ncr, ({ one, many }) => ({
+    organization: one(organization, { fields: [ncr.organizationId], references: [organization.id] }),
+    project: one(project, { fields: [ncr.projectId], references: [project.id] }),
+    purchaseOrder: one(purchaseOrder, { fields: [ncr.purchaseOrderId], references: [purchaseOrder.id] }),
+    supplier: one(supplier, { fields: [ncr.supplierId], references: [supplier.id] }),
+    affectedBoqItem: one(boqItem, { fields: [ncr.affectedBoqItemId], references: [boqItem.id] }),
+    qaInspectionTask: one(qaInspectionTask, { fields: [ncr.qaInspectionTaskId], references: [qaInspectionTask.id] }),
+    sourceDocument: one(document, {
+        fields: [ncr.sourceDocumentId],
+        references: [document.id],
+        relationName: "ncrSourceDocument",
+    }),
+    proofOfFixDoc: one(document, {
+        fields: [ncr.proofOfFixDocId],
+        references: [document.id],
+        relationName: "ncrProofOfFix",
+    }),
+    creditNoteDoc: one(document, {
+        fields: [ncr.creditNoteDocId],
+        references: [document.id],
+        relationName: "ncrCreditNote",
+    }),
+    reporter: one(user, {
+        fields: [ncr.reportedBy],
+        references: [user.id],
+        relationName: "ncrReporter",
+    }),
+    assignee: one(user, {
+        fields: [ncr.assignedTo],
+        references: [user.id],
+        relationName: "ncrAssignee",
+    }),
+    closer: one(user, {
+        fields: [ncr.closedBy],
+        references: [user.id],
+        relationName: "ncrCloser",
+    }),
+    comments: many(ncrComment),
+    attachments: many(ncrAttachment),
+    magicLinks: many(ncrMagicLink),
+}));
+
+export const ncrCommentRelations = relations(ncrComment, ({ one }) => ({
+    ncr: one(ncr, { fields: [ncrComment.ncrId], references: [ncr.id] }),
+    user: one(user, { fields: [ncrComment.userId], references: [user.id] }),
+}));
+
+export const ncrAttachmentRelations = relations(ncrAttachment, ({ one }) => ({
+    ncr: one(ncr, { fields: [ncrAttachment.ncrId], references: [ncr.id] }),
+    uploader: one(user, { fields: [ncrAttachment.uploadedBy], references: [user.id] }),
+}));
+
+export const ncrMagicLinkRelations = relations(ncrMagicLink, ({ one }) => ({
+    ncr: one(ncr, { fields: [ncrMagicLink.ncrId], references: [ncr.id] }),
+    supplier: one(supplier, { fields: [ncrMagicLink.supplierId], references: [supplier.id] }),
 }));
