@@ -58,7 +58,7 @@ export default async function NCRDetailPage({ params }: { params: Promise<{ id: 
                         ncrNumber={ncr.ncrNumber}
                         status={ncr.status}
                         requiresCreditNote={ncr.requiresCreditNote || false}
-                        supplierEmail={ncr.supplier?.email || undefined}
+                        supplierEmail={ncr.supplier?.contactEmail || undefined}
                     />
                 </div>
             </div>
