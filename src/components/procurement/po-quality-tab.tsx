@@ -1,0 +1,46 @@
+"use client";
+
+import { useState } from "react";
+import { NCRList, CreateNCRDialog } from "@/components/ncr";
+
+interface POQualityTabProps {
+    purchaseOrderId: string;
+    organizationId: string;
+    projectId: string;
+    supplierId: string;
+}
+
+export function POQualityTab({
+    purchaseOrderId,
+    organizationId,
+    projectId,
+    supplierId,
+}: POQualityTabProps) {
+    const [showCreateDialog, setShowCreateDialog] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    const handleNCRCreated = () => {
+        setRefreshKey(prev => prev + 1);
+    };
+
+    return (
+        <div className="space-y-4">
+            <NCRList
+                key={refreshKey}
+                organizationId={organizationId}
+                purchaseOrderId={purchaseOrderId}
+                onCreateNCR={() => setShowCreateDialog(true)}
+            />
+
+            <CreateNCRDialog
+                open={showCreateDialog}
+                onOpenChange={setShowCreateDialog}
+                organizationId={organizationId}
+                projectId={projectId}
+                purchaseOrderId={purchaseOrderId}
+                supplierId={supplierId}
+                onSuccess={handleNCRCreated}
+            />
+        </div>
+    );
+}

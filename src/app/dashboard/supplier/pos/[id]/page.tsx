@@ -16,6 +16,8 @@ import { findSupplierForUser } from "@/lib/actions/supplier-lookup";
 import { ShipmentSubmitForm } from "@/components/supplier/shipment-submit-form";
 import { ShipmentStatusCard } from "@/components/supplier/shipment-status-card";
 import { ShipmentTimeline } from "@/components/supplier/shipment-timeline";
+// Phase 7: NCR/Quality
+import { SupplierNCRList } from "@/components/supplier/supplier-ncr-list";
 
 export default async function SupplierPODetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -402,6 +404,12 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
                                 </CardContent>
                             </Card>
                         )}
+
+                        {/* Phase 7: NCR/Quality Issues Section */}
+                        <SupplierNCRList
+                            purchaseOrderId={po.id}
+                            supplierId={supplierData.id}
+                        />
                     </div>
                 </div>
             </div>

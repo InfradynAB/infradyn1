@@ -67,6 +67,9 @@ import {
 import { COActions, InvoiceActions } from "@/components/procurement/finance-actions";
 import { AuditLogTimeline } from "@/components/procurement/audit-log-timeline";
 import { MilestoneInvoiceStatus } from "@/components/procurement/milestone-invoice-status";
+// Phase 7: NCR/Quality imports
+import { POQualityTab } from "@/components/procurement/po-quality-tab";
+import { AlertTriangle } from "lucide-react";
 
 // Status badge colors
 const statusColors: Record<string, string> = {
@@ -312,6 +315,10 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                     </TabsTrigger>
                     <TabsTrigger value="boq">BOQ Items</TabsTrigger>
                     <TabsTrigger value="versions">Version History</TabsTrigger>
+                    <TabsTrigger value="quality" className="gap-1.5">
+                        <AlertTriangle className="h-4 w-4" />
+                        Quality/NCR
+                    </TabsTrigger>
                     <TabsTrigger value="activity" className="gap-1.5">
                         <ClockCounterClockwise className="h-4 w-4" />
                         Activity Log
@@ -875,6 +882,16 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                             </div>
                         </CardContent>
                     </Card>
+                </TabsContent>
+
+                {/* Quality/NCR Tab */}
+                <TabsContent value="quality">
+                    <POQualityTab
+                        purchaseOrderId={po.id}
+                        organizationId={po.organizationId}
+                        projectId={po.projectId}
+                        supplierId={po.supplierId}
+                    />
                 </TabsContent>
 
                 {/* Activity Log Tab */}
