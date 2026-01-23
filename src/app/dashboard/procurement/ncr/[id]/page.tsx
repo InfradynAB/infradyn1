@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { SeverityBadge, StatusBadge, SLAIndicator } from "@/components/ncr";
+import { SeverityBadge, StatusBadge, SLAIndicator, NCRActions } from "@/components/ncr";
 import { NCRCommentThread } from "@/components/ncr";
 import { format } from "date-fns";
 
@@ -46,12 +46,20 @@ export default async function NCRDetailPage({ params }: { params: Promise<{ id: 
                         <StatusBadge status={ncr.status as any} />
                     </div>
                 </div>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <span>PO: {ncr.purchaseOrder?.poNumber || "N/A"}</span>
-                    <span>·</span>
-                    <span>Supplier: {ncr.supplier?.name || "N/A"}</span>
-                    <span>·</span>
-                    <span>Reported: {format(new Date(ncr.createdAt), "MMM d, yyyy")}</span>
+                <div className="flex items-center gap-4">
+                    <div className="hidden md:flex items-center gap-3 text-sm text-muted-foreground">
+                        <span>PO: {ncr.purchaseOrder?.poNumber || "N/A"}</span>
+                        <span>·</span>
+                        <span>Supplier: {ncr.supplier?.name || "N/A"}</span>
+                    </div>
+                    {/* Action Buttons */}
+                    <NCRActions
+                        ncrId={id}
+                        ncrNumber={ncr.ncrNumber}
+                        status={ncr.status}
+                        requiresCreditNote={ncr.requiresCreditNote || false}
+                        supplierEmail={ncr.supplier?.email || undefined}
+                    />
                 </div>
             </div>
 

@@ -10,3 +10,5 @@ export { VoiceRecorder, VoiceNotePlayer } from "./voice-recorder";
 export { CloseNCRDialog } from "./close-ncr-dialog";
 export { NCRAgingReport } from "./ncr-aging-report";
 export { AIScanDialog } from "./ai-scan-dialog";
+export { NCRActions } from "./ncr-actions";
+
