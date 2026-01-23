@@ -5,7 +5,7 @@ import { getUploadPresignedUrl } from "@/lib/services/s3";
 import db from "@/db/drizzle";
 import { ncrAttachment, ncr } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 
 export async function POST(
     request: NextRequest,
@@ -56,7 +56,7 @@ export async function POST(
 
         // Generate unique key
         const ext = fileName.split(".").pop() || "bin";
-        const key = `ncr/${ncrId}/${uuidv4()}.${ext}`;
+        const key = `ncr/${ncrId}/${crypto.randomUUID()}.${ext}`;
 
         // Get presigned URL
         const { uploadUrl, fileUrl } = await getUploadPresignedUrl(key, fileType);
@@ -68,8 +68,7 @@ export async function POST(
             fileName,
             mimeType: fileType,
             fileSize: fileSize || 0,
-            category: fileType.startsWith("audio/") ? "VOICE_NOTE" :
-                fileType === "application/pdf" ? "DOCUMENT" : "PHOTO",
+            category: fileType.startsWith("image/") ? "EVIDENCE" : "OTHER",
             uploadedBy: session.user.id,
         }).returning();
 
