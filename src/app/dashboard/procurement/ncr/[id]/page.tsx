@@ -92,7 +92,7 @@ export default async function NCRDetailPage({ params }: { params: Promise<{ id: 
                             {ncr.slaDueAt && ncr.status !== "CLOSED" && (
                                 <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
                                     <span className="text-xs font-medium">SLA:</span>
-                                    <SLAIndicator slaDueAt={ncr.slaDueAt} status={ncr.status as any} />
+                                    <SLAIndicator slaDueAt={ncr.slaDueAt instanceof Date ? ncr.slaDueAt.toISOString() : ncr.slaDueAt} status={ncr.status as any} />
                                 </div>
                             )}
                         </CardContent>
