@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { getUserOrganizations } from "@/lib/actions/organization";
-import { CreateOrgDialog } from "@/components/create-org-dialog";
-import { Card, CardHeader, CardTitle,  CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { BuildingsIcon, CalendarBlankIcon } from "@phosphor-icons/react/dist/ssr";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
@@ -10,12 +9,9 @@ import { Button } from "@/components/ui/button";
 export default function OrganizationsPage() {
     return (
         <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold">Organizations</h1>
-                    <p className="text-muted-foreground">Manage your organizations from here.</p>
-                </div>
-                <CreateOrgDialog />
+            <div>
+                <h1 className="text-3xl font-bold">Organizations</h1>
+                <p className="text-muted-foreground">Manage your organizations from here.</p>
             </div>
 
             <Suspense fallback={<OrgListSkeleton />}>

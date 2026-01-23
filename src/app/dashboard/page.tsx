@@ -30,13 +30,12 @@ export default async function DashboardPage() {
                             <BuildingsIcon className="h-5 w-5" />
                             Organizations
                         </CardTitle>
-                        <CardDescription>Create and manage your organizations</CardDescription>
+                        <CardDescription>View and manage your organizations</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Button asChild className="w-full">
+                        <Button asChild variant="outline" className="w-full">
                             <Link href="/dashboard/org">
-                                <PlusIcon className="mr-2 h-4 w-4" />
-                                New Organization
+                                View Organizations
                             </Link>
                         </Button>
                     </CardContent>
