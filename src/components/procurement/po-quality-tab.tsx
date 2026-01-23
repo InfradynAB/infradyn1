@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { NCRList, CreateNCRDialog } from "@/components/ncr";
 
 interface POQualityTabProps {
@@ -16,11 +17,16 @@ export function POQualityTab({
     projectId,
     supplierId,
 }: POQualityTabProps) {
+    const router = useRouter();
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
 
     const handleNCRCreated = () => {
         setRefreshKey(prev => prev + 1);
+    };
+
+    const handleViewNCR = (ncrId: string) => {
+        router.push(`/dashboard/procurement/ncr/${ncrId}`);
     };
 
     return (
@@ -30,6 +36,7 @@ export function POQualityTab({
                 organizationId={organizationId}
                 purchaseOrderId={purchaseOrderId}
                 onCreateNCR={() => setShowCreateDialog(true)}
+                onViewNCR={handleViewNCR}
             />
 
             <CreateNCRDialog

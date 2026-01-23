@@ -7,9 +7,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Send, Paperclip, Mic, Lock, Clock, User } from "lucide-react";
+import { Send, Paperclip, Mic, Lock, Clock, Image as ImageIcon, FileText, X } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { EvidenceUpload } from "./evidence-upload";
+import { VoiceRecorder, VoiceNotePlayer } from "./voice-recorder";
+
+interface UploadedFile {
+    id: string;
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+}
 
 interface Comment {
     id: string;
@@ -43,6 +53,12 @@ export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER" }
     const [isInternal, setIsInternal] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
+    // Attachment states
+    const [showAttachments, setShowAttachments] = useState(false);
+    const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+    const [pendingAttachments, setPendingAttachments] = useState<UploadedFile[]>([]);
+    const [pendingVoiceNote, setPendingVoiceNote] = useState<string | null>(null);
+
     useEffect(() => {
         fetchComments();
     }, [ncrId]);
@@ -62,7 +78,10 @@ export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER" }
     };
 
     const handleSubmitComment = async () => {
-        if (!newComment.trim()) return;
+        if (!newComment.trim() && pendingAttachments.length === 0 && !pendingVoiceNote) {
+            toast.error("Please add a comment, attachment, or voice note");
+            return;
+        }
 
         setSubmitting(true);
         try {
@@ -70,8 +89,10 @@ export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER" }
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    content: newComment,
+                    content: newComment || null,
                     isInternal,
+                    attachmentUrls: pendingAttachments.map(f => f.url),
+                    voiceNoteUrl: pendingVoiceNote,
                 }),
             });
 
@@ -79,6 +100,10 @@ export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER" }
             if (result.success) {
                 setComments([result.data, ...comments]);
                 setNewComment("");
+                setPendingAttachments([]);
+                setPendingVoiceNote(null);
+                setShowAttachments(false);
+                setShowVoiceRecorder(false);
                 toast.success("Comment added");
             } else {
                 toast.error(result.error || "Failed to add comment");
@@ -88,6 +113,26 @@ export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER" }
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleFilesUploaded = (files: UploadedFile[]) => {
+        setPendingAttachments(files);
+    };
+
+    const handleVoiceRecorded = (url: string) => {
+        setPendingVoiceNote(url);
+        setShowVoiceRecorder(false);
+    };
+
+    const removeAttachment = (index: number) => {
+        setPendingAttachments(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const getFileIcon = (type: string) => {
+        if (type.startsWith("image/")) {
+            return <ImageIcon className="h-4 w-4 text-blue-500" />;
+        }
+        return <FileText className="h-4 w-4 text-orange-500" />;
     };
 
     return (
@@ -103,19 +148,85 @@ export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER" }
             <CardContent className="space-y-4">
                 {/* New Comment Input */}
                 {canComment && (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         <Textarea
                             placeholder="Add a comment..."
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
                             rows={3}
                         />
+
+                        {/* Pending Attachments */}
+                        {pendingAttachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {pendingAttachments.map((file, index) => (
+                                    <Badge key={file.id} variant="secondary" className="flex items-center gap-1 pr-1">
+                                        {getFileIcon(file.type)}
+                                        <span className="max-w-[100px] truncate">{file.name}</span>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-4 w-4 p-0 ml-1"
+                                            onClick={() => removeAttachment(index)}
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </Button>
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Pending Voice Note */}
+                        {pendingVoiceNote && (
+                            <div className="flex items-center gap-2">
+                                <VoiceNotePlayer url={pendingVoiceNote} />
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setPendingVoiceNote(null)}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        )}
+
+                        {/* Evidence Upload Panel */}
+                        {showAttachments && (
+                            <EvidenceUpload
+                                ncrId={ncrId}
+                                onUploadComplete={handleFilesUploaded}
+                            />
+                        )}
+
+                        {/* Voice Recorder Panel */}
+                        {showVoiceRecorder && !pendingVoiceNote && (
+                            <VoiceRecorder
+                                ncrId={ncrId}
+                                onRecordingComplete={handleVoiceRecorded}
+                            />
+                        )}
+
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="sm" disabled>
+                                <Button
+                                    variant={showAttachments ? "secondary" : "ghost"}
+                                    size="sm"
+                                    onClick={() => {
+                                        setShowAttachments(!showAttachments);
+                                        setShowVoiceRecorder(false);
+                                    }}
+                                >
                                     <Paperclip className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="sm" disabled>
+                                <Button
+                                    variant={showVoiceRecorder ? "secondary" : "ghost"}
+                                    size="sm"
+                                    onClick={() => {
+                                        setShowVoiceRecorder(!showVoiceRecorder);
+                                        setShowAttachments(false);
+                                    }}
+                                    disabled={!!pendingVoiceNote}
+                                >
                                     <Mic className="h-4 w-4" />
                                 </Button>
                                 {userRole !== "SUPPLIER" && (
@@ -132,7 +243,7 @@ export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER" }
                             </div>
                             <Button
                                 onClick={handleSubmitComment}
-                                disabled={!newComment.trim() || submitting}
+                                disabled={(!newComment.trim() && pendingAttachments.length === 0 && !pendingVoiceNote) || submitting}
                                 size="sm"
                             >
                                 <Send className="h-4 w-4 mr-1" />
@@ -176,7 +287,7 @@ export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER" }
                                     </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 space-y-1">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                         <span className="font-medium text-sm">
                                             {comment.user?.name || comment.authorRole || "Unknown"}
                                         </span>
@@ -194,18 +305,18 @@ export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER" }
                                             {format(new Date(comment.createdAt), "MMM d, h:mm a")}
                                         </span>
                                     </div>
-                                    <p className="text-sm">{comment.content}</p>
+                                    {comment.content && <p className="text-sm">{comment.content}</p>}
 
                                     {/* Attachments */}
                                     {comment.attachmentUrls && comment.attachmentUrls.length > 0 && (
-                                        <div className="flex gap-2 mt-2">
+                                        <div className="flex flex-wrap gap-2 mt-2">
                                             {comment.attachmentUrls.map((url, i) => (
                                                 <a
                                                     key={i}
                                                     href={url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="text-xs text-blue-500 hover:underline flex items-center gap-1"
+                                                    className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded hover:bg-blue-100"
                                                 >
                                                     <Paperclip className="h-3 w-3" />
                                                     Attachment {i + 1}
@@ -216,9 +327,9 @@ export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER" }
 
                                     {/* Voice Note */}
                                     {comment.voiceNoteUrl && (
-                                        <audio controls className="mt-2 h-8">
-                                            <source src={comment.voiceNoteUrl} type="audio/webm" />
-                                        </audio>
+                                        <div className="mt-2">
+                                            <VoiceNotePlayer url={comment.voiceNoteUrl} />
+                                        </div>
                                     )}
                                 </div>
                             </div>
