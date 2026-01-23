@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Sparkles, Upload, Loader2, CheckCircle, AlertTriangle, FileText } from "lucide-react";
+import { Sparkles, Loader2, CheckCircle, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 
 interface AIScanDialogProps {
@@ -43,6 +43,7 @@ interface ExtractedData {
 
 export function AIScanDialog({ open, onOpenChange, onDataExtracted }: AIScanDialogProps) {
     const [file, setFile] = useState<File | null>(null);
+    const [preview, setPreview] = useState<string | null>(null);
     const [scanning, setScanning] = useState(false);
     const [extracted, setExtracted] = useState<ExtractedData | null>(null);
     const [editedData, setEditedData] = useState<ExtractedData | null>(null);
@@ -50,30 +51,31 @@ export function AIScanDialog({ open, onOpenChange, onDataExtracted }: AIScanDial
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selected = e.target.files?.[0];
         if (selected) {
+            // Validate it's an image
+            if (!selected.type.startsWith("image/")) {
+                toast.error("Please upload an image file (PNG, JPEG, or WEBP)");
+                return;
+            }
             setFile(selected);
             setExtracted(null);
             setEditedData(null);
+            // Create preview
+            const reader = new FileReader();
+            reader.onload = () => setPreview(reader.result as string);
+            reader.readAsDataURL(selected);
         }
     };
 
     const handleScan = async () => {
-        if (!file) return;
+        if (!file || !preview) return;
 
         setScanning(true);
         try {
-            // Convert file to base64 data URL
-            const reader = new FileReader();
-            const dataUrl = await new Promise<string>((resolve, reject) => {
-                reader.onload = () => resolve(reader.result as string);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-
             const res = await fetch("/api/ncr/scan", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    imageUrl: dataUrl,
+                    imageUrl: preview,
                     fileName: file.name,
                 }),
             });
@@ -99,9 +101,18 @@ export function AIScanDialog({ open, onOpenChange, onDataExtracted }: AIScanDial
             onDataExtracted(editedData);
             onOpenChange(false);
             setFile(null);
+            setPreview(null);
             setExtracted(null);
             setEditedData(null);
         }
+    };
+
+    const resetDialog = () => {
+        onOpenChange(false);
+        setFile(null);
+        setPreview(null);
+        setExtracted(null);
+        setEditedData(null);
     };
 
     const getConfidenceColor = (confidence: number) => {
@@ -124,26 +135,39 @@ export function AIScanDialog({ open, onOpenChange, onDataExtracted }: AIScanDial
                     {/* File Upload */}
                     {!extracted && (
                         <div className="space-y-3">
-                            <Label>Upload NCR Document</Label>
-                            <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                            <div>
+                                <Label>Upload Photo of NCR Document</Label>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Take a photo or upload an image of the site report, inspection form, or defect photo.
+                                    <br />
+                                    <span className="text-purple-600 font-medium">Supported: PNG, JPEG, WEBP images only</span>
+                                </p>
+                            </div>
+                            <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-purple-400 transition-colors">
                                 <input
                                     type="file"
-                                    accept="image/*,application/pdf"
+                                    accept="image/png,image/jpeg,image/jpg,image/webp"
                                     onChange={handleFileSelect}
                                     className="hidden"
                                     id="scan-file"
                                 />
-                                <label htmlFor="scan-file" className="cursor-pointer">
-                                    {file ? (
-                                        <div className="flex items-center justify-center gap-2">
-                                            <FileText className="h-8 w-8 text-blue-500" />
-                                            <span className="text-sm font-medium">{file.name}</span>
+                                <label htmlFor="scan-file" className="cursor-pointer block">
+                                    {file && preview ? (
+                                        <div className="space-y-2">
+                                            <img
+                                                src={preview}
+                                                alt="Preview"
+                                                className="max-h-40 mx-auto rounded border"
+                                            />
+                                            <p className="text-sm font-medium truncate max-w-xs mx-auto">{file.name}</p>
+                                            <p className="text-xs text-muted-foreground">Click to change image</p>
                                         </div>
                                     ) : (
                                         <>
-                                            <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                                            <p className="text-sm text-muted-foreground">
-                                                Click to upload PDF or image
+                                            <ImageIcon className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+                                            <p className="text-sm font-medium">Click to upload image</p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                or drag and drop
                                             </p>
                                         </>
                                     )}
@@ -154,12 +178,12 @@ export function AIScanDialog({ open, onOpenChange, onDataExtracted }: AIScanDial
                                 <Button
                                     onClick={handleScan}
                                     disabled={scanning}
-                                    className="w-full"
+                                    className="w-full bg-purple-600 hover:bg-purple-700"
                                 >
                                     {scanning ? (
                                         <>
                                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                            Scanning with AI...
+                                            Analyzing with AI...
                                         </>
                                     ) : (
                                         <>
@@ -272,16 +296,11 @@ export function AIScanDialog({ open, onOpenChange, onDataExtracted }: AIScanDial
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => {
-                        onOpenChange(false);
-                        setFile(null);
-                        setExtracted(null);
-                        setEditedData(null);
-                    }}>
+                    <Button variant="outline" onClick={resetDialog}>
                         Cancel
                     </Button>
                     {extracted && (
-                        <Button onClick={handleUseData}>
+                        <Button onClick={handleUseData} className="bg-purple-600 hover:bg-purple-700">
                             <CheckCircle className="h-4 w-4 mr-2" />
                             Use This Data
                         </Button>
