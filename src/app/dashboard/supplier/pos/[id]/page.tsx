@@ -77,209 +77,188 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
     };
 
     return (
-        <div className="flex flex-col gap-6 pb-16">
+        <div className="flex flex-col gap-4 pb-8">
 
-            {/* Header Section - Refined Layout */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6 border-muted/30">
-                <div className="space-y-1">
-                    {/* Breadcrumb */}
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <StackIcon className="h-3.5 w-3.5" />
-                        <span>Procurement</span>
-                        <span>/</span>
-                        <span className="font-medium text-foreground">{po.poNumber}</span>
+            {/* Compact Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4 border-muted/30">
+                <div className="flex items-center gap-4">
+                    {/* Breadcrumb + Title */}
+                    <div>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
+                            <StackIcon className="h-3.5 w-3.5" />
+                            <span>Procurement</span>
+                            <span>/</span>
+                            <span className="font-medium text-foreground">{po.poNumber}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-xl font-bold tracking-tight">{po.organization.name}</h1>
+                            <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded ${po.status === 'DRAFT' ? 'bg-amber-100 text-amber-700' :
+                                po.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+                                    po.status === 'COMPLETED' ? 'bg-blue-100 text-blue-700' :
+                                        'bg-gray-100 text-gray-600'
+                                }`}>
+                                {po.status}
+                            </span>
+                        </div>
                     </div>
-                    {/* Title + Status */}
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-2xl font-bold tracking-tight">{po.organization.name}</h1>
-                        <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded ${po.status === 'DRAFT' ? 'bg-amber-100 text-amber-700' :
-                            po.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
-                                po.status === 'COMPLETED' ? 'bg-blue-100 text-blue-700' :
-                                    'bg-gray-100 text-gray-600'
-                            }`}>
-                            {po.status}
-                        </span>
-                    </div>
-                    {/* Project */}
-                    <p className="text-sm text-muted-foreground">
+                </div>
+                {/* Right side: Project + Actions */}
+                <div className="flex items-center gap-4">
+                    <p className="text-sm text-muted-foreground hidden md:block">
                         Project: <span className="font-medium text-foreground">{po.project.name}</span>
                     </p>
-                </div>
-                {/* Actions - Right aligned */}
-                <div className="flex items-center gap-2">
-                    <SupplierInvoiceUpload
-                        purchaseOrderId={po.id}
-                        supplierId={supplierData.id}
-                        milestones={po.milestones.map(m => ({
-                            id: m.id,
-                            title: m.title,
-                            amount: m.amount || undefined,
-                            paymentPercentage: m.paymentPercentage,
-                            status: m.status || "PENDING"
-                        }))}
-                        poTotalValue={Number(po.totalValue)}
-                        currency={po.currency}
-                    />
-                    <SupplierPOActions poId={po.id} currentStatus={po.status} />
+                    <div className="flex items-center gap-2">
+                        <SupplierInvoiceUpload
+                            purchaseOrderId={po.id}
+                            supplierId={supplierData.id}
+                            milestones={po.milestones.map(m => ({
+                                id: m.id,
+                                title: m.title,
+                                amount: m.amount || undefined,
+                                paymentPercentage: m.paymentPercentage,
+                                status: m.status || "PENDING"
+                            }))}
+                            poTotalValue={Number(po.totalValue)}
+                            currency={po.currency}
+                        />
+                        <SupplierPOActions poId={po.id} currentStatus={po.status} />
+                    </div>
                 </div>
             </div>
 
+            {/* Key Stats Row - Horizontal */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="bg-muted/30 rounded-lg p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Total Value</p>
+                    <p className="text-lg font-bold tabular-nums">
+                        <span className="text-xs text-muted-foreground mr-1">{po.currency}</span>
+                        {Number(po.totalValue).toLocaleString()}
+                    </p>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Issued</p>
+                    <p className="text-sm font-medium">{po.createdAt.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Incoterms</p>
+                    <p className="text-sm font-medium">{po.incoterms || "N/A"}</p>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Payment</p>
+                    <p className="text-sm font-medium truncate">{po.paymentTerms || "Net 30"}</p>
+                </div>
+                {po.scope && (
+                    <div className="bg-muted/30 rounded-lg p-3 col-span-2 md:col-span-1">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Scope</p>
+                        <p className="text-xs text-muted-foreground truncate" title={po.scope}>{po.scope}</p>
+                    </div>
+                )}
+            </div>
 
-            <div className="grid gap-6 lg:grid-cols-3">
-                {/* General Information - Combined Card */}
-                <div className="lg:col-span-1">
-                    <Card className="border shadow-sm bg-card overflow-hidden">
-                        <CardHeader className="py-3 px-4 border-b">
+            {/* Main Content Grid - 3 columns on large screens */}
+            <div className="grid gap-4 lg:grid-cols-3">
+                {/* Deliverables - Spans 2 columns */}
+                <Card className="lg:col-span-2 border shadow-sm bg-card overflow-hidden">
+                    <CardHeader className="py-2.5 px-4 border-b">
+                        <div className="flex items-center justify-between">
                             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                                <FileTextIcon className="h-4 w-4 text-muted-foreground" weight="fill" />
-                                General Information
+                                <TruckIcon className="h-4 w-4 text-muted-foreground" weight="fill" />
+                                Deliverables
+                                <span className="text-xs font-normal text-muted-foreground">({po.boqItems.length} items)</span>
+                            </CardTitle>
+                            <div className="text-xs text-muted-foreground font-medium tabular-nums">
+                                {po.currency} {Number(po.boqItems.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0)).toLocaleString()}
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <div className="max-h-[280px] overflow-y-auto">
+                            <table className="w-full">
+                                <thead className="sticky top-0 bg-muted/60 border-b">
+                                    <tr>
+                                        <th className="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wide text-foreground/70 w-8">#</th>
+                                        <th className="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wide text-foreground/70">Description</th>
+                                        <th className="py-2 px-3 text-right text-[10px] font-bold uppercase tracking-wide text-foreground/70 w-16">Qty</th>
+                                        <th className="py-2 px-3 text-right text-[10px] font-bold uppercase tracking-wide text-foreground/70 w-16">Rate</th>
+                                        <th className="py-2 px-3 text-right text-[10px] font-bold uppercase tracking-wide text-foreground/70 w-24">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-muted/20">
+                                    {po.boqItems.map((item, idx) => (
+                                        <tr key={item.id} className="group hover:bg-muted/10 transition-colors">
+                                            <td className="py-2 px-3 text-xs text-muted-foreground">{idx + 1}</td>
+                                            <td className="py-2 px-3">
+                                                <p className="text-sm font-medium leading-tight line-clamp-1">{item.description}</p>
+                                                <p className="text-[10px] text-muted-foreground/60 font-mono">{item.itemNumber}</p>
+                                            </td>
+                                            <td className="py-2 px-3 text-right">
+                                                <p className="text-sm font-medium tabular-nums">{Number(item.quantity).toLocaleString()}</p>
+                                                <p className="text-[10px] text-muted-foreground/60">{item.unit}</p>
+                                            </td>
+                                            <td className="py-2 px-3 text-right text-sm text-muted-foreground tabular-nums">
+                                                {Number(item.unitPrice).toLocaleString()}
+                                            </td>
+                                            <td className="py-2 px-3 text-right">
+                                                <p className="text-sm font-semibold tabular-nums">{Number(item.totalPrice).toLocaleString()}</p>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Milestones - Right column */}
+                {po.milestones.length > 0 && (
+                    <Card className="border shadow-sm bg-card overflow-hidden">
+                        <CardHeader className="py-2.5 px-4 border-b">
+                            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                                <CalendarIcon className="h-4 w-4 text-muted-foreground" weight="fill" />
+                                Milestones
+                                <span className="text-xs font-normal text-muted-foreground">({po.milestones.length})</span>
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="px-4 py-4 space-y-4">
-                            {/* Total Value - Prominent */}
-                            <div className="bg-muted/30 rounded-lg p-3 text-center">
-                                <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Total Value</p>
-                                <p className="text-2xl font-bold tabular-nums">
-                                    <span className="text-sm text-muted-foreground mr-1">{po.currency}</span>
-                                    {Number(po.totalValue).toLocaleString()}
-                                </p>
-                            </div>
-
-                            {/* Details Grid */}
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between py-1.5 border-b border-dashed border-muted">
-                                    <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Issued</span>
-                                    <span className="text-sm font-medium">{po.createdAt.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                                </div>
-                                <div className="flex items-center justify-between py-1.5 border-b border-dashed border-muted">
-                                    <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Incoterms</span>
-                                    <span className="text-sm font-medium">{po.incoterms || "N/A"}</span>
-                                </div>
-                                <div className="flex items-center justify-between py-1.5 border-b border-dashed border-muted">
-                                    <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Payment</span>
-                                    <span className="text-sm font-medium truncate max-w-[140px]">{po.paymentTerms || "Net 30"}</span>
-                                </div>
-                            </div>
-
-                            {/* Scope - Integrated */}
-                            {po.scope && (
-                                <div className="pt-2 border-t border-muted">
-                                    <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-1.5">Scope</p>
-                                    <p className="text-sm text-muted-foreground leading-relaxed line-clamp-4">
-                                        {po.scope}
-                                    </p>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
-
-
-                {/* Main Content Area */}
-                <div className="lg:col-span-2 space-y-8">
-                    {/* BOQ Table - Refined */}
-                    <Card className="border shadow-sm bg-card overflow-hidden">
-                        <CardHeader className="py-3 px-4 border-b">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                                    <TruckIcon className="h-4 w-4 text-muted-foreground" weight="fill" />
-                                    Deliverables
-                                    <span className="text-xs font-normal text-muted-foreground">({po.boqItems.length} items)</span>
-                                </CardTitle>
-                                {/* Placeholder for future filter/search */}
-                                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                                    {po.currency} {Number(po.boqItems.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0)).toLocaleString()}
-                                </div>
-                            </div>
-                        </CardHeader>
                         <CardContent className="p-0">
-                            <div className="max-h-[360px] overflow-y-auto">
-                                <table className="w-full">
-                                    <thead className="sticky top-0 bg-muted/60 border-b">
-                                        <tr>
-                                            <th className="py-2 px-3 text-left text-xs font-bold uppercase tracking-wide text-foreground/70 w-10">#</th>
-                                            <th className="py-2 px-3 text-left text-xs font-bold uppercase tracking-wide text-foreground/70">Description</th>
-                                            <th className="py-2 px-3 text-right text-xs font-bold uppercase tracking-wide text-foreground/70 w-20">Qty</th>
-                                            <th className="py-2 px-3 text-right text-xs font-bold uppercase tracking-wide text-foreground/70 w-20">Rate</th>
-                                            <th className="py-2 px-3 text-right text-xs font-bold uppercase tracking-wide text-foreground/70 w-24">Amount</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-muted/20">
-                                        {po.boqItems.map((item, idx) => (
-                                            <tr key={item.id} className="group hover:bg-muted/10 transition-colors">
-                                                <td className="py-2.5 px-3 text-sm text-muted-foreground">{idx + 1}</td>
-                                                <td className="py-2.5 px-3">
-                                                    <p className="text-sm font-medium leading-snug">{item.description}</p>
-                                                    <p className="text-xs text-muted-foreground/60 mt-0.5 font-mono">{item.itemNumber}</p>
-                                                </td>
-                                                <td className="py-2.5 px-3 text-right">
-                                                    <p className="text-sm font-medium tabular-nums">{Number(item.quantity).toLocaleString()}</p>
-                                                    <p className="text-xs text-muted-foreground/60">{item.unit}</p>
-                                                </td>
-                                                <td className="py-2.5 px-3 text-right text-sm text-muted-foreground tabular-nums">
-                                                    {Number(item.unitPrice).toLocaleString()}
-                                                </td>
-                                                <td className="py-2.5 px-3 text-right">
-                                                    <p className="text-sm font-semibold tabular-nums">{Number(item.totalPrice).toLocaleString()}</p>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-
-
-                    {/* Milestones - Consistent styling */}
-                    {po.milestones.length > 0 && (
-                        <Card className="border shadow-sm bg-card overflow-hidden">
-                            <CardHeader className="py-3 px-4 border-b">
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                                        <CalendarIcon className="h-4 w-4 text-muted-foreground" weight="fill" />
-                                        Milestones
-                                        <span className="text-xs font-normal text-muted-foreground">({po.milestones.length})</span>
-                                    </CardTitle>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                <div className="max-h-[240px] overflow-y-auto divide-y divide-muted/20">
-                                    {po.milestones.map((ms) => (
-                                        <div key={ms.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold">
-                                                    {ms.paymentPercentage || ms.title.substring(0, 2)}
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-medium">{ms.title}</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {ms.expectedDate ? new Date(ms.expectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : "TBD"}
-                                                    </p>
-                                                </div>
+                            <div className="max-h-[280px] overflow-y-auto divide-y divide-muted/20">
+                                {po.milestones.map((ms) => (
+                                    <div key={ms.id} className="flex items-center justify-between px-3 py-2.5 hover:bg-muted/10 transition-colors">
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                            <div className="h-7 w-7 shrink-0 rounded bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold">
+                                                {ms.paymentPercentage || ms.title.substring(0, 2)}
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-sm font-medium tabular-nums">{po.currency} {Number(ms.amount).toLocaleString()}</p>
-                                                <span className={`text-xs font-medium px-2 py-0.5 rounded ${ms.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                                                    ms.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
-                                                        'bg-gray-100 text-gray-600'
-                                                    }`}>{ms.status}</span>
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-medium truncate">{ms.title}</p>
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    {ms.expectedDate ? new Date(ms.expectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : "TBD"}
+                                                </p>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <p className="text-sm font-medium tabular-nums">{po.currency} {Number(ms.amount).toLocaleString()}</p>
+                                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ms.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                                                ms.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
+                                                    'bg-gray-100 text-gray-600'
+                                                }`}>{ms.status}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
 
-                    {/* Shipments Section - Phase 6 */}
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between px-2">
-                            <h3 className="text-2xl font-black tracking-tight flex items-center gap-2">
-                                <Airplane className="h-7 w-7 text-blue-500" weight="duotone" />
+            {/* Shipments & Invoices - Side by Side */}
+            <div className="grid gap-4 lg:grid-cols-2">
+                {/* Shipments Section */}
+                <Card className="border shadow-sm bg-card overflow-hidden">
+                    <CardHeader className="py-2.5 px-4 border-b">
+                        <div className="flex items-center justify-between">
+                            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                                <Airplane className="h-4 w-4 text-blue-500" weight="fill" />
                                 Shipments
-                            </h3>
+                            </CardTitle>
                             <ShipmentSubmitForm
                                 purchaseOrderId={po.id}
                                 supplierId={supplierData.id}
@@ -291,100 +270,90 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
                                 }))}
                             />
                         </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
                         {(po as any).shipments && (po as any).shipments.length > 0 ? (
-                            <div className="grid gap-3">
+                            <div className="max-h-[200px] overflow-y-auto divide-y divide-muted/20">
                                 {(po as any).shipments.map((ship: any) => (
-                                    <div key={ship.id} className="group bg-card/60 backdrop-blur-md p-5 rounded-xl border border-muted/50 flex items-center justify-between shadow-md">
-                                        <div className="flex items-center gap-4">
-                                            <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${ship.status === 'DELIVERED' ? 'bg-green-500/10 text-green-600' :
+                                    <div key={ship.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/10 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`h-8 w-8 rounded flex items-center justify-center ${ship.status === 'DELIVERED' ? 'bg-green-500/10 text-green-600' :
                                                 ship.status === 'IN_TRANSIT' || ship.status === 'OUT_FOR_DELIVERY' ? 'bg-blue-500/10 text-blue-600' :
                                                     ship.status === 'EXCEPTION' || ship.status === 'FAILED' ? 'bg-red-500/10 text-red-600' :
                                                         'bg-amber-500/10 text-amber-600'
                                                 }`}>
                                                 {ship.status === 'DELIVERED' ? (
-                                                    <CheckCircle className="h-5 w-5" weight="fill" />
+                                                    <CheckCircle className="h-4 w-4" weight="fill" />
                                                 ) : ship.status === 'IN_TRANSIT' || ship.status === 'OUT_FOR_DELIVERY' ? (
-                                                    <TruckIcon className="h-5 w-5" weight="fill" />
+                                                    <TruckIcon className="h-4 w-4" weight="fill" />
                                                 ) : (
-                                                    <PackageIcon className="h-5 w-5" weight="fill" />
+                                                    <PackageIcon className="h-4 w-4" weight="fill" />
                                                 )}
                                             </div>
-                                            <div>
-                                                <div className="font-bold">{ship.trackingNumber || 'No Tracking'}</div>
-                                                <div className="text-sm text-muted-foreground">
-                                                    {ship.carrier || 'Unknown Carrier'} • {ship.dispatchDate ? new Date(ship.dispatchDate).toLocaleDateString() : 'Pending'}
+                                            <div className="min-w-0">
+                                                <div className="text-sm font-medium truncate">{ship.trackingNumber || 'No Tracking'}</div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {ship.carrier || 'Unknown'} • {ship.dispatchDate ? new Date(ship.dispatchDate).toLocaleDateString() : 'Pending'}
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="text-right">
-                                                {ship.supplierAos && (
-                                                    <div className="text-xs text-muted-foreground">
-                                                        ETA: {new Date(ship.supplierAos).toLocaleDateString()}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <Badge className={`font-bold ${ship.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :
-                                                ship.status === 'IN_TRANSIT' || ship.status === 'OUT_FOR_DELIVERY' ? 'bg-blue-100 text-blue-700' :
-                                                    ship.status === 'EXCEPTION' || ship.status === 'FAILED' ? 'bg-red-100 text-red-700' :
-                                                        'bg-amber-100 text-amber-700'
-                                                }`}>
-                                                {ship.status?.replace('_', ' ')}
-                                            </Badge>
-                                        </div>
+                                        <Badge className={`text-[10px] ${ship.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :
+                                            ship.status === 'IN_TRANSIT' || ship.status === 'OUT_FOR_DELIVERY' ? 'bg-blue-100 text-blue-700' :
+                                                ship.status === 'EXCEPTION' || ship.status === 'FAILED' ? 'bg-red-100 text-red-700' :
+                                                    'bg-amber-100 text-amber-700'
+                                            }`}>
+                                            {ship.status?.replace('_', ' ')}
+                                        </Badge>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <Card className="border-dashed bg-muted/20">
-                                <CardContent className="py-8 text-center text-muted-foreground">
-                                    <Airplane className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                                    <p className="font-medium">No shipments yet</p>
-                                    <p className="text-sm mt-1">Submit a shipment to track your delivery</p>
-                                </CardContent>
-                            </Card>
+                            <div className="py-6 text-center text-muted-foreground">
+                                <Airplane className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                                <p className="text-sm">No shipments yet</p>
+                            </div>
                         )}
-                    </div>
+                    </CardContent>
+                </Card>
 
-
-
-                    {/* Submitted Invoices */}
-                    <div className="space-y-4">
-                        <h3 className="text-2xl font-black tracking-tight px-2 flex items-center gap-2">
-                            <Receipt className="h-7 w-7 text-green-500" weight="duotone" />
+                {/* Invoices Section */}
+                <Card className="border shadow-sm bg-card overflow-hidden">
+                    <CardHeader className="py-2.5 px-4 border-b">
+                        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                            <Receipt className="h-4 w-4 text-green-500" weight="fill" />
                             Submitted Invoices
-                        </h3>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
                         {po.invoices && po.invoices.length > 0 ? (
-                            <div className="grid gap-3">
+                            <div className="max-h-[200px] overflow-y-auto divide-y divide-muted/20">
                                 {po.invoices.map((inv) => (
-                                    <div key={inv.id} className="group bg-card/60 backdrop-blur-md p-5 rounded-xl border border-muted/50 flex items-center justify-between shadow-md">
-                                        <div className="flex items-center gap-4">
-                                            <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${inv.status === 'APPROVED' || inv.status === 'PAID'
+                                    <div key={inv.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/10 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`h-8 w-8 rounded flex items-center justify-center ${inv.status === 'APPROVED' || inv.status === 'PAID'
                                                 ? 'bg-green-500/10 text-green-600'
                                                 : inv.status === 'REJECTED'
                                                     ? 'bg-red-500/10 text-red-600'
                                                     : 'bg-amber-500/10 text-amber-600'
                                                 }`}>
                                                 {inv.status === 'APPROVED' || inv.status === 'PAID' ? (
-                                                    <CheckCircle className="h-5 w-5" weight="fill" />
+                                                    <CheckCircle className="h-4 w-4" weight="fill" />
                                                 ) : inv.status === 'REJECTED' ? (
-                                                    <ClockCountdown className="h-5 w-5" weight="fill" />
+                                                    <ClockCountdown className="h-4 w-4" weight="fill" />
                                                 ) : (
-                                                    <HourglassHigh className="h-5 w-5" weight="fill" />
+                                                    <HourglassHigh className="h-4 w-4" weight="fill" />
                                                 )}
                                             </div>
-                                            <div>
-                                                <div className="font-bold">{inv.invoiceNumber}</div>
-                                                <div className="text-sm text-muted-foreground">
+                                            <div className="min-w-0">
+                                                <div className="text-sm font-medium">{inv.invoiceNumber}</div>
+                                                <div className="text-xs text-muted-foreground">
                                                     {new Date(inv.invoiceDate).toLocaleDateString()}
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="text-right">
-                                                <div className="font-bold text-lg">{po.currency} {Number(inv.amount).toLocaleString()}</div>
-                                            </div>
-                                            <Badge className={`font-bold ${inv.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm font-medium tabular-nums">{po.currency} {Number(inv.amount).toLocaleString()}</p>
+                                            <Badge className={`text-[10px] ${inv.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
                                                 inv.status === 'PAID' ? 'bg-blue-100 text-blue-700' :
                                                     inv.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
                                                         'bg-amber-100 text-amber-700'
@@ -396,23 +365,20 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
                                 ))}
                             </div>
                         ) : (
-                            <Card className="border-dashed bg-muted/20">
-                                <CardContent className="py-8 text-center text-muted-foreground">
-                                    <Receipt className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                                    <p className="font-medium">No invoices submitted yet</p>
-                                    <p className="text-sm mt-1">Upload an invoice to request payment</p>
-                                </CardContent>
-                            </Card>
+                            <div className="py-6 text-center text-muted-foreground">
+                                <Receipt className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                                <p className="text-sm">No invoices submitted yet</p>
+                            </div>
                         )}
-
-                        {/* Phase 7: NCR/Quality Issues Section */}
-                        <SupplierNCRList
-                            purchaseOrderId={po.id}
-                            supplierId={supplierData.id}
-                        />
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
             </div>
+
+            {/* NCR/Quality Issues Section */}
+            <SupplierNCRList
+                purchaseOrderId={po.id}
+                supplierId={supplierData.id}
+            />
         </div>
     );
 }

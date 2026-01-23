@@ -30,23 +30,23 @@ export default async function NCRDetailPage({ params }: { params: Promise<{ id: 
     const ncr = result.data;
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto">
-            {/* Back Button */}
-            <Button variant="ghost" size="sm" asChild>
-                <Link href={`/dashboard/procurement/${ncr.purchaseOrderId}`}>
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to PO
-                </Link>
-            </Button>
-
-            {/* Header */}
-            <div className="space-y-2">
-                <div className="flex items-center gap-3 flex-wrap">
-                    <h1 className="text-2xl font-bold">{ncr.ncrNumber}</h1>
-                    <SeverityBadge severity={ncr.severity as any} />
-                    <StatusBadge status={ncr.status as any} />
+        <div className="space-y-4">
+            {/* Back Button & Header */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/dashboard/procurement/${ncr.purchaseOrderId}`}>
+                            <ArrowLeft className="h-4 w-4 mr-2" />
+                            Back to PO
+                        </Link>
+                    </Button>
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <h1 className="text-2xl font-bold">{ncr.ncrNumber}</h1>
+                        <SeverityBadge severity={ncr.severity as any} />
+                        <StatusBadge status={ncr.status as any} />
+                    </div>
                 </div>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <span>PO: {ncr.purchaseOrder?.poNumber || "N/A"}</span>
                     <span>·</span>
                     <span>Supplier: {ncr.supplier?.name || "N/A"}</span>
@@ -55,81 +55,71 @@ export default async function NCRDetailPage({ params }: { params: Promise<{ id: 
                 </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-3">
-                {/* Left Column - NCR Details */}
-                <div className="lg:col-span-2 space-y-6">
+            <div className="grid gap-4 lg:grid-cols-4">
+                {/* Left Column - NCR Details & Metadata */}
+                <div className="space-y-4">
                     {/* NCR Information */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle>{ncr.title}</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-lg">{ncr.title}</CardTitle>
                             <CardDescription>
                                 Issue Type: {ncr.issueType?.replace(/_/g, " ")}
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent className="space-y-3">
                             {ncr.description && (
                                 <div>
-                                    <p className="text-sm font-medium text-muted-foreground mb-1">Description</p>
-                                    <p>{ncr.description}</p>
+                                    <p className="text-xs font-medium text-muted-foreground">Description</p>
+                                    <p className="text-sm">{ncr.description}</p>
                                 </div>
                             )}
 
                             {ncr.affectedBoqItem && (
                                 <div>
-                                    <p className="text-sm font-medium text-muted-foreground mb-1">Affected Item</p>
-                                    <p>{ncr.affectedBoqItem.description}</p>
+                                    <p className="text-xs font-medium text-muted-foreground">Affected Item</p>
+                                    <p className="text-sm">{ncr.affectedBoqItem.description}</p>
                                 </div>
                             )}
 
                             {ncr.batchId && (
                                 <div>
-                                    <p className="text-sm font-medium text-muted-foreground mb-1">Batch/Lot ID</p>
-                                    <p className="font-mono">{ncr.batchId}</p>
+                                    <p className="text-xs font-medium text-muted-foreground">Batch/Lot ID</p>
+                                    <p className="text-sm font-mono">{ncr.batchId}</p>
                                 </div>
                             )}
 
                             {/* SLA Status */}
                             {ncr.slaDueAt && ncr.status !== "CLOSED" && (
-                                <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                                    <span className="text-sm font-medium">SLA Status:</span>
+                                <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                                    <span className="text-xs font-medium">SLA:</span>
                                     <SLAIndicator slaDueAt={ncr.slaDueAt} status={ncr.status as any} />
                                 </div>
                             )}
                         </CardContent>
                     </Card>
 
-                    {/* Comments Thread */}
-                    <NCRCommentThread
-                        ncrId={id}
-                        canComment={true}
-                        userRole={session.user.role || "USER"}
-                    />
-                </div>
-
-                {/* Right Column - Metadata */}
-                <div className="space-y-6">
                     {/* Participants */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">Participants</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-sm">Participants</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-3 text-sm">
+                        <CardContent className="space-y-2 text-sm">
                             {ncr.reporter && (
                                 <div>
-                                    <p className="text-muted-foreground">Reported by</p>
-                                    <p className="font-medium">{ncr.reporter.name}</p>
+                                    <p className="text-xs text-muted-foreground">Reported by</p>
+                                    <p className="font-medium text-sm">{ncr.reporter.name}</p>
                                 </div>
                             )}
                             {ncr.assignee && (
                                 <div>
-                                    <p className="text-muted-foreground">Assigned to</p>
-                                    <p className="font-medium">{ncr.assignee.name}</p>
+                                    <p className="text-xs text-muted-foreground">Assigned to</p>
+                                    <p className="font-medium text-sm">{ncr.assignee.name}</p>
                                 </div>
                             )}
                             {ncr.closer && (
                                 <div>
-                                    <p className="text-muted-foreground">Closed by</p>
-                                    <p className="font-medium">{ncr.closer.name}</p>
+                                    <p className="text-xs text-muted-foreground">Closed by</p>
+                                    <p className="font-medium text-sm">{ncr.closer.name}</p>
                                     {ncr.closedAt && (
                                         <p className="text-xs text-muted-foreground">
                                             {format(new Date(ncr.closedAt), "MMM d, yyyy")}
@@ -143,26 +133,26 @@ export default async function NCRDetailPage({ params }: { params: Promise<{ id: 
                     {/* Documents */}
                     {(ncr.sourceDocumentId || ncr.proofOfFixDocId || ncr.creditNoteDocId) && (
                         <Card>
-                            <CardHeader>
-                                <CardTitle className="text-base">Documents</CardTitle>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-sm">Documents</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-2 text-sm">
                                 {ncr.sourceDocumentId && (
-                                    <div>
-                                        <p className="text-muted-foreground">Source Document</p>
-                                        <Badge variant="outline">Attached</Badge>
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs text-muted-foreground">Source</p>
+                                        <Badge variant="outline" className="text-xs">Attached</Badge>
                                     </div>
                                 )}
                                 {ncr.proofOfFixDocId && (
-                                    <div>
-                                        <p className="text-muted-foreground">Proof of Fix</p>
-                                        <Badge variant="outline" className="bg-green-50">Verified</Badge>
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs text-muted-foreground">Proof of Fix</p>
+                                        <Badge variant="outline" className="bg-green-50 text-xs">Verified</Badge>
                                     </div>
                                 )}
                                 {ncr.creditNoteDocId && (
-                                    <div>
-                                        <p className="text-muted-foreground">Credit Note</p>
-                                        <Badge variant="outline" className="bg-blue-50">Uploaded</Badge>
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs text-muted-foreground">Credit Note</p>
+                                        <Badge variant="outline" className="bg-blue-50 text-xs">Uploaded</Badge>
                                     </div>
                                 )}
                             </CardContent>
@@ -172,16 +162,25 @@ export default async function NCRDetailPage({ params }: { params: Promise<{ id: 
                     {/* Payment Shield */}
                     {ncr.requiresCreditNote && (
                         <Card className="border-amber-300 bg-amber-50">
-                            <CardHeader>
-                                <CardTitle className="text-base">Payment Shield Active</CardTitle>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm">Payment Shield Active</CardTitle>
                             </CardHeader>
-                            <CardContent className="text-sm">
+                            <CardContent className="text-xs">
                                 <p className="text-muted-foreground">
-                                    This item was already paid. Credit note required before closure.
+                                    Credit note required before closure.
                                 </p>
                             </CardContent>
                         </Card>
                     )}
+                </div>
+
+                {/* Right Column - Comments Thread (takes 3 cols) */}
+                <div className="lg:col-span-3">
+                    <NCRCommentThread
+                        ncrId={id}
+                        canComment={true}
+                        userRole={session.user.role || "USER"}
+                    />
                 </div>
             </div>
         </div>
