@@ -43,6 +43,7 @@ import * as XLSX from 'xlsx';
 import { Resend } from "resend";
 import { render } from "@react-email/render";
 import SupplierRemovedEmail from "@/emails/supplier-removed-email";
+import { getActiveOrganizationId } from "@/lib/utils/org-context";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -64,6 +65,14 @@ export async function getSuppliers() {
         return [];
     }
 
+    // Use active organization context
+    const activeOrgId = await getActiveOrganizationId();
+    
+    if (activeOrgId) {
+        return await db.select().from(supplier).where(eq(supplier.organizationId, activeOrgId));
+    }
+
+    // Fallback to all orgs
     const orgIds = await getUserOrganizationIds(session.user.id);
     if (orgIds.length === 0) {
         return [];
@@ -81,8 +90,10 @@ export async function importSuppliers(formData: FormData) {
         return { success: false, error: "Unauthorized: No session" };
     }
 
-    const orgIds = await getUserOrganizationIds(session.user.id);
-    const orgId = orgIds[0];
+    // Use active organization for import
+    const activeOrgId = await getActiveOrganizationId();
+    const orgId = activeOrgId || (await getUserOrganizationIds(session.user.id))[0];
+    
     if (!orgId) {
         return { success: false, error: "Unauthorized: You must be a member of an organization first." };
     }

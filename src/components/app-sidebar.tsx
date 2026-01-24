@@ -11,7 +11,17 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
     SidebarRail,
+    SidebarFooter,
 } from "@/components/ui/sidebar"
+import { OrgSwitcher } from "./org-switcher"
+
+interface Organization {
+    id: string;
+    name: string;
+    slug: string;
+    logo: string | null;
+    role: string;
+}
 
 // Menu items.
 const items = [
@@ -75,7 +85,15 @@ const supplierItems = [
     },
 ]
 
-export function AppSidebar({ user }: { user?: { role: string } | null }) {
+export function AppSidebar({ 
+    user, 
+    organizations = [], 
+    activeOrgId = null 
+}: { 
+    user?: { role: string } | null;
+    organizations?: Organization[];
+    activeOrgId?: string | null;
+}) {
     const isSupplier = user?.role === "SUPPLIER";
     const menuItems = isSupplier ? supplierItems : items;
 
@@ -97,6 +115,15 @@ export function AppSidebar({ user }: { user?: { role: string } | null }) {
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
+                {/* Organization Switcher */}
+                {!isSupplier && organizations.length > 0 && (
+                    <div className="px-2 pb-2">
+                        <OrgSwitcher 
+                            organizations={organizations} 
+                            activeOrgId={activeOrgId} 
+                        />
+                    </div>
+                )}
             </SidebarHeader>
             <SidebarContent>
                 <SidebarGroup>

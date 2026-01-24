@@ -3,12 +3,13 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import db from "../../../db/drizzle";
-import { organization, member } from "../../../db/schema";
+import { organization, member, user } from "../../../db/schema";
 import { auth } from "../../../auth"; // We need to get the session on the server
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createOrgSchema } from "../schemas/organisation";
+import { setActiveOrganizationId, getActiveOrganizationId, verifyOrgAccess } from "@/lib/utils/org-context";
 
 
 
@@ -158,4 +159,86 @@ export async function updateOrganization(formData: FormData) {
         }
         return { error: "Failed to update organization." };
     }
+}
+
+/**
+ * Switch the active organization context
+ */
+export async function switchOrganization(orgId: string) {
+    const session = await auth.api.getSession({
+        headers: await headers()
+    });
+
+    if (!session?.user) {
+        return { error: "Unauthorized" };
+    }
+
+    // Verify user has access to this org
+    const hasAccess = await verifyOrgAccess(session.user.id, orgId);
+    if (!hasAccess) {
+        return { error: "You do not have access to this organization." };
+    }
+
+    // Set the active org cookie
+    const success = await setActiveOrganizationId(orgId);
+    if (!success) {
+        return { error: "Failed to switch organization." };
+    }
+
+    // Revalidate all dashboard paths
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/projects");
+    revalidatePath("/dashboard/suppliers");
+    revalidatePath("/dashboard/procurement");
+    revalidatePath("/dashboard/settings");
+
+    return { success: true, organizationId: orgId };
+}
+
+/**
+ * Set a user's default organization (updates user.organizationId)
+ */
+export async function setDefaultOrganization(orgId: string) {
+    const session = await auth.api.getSession({
+        headers: await headers()
+    });
+
+    if (!session?.user) {
+        return { error: "Unauthorized" };
+    }
+
+    // Verify user has access to this org
+    const hasAccess = await verifyOrgAccess(session.user.id, orgId);
+    if (!hasAccess) {
+        return { error: "You do not have access to this organization." };
+    }
+
+    try {
+        await db.update(user)
+            .set({ organizationId: orgId })
+            .where(eq(user.id, session.user.id));
+
+        revalidatePath("/dashboard");
+        return { success: true };
+    } catch (error) {
+        console.error("Set Default Org Error:", error);
+        return { error: "Failed to set default organization." };
+    }
+}
+
+/**
+ * Get the current active organization details
+ */
+export async function getActiveOrganization() {
+    const activeOrgId = await getActiveOrganizationId();
+    
+    if (!activeOrgId) {
+        return null;
+    }
+
+    const org = await db.query.organization.findFirst({
+        where: eq(organization.id, activeOrgId)
+    });
+
+    return org;
 }

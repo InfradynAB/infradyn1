@@ -9,6 +9,7 @@ import { Resend } from "resend";
 import { revalidatePath } from "next/cache";
 import { render } from "@react-email/render";
 import InvitationEmail from "@/emails/invitation-email";
+import { setActiveOrganizationId, getActiveOrganizationId } from "@/lib/utils/org-context";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -30,6 +31,18 @@ export async function getTeamMembers() {
         return [];
     }
 
+    // Use active organization context
+    const activeOrgId = await getActiveOrganizationId();
+    
+    if (activeOrgId) {
+        const members = await db.query.member.findMany({
+            where: eq(member.organizationId, activeOrgId),
+            with: { user: true }
+        });
+        return members;
+    }
+
+    // Fallback to all orgs
     const orgIds = await getUserOrganizationIds(session.user.id);
     if (orgIds.length === 0) {
         return [];
@@ -54,6 +67,19 @@ export async function getPendingInvitations() {
         return [];
     }
 
+    // Use active organization context
+    const activeOrgId = await getActiveOrganizationId();
+    
+    if (activeOrgId) {
+        return await db.select().from(invitation).where(
+            and(
+                eq(invitation.organizationId, activeOrgId),
+                eq(invitation.status, "PENDING")
+            )
+        );
+    }
+
+    // Fallback to all orgs
     const orgIds = await getUserOrganizationIds(session.user.id);
     if (orgIds.length === 0) {
         return [];
@@ -161,8 +187,10 @@ export async function inviteMember(formData: FormData) {
         return { success: false, error: "Unauthorized: No session" };
     }
 
-    const orgIds = await getUserOrganizationIds(session.user.id);
-    const orgId = orgIds[0];
+    // Use active organization for inviting
+    const activeOrgId = await getActiveOrganizationId();
+    const orgId = activeOrgId || (await getUserOrganizationIds(session.user.id))[0];
+    
     if (!orgId) {
         return { success: false, error: "Unauthorized: You must be a member of an organization to invite others." };
     }
@@ -225,28 +253,63 @@ export async function acceptInvitation(token: string) {
     // 2. Verify Email Match (Optional but recommended)
     // if (invite.email !== session.user.email) { ... }
 
-    // 3. Link user to organization and add to members
-    try {
-        // Update User: set organizationId and role
-        await db.update(user)
-            .set({ 
-                organizationId: invite.organizationId,
-                role: invite.role as any 
-            })
-            .where(eq(user.id, session.user.id));
+    // 3. Check if user already has an organization (multi-org scenario)
+    const existingUser = await db.query.user.findFirst({
+        where: eq(user.id, session.user.id),
+        columns: { organizationId: true }
+    });
+    const isFirstOrg = !existingUser?.organizationId;
 
-        // 4. Add to Members table
+    // 4. Link user to organization and add to members
+    try {
+        // Check if already a member of this org
+        const existingMembership = await db.query.member.findFirst({
+            where: and(
+                eq(member.userId, session.user.id),
+                eq(member.organizationId, invite.organizationId)
+            )
+        });
+
+        if (existingMembership) {
+            // Already a member, just update invitation status
+            await db.update(invitation)
+                .set({ status: "ACCEPTED" })
+                .where(eq(invitation.id, invite.id));
+            
+            // Set this org as active so they land on the right dashboard
+            await setActiveOrganizationId(invite.organizationId);
+            
+            return { success: true, role: invite.role, organizationId: invite.organizationId };
+        }
+
+        // If this is user's first organization, set it as default
+        if (isFirstOrg) {
+            await db.update(user)
+                .set({ 
+                    organizationId: invite.organizationId,
+                    role: invite.role as any 
+                })
+                .where(eq(user.id, session.user.id));
+        }
+        // Note: If user already has an org, we DON'T overwrite their default organizationId
+        // They can switch orgs via the org switcher
+
+        // 5. Add to Members table
         await db.insert(member).values({
             organizationId: invite.organizationId,
             userId: session.user.id,
             role: invite.role as any,
         });
-        // 5. Update Invitation Status
+
+        // 6. Update Invitation Status
         await db.update(invitation)
             .set({ status: "ACCEPTED" })
             .where(eq(invitation.id, invite.id));
 
-        // 6. Handle Supplier Linking if applicable
+        // 7. Set the invited org as active so user lands on correct dashboard
+        await setActiveOrganizationId(invite.organizationId);
+
+        // 8. Handle Supplier Linking if applicable
         if (invite.role === "SUPPLIER" && invite.supplierId) {
             await db.update(supplier)
                 .set({
@@ -261,7 +324,7 @@ export async function acceptInvitation(token: string) {
                 .where(eq(user.id, session.user.id));
         }
 
-        return { success: true, role: invite.role };
+        return { success: true, role: invite.role, organizationId: invite.organizationId };
 
     } catch (error) {
         console.error("Accept Invite Error:", error);

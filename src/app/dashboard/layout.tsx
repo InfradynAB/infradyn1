@@ -20,6 +20,7 @@ import { auth } from "../../../auth"
 import { headers } from "next/headers"
 import { noIndexMetadata } from "@/lib/seo.config"
 import type { Metadata } from "next"
+import { getUserOrganizationsWithActive } from "@/lib/utils/org-context"
 
 // Prevent search engine indexing of dashboard pages
 export const metadata: Metadata = {
@@ -45,9 +46,16 @@ export default async function DashboardLayout({
         role: session.user.role, // Pass role for sidebar logic
     } : null;
 
+    // Fetch organizations for the org switcher
+    const { organizations, activeOrgId } = await getUserOrganizationsWithActive();
+
     return (
         <SidebarProvider>
-            <AppSidebar user={user} />
+            <AppSidebar 
+                user={user} 
+                organizations={organizations}
+                activeOrgId={activeOrgId}
+            />
             <SidebarInset>
                 <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4">
                     <div className="flex items-center gap-2">

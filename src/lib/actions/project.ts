@@ -6,7 +6,8 @@ import { auth } from "../../../auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createProjectSchema } from "../schemas/project";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
+import { getActiveOrganizationId } from "@/lib/utils/org-context";
 
 export async function createProject(formData: FormData) {
     // 1. Get Session
@@ -99,14 +100,23 @@ export async function getUserProjects() {
         return [];
     }
 
-    // Fetch projects for organizations the user is a member of.
-    // Logic: User -> Memberships -> Organization IDs -> Projects
-    // We can use a join query or two steps.
-    // Drizzle query builder is best:
+    // Get active organization ID (from cookie or default)
+    const activeOrgId = await getActiveOrganizationId();
+    
+    if (activeOrgId) {
+        // Fetch projects only for the active organization
+        const projects = await db.query.project.findMany({
+            where: eq(project.organizationId, activeOrgId),
+            with: {
+                organization: true
+            }
+        });
+        return projects;
+    }
 
-    // First get the organization IDs the user belongs to
+    // Fallback: Fetch projects for ALL organizations the user is a member of
     const memberships = await db.query.member.findMany({
-        where: (members, { eq }) => eq(members.userId, session.user.id),
+        where: eq(member.userId, session.user.id),
         columns: {
             organizationId: true,
         }
@@ -118,11 +128,10 @@ export async function getUserProjects() {
         return [];
     }
 
-    // Then find projects in those organizations
     const projects = await db.query.project.findMany({
-        where: (projects, { inArray }) => inArray(projects.organizationId, organizationIds),
+        where: inArray(project.organizationId, organizationIds),
         with: {
-            organization: true // Include org details for display
+            organization: true
         }
     });
 

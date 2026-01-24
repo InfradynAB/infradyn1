@@ -23,6 +23,7 @@ import {
     type UpdatePOInput,
     type UpdatePOVersionInput,
 } from "@/lib/schemas/procurement";
+import { getActiveOrganizationId } from "@/lib/utils/org-context";
 
 // ============================================================================
 // TYPES
@@ -54,7 +55,7 @@ async function getAuthenticatedUser() {
 }
 
 /**
- * Get all organization IDs for the user
+ * Get all organization IDs for the user (used as fallback)
  */
 async function getUserOrganizationIds(userId: string): Promise<string[]> {
     const memberships = await db.query.member.findMany({
@@ -62,6 +63,17 @@ async function getUserOrganizationIds(userId: string): Promise<string[]> {
         columns: { organizationId: true }
     });
     return memberships.map(m => m.organizationId);
+}
+
+/**
+ * Get organization IDs for queries - prefers active org, falls back to all user orgs
+ */
+async function getQueryOrganizationIds(userId: string): Promise<string[]> {
+    const activeOrgId = await getActiveOrganizationId();
+    if (activeOrgId) {
+        return [activeOrgId];
+    }
+    return getUserOrganizationIds(userId);
 }
 
 // ============================================================================
@@ -372,7 +384,7 @@ export async function listPurchaseOrders(filters?: {
     try {
         const user = await getAuthenticatedUser();
 
-        const organizationIds = await getUserOrganizationIds(user.id);
+        const organizationIds = await getQueryOrganizationIds(user.id);
 
         const conditions = [
             inArray(purchaseOrder.organizationId, organizationIds),
@@ -415,7 +427,7 @@ export async function getPurchaseOrder(
     try {
         const user = await getAuthenticatedUser();
 
-        const organizationIds = await getUserOrganizationIds(user.id);
+        const organizationIds = await getQueryOrganizationIds(user.id);
 
         const po = await db.query.purchaseOrder.findFirst({
             where: and(
@@ -493,7 +505,7 @@ export async function addPOVersion(
             fileUrl,
         });
 
-        const organizationIds = await getUserOrganizationIds(user.id);
+        const organizationIds = await getQueryOrganizationIds(user.id);
 
         // Get PO for document linking and ownership check
         const po = await db.query.purchaseOrder.findFirst({
@@ -553,7 +565,7 @@ export async function updatePOStatus(
             .where(
                 and(
                     eq(purchaseOrder.id, id),
-                    inArray(purchaseOrder.organizationId, await getUserOrganizationIds(user.id))
+                    inArray(purchaseOrder.organizationId, await getQueryOrganizationIds(user.id))
                 )
             )
             .returning({ id: purchaseOrder.id });
@@ -585,7 +597,7 @@ export async function deletePurchaseOrder(id: string): Promise<ActionResult> {
             .where(
                 and(
                     eq(purchaseOrder.id, id),
-                    inArray(purchaseOrder.organizationId, await getUserOrganizationIds(user.id))
+                    inArray(purchaseOrder.organizationId, await getQueryOrganizationIds(user.id))
                 )
             )
             .returning({ id: purchaseOrder.id });

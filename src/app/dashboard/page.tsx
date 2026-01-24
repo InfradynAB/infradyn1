@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { BuildingsIcon, FolderSimpleIcon, PlusIcon } from "@phosphor-icons/react/dist/ssr";
+import { BuildingsIcon, FolderSimpleIcon, PlusIcon, CheckCircle } from "@phosphor-icons/react/dist/ssr";
 import { auth } from "@/auth";
+import { getActiveOrganization } from "@/lib/actions/organization";
 
 export default async function DashboardPage() {
     const session = await auth.api.getSession({
@@ -15,12 +16,31 @@ export default async function DashboardPage() {
         redirect("/sign-in");
     }
 
+    const activeOrg = await getActiveOrganization();
+
     return (
         <div className="space-y-8">
             <div>
                 <h1 className="text-3xl font-bold">Welcome, {session.user.name}!</h1>
                 <p className="text-muted-foreground">Manage your organizations and projects from here.</p>
             </div>
+
+            {activeOrg && (
+                <Card className="bg-primary/5 border-primary/20">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                            <CheckCircle className="h-5 w-5 text-primary" weight="fill" />
+                            Active Organization
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="font-semibold text-xl">{activeOrg.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                            All data shown below is for this organization. Use the switcher in the sidebar to change.
+                        </p>
+                    </CardContent>
+                </Card>
+            )}
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {/* Quick Actions */}
