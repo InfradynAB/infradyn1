@@ -225,14 +225,17 @@ export async function acceptInvitation(token: string) {
     // 2. Verify Email Match (Optional but recommended)
     // if (invite.email !== session.user.email) { ... }
 
-    // 3. Add to Members
+    // 3. Link user to organization and add to members
     try {
-        // Update User Role Globally
+        // Update User: set organizationId and role
         await db.update(user)
-            .set({ role: invite.role as any })
+            .set({ 
+                organizationId: invite.organizationId,
+                role: invite.role as any 
+            })
             .where(eq(user.id, session.user.id));
 
-        // 4. Add to Members
+        // 4. Add to Members table
         await db.insert(member).values({
             organizationId: invite.organizationId,
             userId: session.user.id,
