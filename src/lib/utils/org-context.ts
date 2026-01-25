@@ -81,6 +81,27 @@ export async function setActiveOrganizationId(orgId: string): Promise<boolean> {
 }
 
 /**
+ * Force set the active organization in cookie (skip access check)
+ * Use this only after you've just added the user to the org
+ */
+export async function forceSetActiveOrganizationId(orgId: string): Promise<boolean> {
+    try {
+        const cookieStore = await cookies();
+        cookieStore.set(ACTIVE_ORG_COOKIE, orgId, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: COOKIE_MAX_AGE,
+            path: "/"
+        });
+        return true;
+    } catch (error) {
+        console.error("[forceSetActiveOrganizationId] Error:", error);
+        return false;
+    }
+}
+
+/**
  * Clear the active organization cookie
  */
 export async function clearActiveOrganization(): Promise<void> {

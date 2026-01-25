@@ -9,7 +9,7 @@ import { Resend } from "resend";
 import { revalidatePath } from "next/cache";
 import { render } from "@react-email/render";
 import InvitationEmail from "@/emails/invitation-email";
-import { setActiveOrganizationId, getActiveOrganizationId } from "@/lib/utils/org-context";
+import { setActiveOrganizationId, getActiveOrganizationId, forceSetActiveOrganizationId } from "@/lib/utils/org-context";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -277,7 +277,8 @@ export async function acceptInvitation(token: string) {
                 .where(eq(invitation.id, invite.id));
             
             // Set this org as active so they land on the right dashboard
-            await setActiveOrganizationId(invite.organizationId);
+            const cookieSet = await forceSetActiveOrganizationId(invite.organizationId);
+            console.log("[acceptInvitation] Existing member - Cookie set result:", cookieSet, "for org:", invite.organizationId);
             
             return { success: true, role: invite.role, organizationId: invite.organizationId };
         }
@@ -307,7 +308,9 @@ export async function acceptInvitation(token: string) {
             .where(eq(invitation.id, invite.id));
 
         // 7. Set the invited org as active so user lands on correct dashboard
-        await setActiveOrganizationId(invite.organizationId);
+        // Use forceSet since we just added them - skip the access check
+        const cookieSet = await forceSetActiveOrganizationId(invite.organizationId);
+        console.log("[acceptInvitation] Cookie set result:", cookieSet, "for org:", invite.organizationId);
 
         // 8. Handle Supplier Linking if applicable
         if (invite.role === "SUPPLIER" && invite.supplierId) {
