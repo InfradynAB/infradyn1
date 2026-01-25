@@ -133,3 +133,90 @@ export async function buildPaymentUpdateEmail(data: PaymentUpdateData): Promise<
         text: `${statusText}\n\nHi ${data.recipientName},\n\n${data.status === "PAID" ? 'Invoice fully paid.' : 'Partial payment received.'}\n\nInvoice: ${data.invoiceNumber}\nThis Payment: ${data.amountPaid}\nTotal Paid: ${data.totalPaid}\nInvoice Total: ${data.totalAmount}\n${data.paymentReference ? `Reference: ${data.paymentReference}\n` : ''}\nView: ${data.dashboardUrl}`,
     };
 }
+
+// --- NCR Email Types and Builders ---
+
+import NCRCreatedEmail, { type NCRCreatedEmailProps } from "@/emails/ncr-created-email";
+import NCRResponseEmail, { type NCRResponseEmailProps } from "@/emails/ncr-response-email";
+import NCRCommentEmail, { type NCRCommentEmailProps } from "@/emails/ncr-comment-email";
+
+export type NCRCreatedData = NCRCreatedEmailProps;
+export type NCRResponseData = NCRResponseEmailProps;
+export type NCRCommentData = NCRCommentEmailProps;
+
+/**
+ * Build NCR created email (sent to supplier)
+ */
+export async function buildNCRCreatedEmail(data: NCRCreatedData): Promise<EmailPayload> {
+    const html = await render(NCRCreatedEmail(data));
+    const severityPrefix = data.severity === "CRITICAL" ? "🚨 CRITICAL" :
+        data.severity === "MAJOR" ? "⚠️ URGENT" : "ℹ️";
+
+    return {
+        to: "",
+        subject: `${severityPrefix} NCR Raised - ${data.ncrNumber}: ${data.ncrTitle}`,
+        html,
+        text: `Non-Conformance Report\n\nHi ${data.supplierName},\n\nA Non-Conformance Report has been raised:\n\nNCR: ${data.ncrNumber}\nSeverity: ${data.severity}\nIssue: ${data.ncrTitle}\nSLA Due: ${data.slaDueDate || 'Not set'}\n\nPlease respond: ${data.responseUrl}`,
+    };
+}
+
+/**
+ * Build NCR response email (sent to PM when supplier responds)
+ */
+export async function buildNCRResponseEmail(data: NCRResponseData): Promise<EmailPayload> {
+    const html = await render(NCRResponseEmail(data));
+
+    return {
+        to: "",
+        subject: `Supplier Response - ${data.ncrNumber}`,
+        html,
+        text: `Supplier Response\n\nHi ${data.recipientName},\n\n${data.supplierName} has responded to ${data.ncrNumber}.\n\nResponse: ${data.responsePreview}\n\nView: ${data.dashboardUrl}`,
+    };
+}
+
+/**
+ * Build NCR comment notification email (sent to conversation participants)
+ */
+export async function buildNCRCommentEmail(data: NCRCommentData): Promise<EmailPayload> {
+    const html = await render(NCRCommentEmail(data));
+
+    return {
+        to: "",
+        subject: `New Message on ${data.ncrNumber} - ${data.projectName}`,
+        html,
+        text: `New Message on NCR\n\nHi ${data.recipientName},\n\n${data.commenterName} (${data.commenterRole}) added a message:\n\n"${data.commentPreview}"\n\nReply: ${data.responseUrl}`,
+    };
+}
+
+/**
+ * Send NCR Created notification to supplier
+ */
+export async function sendNCRCreatedNotification(
+    supplierEmail: string,
+    data: NCRCreatedData
+): Promise<{ success: boolean; error?: string }> {
+    const email = await buildNCRCreatedEmail(data);
+    return sendEmail({ ...email, to: supplierEmail });
+}
+
+/**
+ * Send NCR Response notification to PM
+ */
+export async function sendNCRResponseNotification(
+    pmEmail: string,
+    data: NCRResponseData
+): Promise<{ success: boolean; error?: string }> {
+    const email = await buildNCRResponseEmail(data);
+    return sendEmail({ ...email, to: pmEmail });
+}
+
+/**
+ * Send NCR Comment notification
+ */
+export async function sendNCRCommentNotification(
+    recipientEmail: string,
+    data: NCRCommentData
+): Promise<{ success: boolean; error?: string }> {
+    const email = await buildNCRCommentEmail(data);
+    return sendEmail({ ...email, to: recipientEmail });
+}

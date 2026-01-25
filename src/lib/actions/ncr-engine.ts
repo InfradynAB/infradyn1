@@ -12,8 +12,11 @@ import {
     supplier,
     user,
     auditLog,
+    project,
 } from "@/db/schema";
 import { eq, and, desc, sql, count } from "drizzle-orm";
+import { createMagicLink } from "./ncr-comments";
+import { sendNCRCreatedNotification } from "@/lib/services/email";
 
 // ============================================================================
 // TYPES
@@ -162,6 +165,19 @@ export async function createNCR(input: CreateNCRInput) {
         if (milestonesLockedIds.length > 0) {
             await lockMilestonesForNCR(milestonesLockedIds, newNCR.id);
         }
+
+        // Send email notification to supplier
+        await sendNCRCreatedEmailNotification(newNCR.id, input.supplierId, {
+            ncrNumber,
+            title: input.title,
+            description: input.description,
+            severity: input.severity,
+            issueType: input.issueType,
+            projectId: input.projectId,
+            purchaseOrderId: input.purchaseOrderId,
+            reportedBy: input.reportedBy,
+            slaDueAt,
+        });
 
         return { success: true, data: newNCR };
     } catch (error) {
@@ -539,5 +555,114 @@ export async function getNCRDashboard(organizationId: string) {
     } catch (error) {
         console.error("[GET_NCR_DASHBOARD]", error);
         return { success: false, error: error instanceof Error ? error.message : "Failed to fetch dashboard" };
+    }
+}
+
+// ============================================================================
+// EMAIL NOTIFICATIONS
+// ============================================================================
+
+interface NCREmailContext {
+    ncrNumber: string;
+    title: string;
+    description?: string;
+    severity: NCRSeverity;
+    issueType: NCRIssueType;
+    projectId: string;
+    purchaseOrderId: string;
+    reportedBy: string;
+    slaDueAt: Date;
+}
+
+/**
+ * Send NCR created email notification to supplier
+ * Creates a magic link for supplier to respond without login
+ */
+async function sendNCRCreatedEmailNotification(
+    ncrId: string,
+    supplierId: string,
+    context: NCREmailContext
+) {
+    try {
+        // Get supplier info
+        const supplierData = await db.query.supplier.findFirst({
+            where: eq(supplier.id, supplierId),
+        });
+
+        if (!supplierData) {
+            console.warn(`[NCR_EMAIL] Supplier ${supplierId} not found, skipping notification`);
+            return;
+        }
+
+        // Get supplier's contact email or linked user email
+        let supplierEmail: string | null | undefined = supplierData.contactEmail;
+
+        // If no contact email, try to get from linked user
+        if (!supplierEmail && supplierData.userId) {
+            const linkedUser = await db.query.user.findFirst({
+                where: eq(user.id, supplierData.userId),
+            });
+            supplierEmail = linkedUser?.email;
+        }
+
+        if (!supplierEmail) {
+            console.warn(`[NCR_EMAIL] No email for supplier ${supplierData.name}, skipping notification`);
+            return;
+        }
+
+        // Get project name
+        const projectData = await db.query.project.findFirst({
+            where: eq(project.id, context.projectId),
+        });
+
+        // Get PO number
+        const poData = await db.query.purchaseOrder.findFirst({
+            where: eq(purchaseOrder.id, context.purchaseOrderId),
+        });
+
+        // Get reporter name
+        const reporterUser = await db.query.user.findFirst({
+            where: eq(user.id, context.reportedBy),
+        });
+
+        // Create magic link for supplier response
+        const magicLinkResult = await createMagicLink({
+            ncrId,
+            supplierId,
+            expiresInHours: context.severity === "CRITICAL" ? 24 : 72,
+        });
+
+        const responseUrl = magicLinkResult.success && magicLinkResult.data
+            ? magicLinkResult.data.magicUrl
+            : `${process.env.NEXT_PUBLIC_APP_URL}/ncr/reply?ncrId=${ncrId}`;
+
+        // Format SLA date
+        const slaDueDate = context.slaDueAt.toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+        });
+
+        // Send the email
+        await sendNCRCreatedNotification(supplierEmail, {
+            supplierName: supplierData.name,
+            ncrNumber: context.ncrNumber,
+            ncrTitle: context.title,
+            severity: context.severity,
+            issueType: context.issueType,
+            description: context.description || undefined,
+            poNumber: poData?.poNumber || "N/A",
+            projectName: projectData?.name || "Project",
+            reportedByName: reporterUser?.name || "QA Team",
+            responseUrl,
+            slaDueDate,
+        });
+
+        console.log(`[NCR_EMAIL] Sent NCR created notification to ${supplierEmail}`);
+    } catch (error) {
+        // Don't fail the NCR creation if email fails
+        console.error("[NCR_EMAIL] Failed to send notification:", error);
     }
 }
