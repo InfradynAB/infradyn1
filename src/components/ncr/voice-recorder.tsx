@@ -8,10 +8,11 @@ import { toast } from "sonner";
 
 interface VoiceRecorderProps {
     ncrId: string;
+    token?: string; // Magic link token for supplier uploads
     onRecordingComplete: (audioUrl: string) => void;
 }
 
-export function VoiceRecorder({ ncrId, onRecordingComplete }: VoiceRecorderProps) {
+export function VoiceRecorder({ ncrId, token, onRecordingComplete }: VoiceRecorderProps) {
     const [isRecording, setIsRecording] = useState(false);
     const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -33,12 +34,28 @@ export function VoiceRecorder({ ncrId, onRecordingComplete }: VoiceRecorderProps
 
     const startRecording = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mediaRecorder = new MediaRecorder(stream, {
-                mimeType: MediaRecorder.isTypeSupported("audio/webm")
-                    ? "audio/webm"
-                    : "audio/mp4"
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    sampleRate: 44100,
+                }
             });
+            
+            // Try to use the best supported format
+            let mimeType = "audio/webm;codecs=opus";
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = "audio/webm";
+            }
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = "audio/mp4";
+            }
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = ""; // Let browser choose
+            }
+
+            const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
+            const mediaRecorder = new MediaRecorder(stream, options);
 
             mediaRecorderRef.current = mediaRecorder;
             chunksRef.current = [];
@@ -50,13 +67,17 @@ export function VoiceRecorder({ ncrId, onRecordingComplete }: VoiceRecorderProps
             };
 
             mediaRecorder.onstop = () => {
-                const blob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType });
+                // Use the actual mimeType from the recorder
+                const actualMimeType = mediaRecorder.mimeType || "audio/webm";
+                const blob = new Blob(chunksRef.current, { type: actualMimeType });
                 setAudioBlob(blob);
-                setAudioUrl(URL.createObjectURL(blob));
+                const url = URL.createObjectURL(blob);
+                setAudioUrl(url);
                 stream.getTracks().forEach(track => track.stop());
             };
 
-            mediaRecorder.start(100);
+            // Use timeslice to get data more frequently for better recording
+            mediaRecorder.start(1000);
             setIsRecording(true);
             setDuration(0);
 
@@ -64,7 +85,7 @@ export function VoiceRecorder({ ncrId, onRecordingComplete }: VoiceRecorderProps
                 setDuration(d => d + 1);
             }, 1000);
         } catch (error) {
-            toast.error("Could not access microphone");
+            toast.error("Could not access microphone. Please check permissions.");
             console.error("Microphone error:", error);
         }
     };
@@ -85,10 +106,15 @@ export function VoiceRecorder({ ncrId, onRecordingComplete }: VoiceRecorderProps
 
         if (isPlaying) {
             audioRef.current.pause();
+            setIsPlaying(false);
         } else {
-            audioRef.current.play();
+            audioRef.current.play()
+                .then(() => setIsPlaying(true))
+                .catch((error) => {
+                    console.error("Playback error:", error);
+                    toast.error("Could not play audio");
+                });
         }
-        setIsPlaying(!isPlaying);
     };
 
     const handleAudioEnded = () => {
@@ -108,37 +134,55 @@ export function VoiceRecorder({ ncrId, onRecordingComplete }: VoiceRecorderProps
         setUploading(true);
         try {
             const mimeType = audioBlob.type || "audio/webm";
-            const ext = mimeType.includes("webm") ? "webm" : "mp4";
+            const ext = mimeType.includes("webm") ? "webm" : 
+                       mimeType.includes("mp4") ? "mp4" : 
+                       mimeType.includes("ogg") ? "ogg" : "webm";
             const fileName = `voice-note-${Date.now()}.${ext}`;
 
+            // Determine which endpoint to use based on token availability
+            const uploadEndpoint = token 
+                ? "/api/ncr/reply/upload"  // Token-based for suppliers
+                : `/api/ncr/${ncrId}/upload`;  // Session-based for internal users
+
+            const requestBody = token
+                ? { token, fileName, fileType: mimeType, fileSize: audioBlob.size }
+                : { fileName, fileType: mimeType, fileSize: audioBlob.size };
+
             // Get presigned URL
-            const presignRes = await fetch(`/api/ncr/${ncrId}/upload`, {
+            const presignRes = await fetch(uploadEndpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    fileName,
-                    fileType: mimeType,
-                    fileSize: audioBlob.size,
-                }),
+                body: JSON.stringify(requestBody),
             });
 
-            const { uploadUrl, fileUrl } = await presignRes.json();
+            if (!presignRes.ok) {
+                const errorData = await presignRes.json().catch(() => ({}));
+                throw new Error(errorData.error || `Server error: ${presignRes.status}`);
+            }
 
+            const { uploadUrl, fileUrl, contentType, error } = await presignRes.json();
+
+            if (error) throw new Error(error);
             if (!uploadUrl) throw new Error("Failed to get upload URL");
 
-            // Upload to S3
-            await fetch(uploadUrl, {
+            // Upload to S3 - use the normalized content type from server
+            const uploadContentType = contentType || mimeType.split(";")[0].trim();
+            const uploadRes = await fetch(uploadUrl, {
                 method: "PUT",
                 body: audioBlob,
-                headers: { "Content-Type": mimeType },
+                headers: { "Content-Type": uploadContentType },
             });
+
+            if (!uploadRes.ok) {
+                throw new Error(`Upload failed: ${uploadRes.status}`);
+            }
 
             onRecordingComplete(fileUrl);
             discardRecording();
             toast.success("Voice note uploaded");
         } catch (error) {
-            toast.error("Failed to upload voice note");
             console.error("Upload error:", error);
+            toast.error(error instanceof Error ? error.message : "Failed to upload voice note");
         } finally {
             setUploading(false);
         }
@@ -191,7 +235,12 @@ export function VoiceRecorder({ ncrId, onRecordingComplete }: VoiceRecorderProps
                     <audio
                         ref={audioRef}
                         src={audioUrl}
+                        preload="auto"
                         onEnded={handleAudioEnded}
+                        onError={(e) => {
+                            console.error("Audio playback error:", e);
+                            toast.error("Could not play audio");
+                        }}
                     />
                     <div className="flex items-center gap-3">
                         <Button
@@ -246,25 +295,127 @@ export function VoiceRecorder({ ncrId, onRecordingComplete }: VoiceRecorderProps
 // Audio Player Component for displaying uploaded voice notes
 export function VoiceNotePlayer({ url }: { url: string }) {
     const [isPlaying, setIsPlaying] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(false);
+    const [duration, setDuration] = useState<number | null>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
 
-    const togglePlay = () => {
-        if (!audioRef.current) return;
+    // Convert S3 URLs to use our proxy endpoint to bypass CORS
+    const getProxyUrl = (originalUrl: string) => {
+        // If it's a blob URL (local recording preview), use as-is
+        if (originalUrl.startsWith("blob:")) {
+            return originalUrl;
+        }
+        
+        // If it's already our API route, use as-is
+        if (originalUrl.startsWith("/api/audio/")) {
+            return originalUrl;
+        }
+        
+        // Extract S3 key from URL
+        // Format: https://bucket.s3.region.amazonaws.com/ncr/123/supplier/file.webm
+        try {
+            const urlObj = new URL(originalUrl);
+            const key = urlObj.pathname.slice(1); // Remove leading slash
+            if (key) {
+                return `/api/audio/${key}`;
+            }
+        } catch {
+            // URL parsing failed, try regex extraction
+            const match = originalUrl.match(/amazonaws\.com\/(.+)$/);
+            if (match?.[1]) {
+                return `/api/audio/${match[1]}`;
+            }
+        }
+        
+        // Fallback to original URL
+        return originalUrl;
+    };
+
+    const audioSrc = getProxyUrl(url);
+
+    const togglePlay = async () => {
+        if (!audioRef.current || error) return;
+        
         if (isPlaying) {
             audioRef.current.pause();
+            setIsPlaying(false);
         } else {
-            audioRef.current.play();
+            setIsLoading(true);
+            try {
+                await audioRef.current.play();
+                setIsPlaying(true);
+            } catch (err) {
+                console.error("Playback error:", err);
+                setError(true);
+                toast.error("Could not play audio");
+            } finally {
+                setIsLoading(false);
+            }
         }
-        setIsPlaying(!isPlaying);
     };
+
+    const handleLoadedMetadata = () => {
+        if (audioRef.current) {
+            const dur = audioRef.current.duration;
+            // Only set if valid (not Infinity, NaN, or 0)
+            if (isFinite(dur) && dur > 0) {
+                setDuration(dur);
+            }
+        }
+    };
+
+    const handleError = () => {
+        console.error("Audio load error for URL:", url);
+        setError(true);
+    };
+
+    const formatTime = (seconds: number) => {
+        // Handle invalid duration values
+        if (!isFinite(seconds) || isNaN(seconds) || seconds < 0) {
+            return null;
+        }
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, "0")}`;
+    };
+
+    if (error) {
+        return (
+            <div className="inline-flex items-center gap-2 bg-red-50 px-3 py-1.5 rounded-full">
+                <span className="text-xs text-red-600">Audio unavailable</span>
+            </div>
+        );
+    }
 
     return (
         <div className="inline-flex items-center gap-2 bg-purple-50 px-3 py-1.5 rounded-full">
-            <audio ref={audioRef} src={url} onEnded={() => setIsPlaying(false)} />
-            <Button onClick={togglePlay} variant="ghost" size="sm" className="h-6 w-6 p-0">
-                {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+            <audio 
+                ref={audioRef} 
+                src={audioSrc} 
+                preload="metadata"
+                onEnded={() => setIsPlaying(false)}
+                onLoadedMetadata={handleLoadedMetadata}
+                onError={handleError}
+            />
+            <Button 
+                onClick={togglePlay} 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 w-6 p-0"
+                disabled={isLoading}
+            >
+                {isLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                ) : isPlaying ? (
+                    <Pause className="h-3 w-3" />
+                ) : (
+                    <Play className="h-3 w-3" />
+                )}
             </Button>
-            <span className="text-xs text-purple-700">Voice Note</span>
+            <span className="text-xs text-purple-700">
+                Voice Note{duration && formatTime(duration) ? ` (${formatTime(duration)})` : ""}
+            </span>
         </div>
     );
 }

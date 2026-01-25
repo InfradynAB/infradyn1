@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +17,13 @@ import {
     FileText,
     Loader2,
     AlertCircle,
+    Mic,
+    Square,
+    Play,
+    Pause,
+    Trash2,
+    X,
+    Image as ImageIcon,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -36,6 +43,8 @@ interface NCRData {
         id: string;
         content: string | null;
         authorRole: string | null;
+        attachmentUrls: string[] | null;
+        voiceNoteUrl: string | null;
         createdAt: string;
     }>;
 }
@@ -59,6 +68,89 @@ const STATUS_LABELS: Record<string, string> = {
     CLOSED: "Resolved",
 };
 
+// Utility to convert S3 URLs to proxy URLs
+function getProxiedUrl(originalUrl: string): string {
+    if (!originalUrl || originalUrl.startsWith("blob:") || originalUrl.startsWith("/api/")) {
+        return originalUrl;
+    }
+    try {
+        const urlObj = new URL(originalUrl);
+        const key = urlObj.pathname.slice(1);
+        if (key) return `/api/audio/${key}`;
+    } catch {
+        const match = originalUrl.match(/amazonaws\.com\/(.+)$/);
+        if (match?.[1]) return `/api/audio/${match[1]}`;
+    }
+    return originalUrl;
+}
+
+// Simple Voice Note Player for supplier portal
+function SupplierVoiceNotePlayer({ url }: { url: string }) {
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(false);
+    const audioRef = useRef<HTMLAudioElement>(null);
+
+    const audioSrc = getProxiedUrl(url);
+
+    const togglePlay = async () => {
+        if (!audioRef.current || error) return;
+        
+        if (isPlaying) {
+            audioRef.current.pause();
+            setIsPlaying(false);
+        } else {
+            setIsLoading(true);
+            try {
+                await audioRef.current.play();
+                setIsPlaying(true);
+            } catch (err) {
+                console.error("Playback error:", err);
+                setError(true);
+                toast.error("Could not play audio");
+            } finally {
+                setIsLoading(false);
+            }
+        }
+    };
+
+    if (error) {
+        return (
+            <div className="inline-flex items-center gap-2 bg-red-50 px-3 py-1.5 rounded-full">
+                <span className="text-xs text-red-600">Audio unavailable</span>
+            </div>
+        );
+    }
+
+    return (
+        <div className="inline-flex items-center gap-2 bg-purple-50 px-3 py-1.5 rounded-full">
+            <audio 
+                ref={audioRef} 
+                src={audioSrc} 
+                preload="metadata"
+                onEnded={() => setIsPlaying(false)}
+                onError={() => setError(true)}
+            />
+            <Button 
+                onClick={togglePlay} 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 w-6 p-0"
+                disabled={isLoading}
+            >
+                {isLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                ) : isPlaying ? (
+                    <Pause className="h-3 w-3" />
+                ) : (
+                    <Play className="h-3 w-3" />
+                )}
+            </Button>
+            <span className="text-xs text-purple-700">Voice Note</span>
+        </div>
+    );
+}
+
 export function SupplierNCRPortal({ token }: SupplierNCRPortalProps) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -66,9 +158,32 @@ export function SupplierNCRPortal({ token }: SupplierNCRPortalProps) {
     const [response, setResponse] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
+    
+    // File upload states
+    const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; url: string; type: string }>>([]);
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    
+    // Voice recording states
+    const [isRecording, setIsRecording] = useState(false);
+    const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+    const [audioUrl, setAudioUrl] = useState<string | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [recordingDuration, setRecordingDuration] = useState(0);
+    const [uploadingVoice, setUploadingVoice] = useState(false);
+    const [voiceNoteUrl, setVoiceNoteUrl] = useState<string | null>(null);
+    
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const chunksRef = useRef<Blob[]>([]);
+    const timerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         fetchNCR();
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+            if (audioUrl) URL.revokeObjectURL(audioUrl);
+        };
     }, [token]);
 
     const fetchNCR = async () => {
@@ -89,8 +204,8 @@ export function SupplierNCRPortal({ token }: SupplierNCRPortalProps) {
     };
 
     const handleSubmitResponse = async () => {
-        if (!response.trim()) {
-            toast.error("Please enter a response");
+        if (!response.trim() && !voiceNoteUrl && uploadedFiles.length === 0) {
+            toast.error("Please enter a response, upload files, or record a voice note");
             return;
         }
 
@@ -101,7 +216,9 @@ export function SupplierNCRPortal({ token }: SupplierNCRPortalProps) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     token,
-                    content: response,
+                    content: response || (voiceNoteUrl ? "Voice note attached" : "Files attached"),
+                    attachmentUrls: uploadedFiles.map(f => f.url),
+                    voiceNoteUrl,
                 }),
             });
 
@@ -109,6 +226,10 @@ export function SupplierNCRPortal({ token }: SupplierNCRPortalProps) {
             if (result.success) {
                 toast.success("Response submitted successfully");
                 setSubmitted(true);
+                setResponse("");
+                setUploadedFiles([]);
+                setVoiceNoteUrl(null);
+                discardRecording();
                 // Refresh NCR data to show new comment
                 fetchNCR();
             } else {
@@ -119,6 +240,145 @@ export function SupplierNCRPortal({ token }: SupplierNCRPortalProps) {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    // Voice Recording Functions
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true, noiseSuppression: true }
+            });
+            
+            let mimeType = "audio/webm;codecs=opus";
+            if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "audio/webm";
+            if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "audio/mp4";
+            if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "";
+
+            const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
+            const mediaRecorder = new MediaRecorder(stream, options);
+
+            mediaRecorderRef.current = mediaRecorder;
+            chunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) chunksRef.current.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const actualMimeType = mediaRecorder.mimeType || "audio/webm";
+                const blob = new Blob(chunksRef.current, { type: actualMimeType });
+                setAudioBlob(blob);
+                setAudioUrl(URL.createObjectURL(blob));
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start(1000);
+            setIsRecording(true);
+            setRecordingDuration(0);
+            timerRef.current = setInterval(() => setRecordingDuration(d => d + 1), 1000);
+        } catch {
+            toast.error("Could not access microphone");
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current && isRecording) {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+        }
+    };
+
+    const discardRecording = () => {
+        if (audioUrl) URL.revokeObjectURL(audioUrl);
+        setAudioBlob(null);
+        setAudioUrl(null);
+        setRecordingDuration(0);
+    };
+
+    const uploadVoiceNote = async () => {
+        if (!audioBlob) return;
+        setUploadingVoice(true);
+        try {
+            const mimeType = audioBlob.type || "audio/webm";
+            const ext = mimeType.includes("webm") ? "webm" : mimeType.includes("mp4") ? "mp4" : "webm";
+            const fileName = `voice-note-${Date.now()}.${ext}`;
+
+            const presignRes = await fetch("/api/ncr/reply/upload", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token, fileName, fileType: mimeType, fileSize: audioBlob.size }),
+            });
+
+            if (!presignRes.ok) throw new Error("Failed to get upload URL");
+            const { uploadUrl, fileUrl, contentType } = await presignRes.json();
+            if (!uploadUrl) throw new Error("Failed to get upload URL");
+
+            // Use the normalized content type from server for the S3 upload
+            await fetch(uploadUrl, { method: "PUT", body: audioBlob, headers: { "Content-Type": contentType || mimeType.split(";")[0] } });
+            setVoiceNoteUrl(fileUrl);
+            discardRecording();
+            toast.success("Voice note ready");
+        } catch (error) {
+            toast.error("Failed to upload voice note");
+            console.error(error);
+        } finally {
+            setUploadingVoice(false);
+        }
+    };
+
+    const togglePlayback = () => {
+        if (!audioRef.current) return;
+        if (isPlaying) {
+            audioRef.current.pause();
+            setIsPlaying(false);
+        } else {
+            audioRef.current.play().then(() => setIsPlaying(true)).catch(() => toast.error("Playback failed"));
+        }
+    };
+
+    // File Upload Functions
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files?.length) return;
+
+        setUploading(true);
+        try {
+            for (const file of Array.from(files)) {
+                const presignRes = await fetch("/api/ncr/reply/upload", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token, fileName: file.name, fileType: file.type, fileSize: file.size }),
+                });
+
+                if (!presignRes.ok) throw new Error("Failed to get upload URL");
+                const { uploadUrl, fileUrl } = await presignRes.json();
+                if (!uploadUrl) throw new Error("Failed to get upload URL");
+
+                await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+                setUploadedFiles(prev => [...prev, { name: file.name, url: fileUrl, type: file.type }]);
+            }
+            toast.success("Files uploaded");
+        } catch (error) {
+            toast.error("Failed to upload file");
+            console.error(error);
+        } finally {
+            setUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
+
+    const removeFile = (url: string) => {
+        setUploadedFiles(prev => prev.filter(f => f.url !== url));
+    };
+
+    const formatDuration = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, "0")}`;
     };
 
     if (loading) {
@@ -237,7 +497,34 @@ export function SupplierNCRPortal({ token }: SupplierNCRPortalProps) {
                                                 {format(new Date(comment.createdAt), "MMM d, h:mm a")}
                                             </span>
                                         </div>
-                                        <p className="text-sm mt-1">{comment.content}</p>
+                                        {comment.content && (
+                                            <p className="text-sm mt-1">{comment.content}</p>
+                                        )}
+                                        
+                                        {/* Voice Note */}
+                                        {comment.voiceNoteUrl && (
+                                            <div className="mt-2">
+                                                <SupplierVoiceNotePlayer url={comment.voiceNoteUrl} />
+                                            </div>
+                                        )}
+                                        
+                                        {/* Attachments */}
+                                        {comment.attachmentUrls && comment.attachmentUrls.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {comment.attachmentUrls.map((url, i) => (
+                                                    <a
+                                                        key={i}
+                                                        href={getProxiedUrl(url)}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded hover:bg-blue-100"
+                                                    >
+                                                        <FileText className="h-3 w-3" />
+                                                        Attachment {i + 1}
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -265,6 +552,8 @@ export function SupplierNCRPortal({ token }: SupplierNCRPortalProps) {
                                         onClick={() => {
                                             setSubmitted(false);
                                             setResponse("");
+                                            setUploadedFiles([]);
+                                            setVoiceNoteUrl(null);
                                         }}
                                     >
                                         Add Another Response
@@ -285,18 +574,118 @@ export function SupplierNCRPortal({ token }: SupplierNCRPortalProps) {
                                         />
                                     </div>
 
-                                    {/* File Upload (placeholder) */}
-                                    <div className="border-2 border-dashed border-muted rounded-lg p-4 text-center">
-                                        <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                                        <p className="text-sm text-muted-foreground">
-                                            Upload repair certificate or photos (coming soon)
-                                        </p>
+                                    {/* Voice Recorder */}
+                                    <div className="space-y-3">
+                                        <Label>Voice Note (Optional)</Label>
+                                        {!audioBlob && !voiceNoteUrl && (
+                                            <div className="flex items-center gap-3">
+                                                {isRecording ? (
+                                                    <>
+                                                        <Button onClick={stopRecording} variant="destructive" size="sm" className="gap-2">
+                                                            <Square className="h-4 w-4" />
+                                                            Stop Recording
+                                                        </Button>
+                                                        <div className="flex items-center gap-2 text-sm">
+                                                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                                                            <span className="font-mono">{formatDuration(recordingDuration)}</span>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <Button onClick={startRecording} variant="outline" size="sm" className="gap-2">
+                                                        <Mic className="h-4 w-4" />
+                                                        Record Voice Note
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        )}
+                                        
+                                        {/* Audio Preview */}
+                                        {audioBlob && audioUrl && (
+                                            <div className="border rounded-lg p-3 bg-muted/30">
+                                                <audio ref={audioRef} src={audioUrl} preload="auto" onEnded={() => setIsPlaying(false)} />
+                                                <div className="flex items-center gap-3">
+                                                    <Button onClick={togglePlayback} variant="ghost" size="sm">
+                                                        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                                                    </Button>
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-medium">Voice Note</p>
+                                                        <p className="text-xs text-muted-foreground">{formatDuration(recordingDuration)}</p>
+                                                    </div>
+                                                    <Button onClick={discardRecording} variant="ghost" size="sm" disabled={uploadingVoice}>
+                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                    </Button>
+                                                    <Button onClick={uploadVoiceNote} size="sm" disabled={uploadingVoice}>
+                                                        {uploadingVoice ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
+                                                        {uploadingVoice ? "Uploading..." : "Confirm"}
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Uploaded Voice Note - with playback */}
+                                        {voiceNoteUrl && (
+                                            <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                                <span className="text-sm text-green-800">Voice note ready</span>
+                                                <div className="mx-2">
+                                                    <SupplierVoiceNotePlayer url={voiceNoteUrl} />
+                                                </div>
+                                                <Button variant="ghost" size="sm" onClick={() => setVoiceNoteUrl(null)} className="ml-auto h-6 w-6 p-0">
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* File Upload */}
+                                    <div className="space-y-3">
+                                        <Label>Attachments (Optional)</Label>
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            multiple
+                                            accept="image/*,.pdf"
+                                            onChange={handleFileSelect}
+                                            className="hidden"
+                                        />
+                                        <div 
+                                            className="border-2 border-dashed border-muted rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                                            onClick={() => fileInputRef.current?.click()}
+                                        >
+                                            {uploading ? (
+                                                <Loader2 className="h-8 w-8 text-muted-foreground mx-auto animate-spin" />
+                                            ) : (
+                                                <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                                            )}
+                                            <p className="text-sm text-muted-foreground">
+                                                {uploading ? "Uploading..." : "Click to upload photos or documents"}
+                                            </p>
+                                        </div>
+
+                                        {/* Uploaded Files List */}
+                                        {uploadedFiles.length > 0 && (
+                                            <div className="space-y-2">
+                                                {uploadedFiles.map((file) => (
+                                                    <div key={file.url} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                                                        {file.type.startsWith("image/") ? (
+                                                            <ImageIcon className="h-4 w-4 text-blue-500" />
+                                                        ) : (
+                                                            <FileText className="h-4 w-4 text-orange-500" />
+                                                        )}
+                                                        <span className="text-sm truncate flex-1">{file.name}</span>
+                                                        <Button variant="ghost" size="sm" onClick={() => removeFile(file.url)} className="h-6 w-6 p-0">
+                                                            <X className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
 
                                     <Button
                                         className="w-full"
                                         onClick={handleSubmitResponse}
-                                        disabled={submitting || !response.trim()}
+                                        disabled={submitting || (!response.trim() && !voiceNoteUrl && uploadedFiles.length === 0)}
                                     >
                                         {submitting ? (
                                             <Loader2 className="h-4 w-4 animate-spin mr-2" />

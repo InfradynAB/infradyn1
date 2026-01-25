@@ -32,15 +32,23 @@ export async function POST(
         }
 
         // Validate file type
+        // Extract base MIME type (remove codec info like ";codecs=opus")
+        const baseMimeType = fileType.split(";")[0].trim();
+        
         const allowedTypes = [
             "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp",
             "application/pdf",
-            "audio/webm", "audio/mp4", "audio/mpeg", "audio/ogg"
+            "audio/webm", "audio/mp4", "audio/mpeg", "audio/ogg", "audio/wav",
+            "audio/x-m4a", "audio/aac", "audio/mp3", "audio/x-wav"
         ];
 
-        if (!allowedTypes.includes(fileType)) {
+        // Be more flexible with audio types
+        const isAudio = baseMimeType.startsWith("audio/");
+        const isAllowed = allowedTypes.includes(baseMimeType) || isAudio;
+
+        if (!isAllowed) {
             return NextResponse.json(
-                { error: "File type not allowed" },
+                { error: `File type not allowed: ${fileType}` },
                 { status: 400 }
             );
         }
@@ -58,17 +66,17 @@ export async function POST(
         const ext = fileName.split(".").pop() || "bin";
         const key = `ncr/${ncrId}/${crypto.randomUUID()}.${ext}`;
 
-        // Get presigned URL
-        const { uploadUrl, fileUrl } = await getUploadPresignedUrl(key, fileType);
+        // Get presigned URL - use normalized MIME type
+        const { uploadUrl, fileUrl } = await getUploadPresignedUrl(key, baseMimeType);
 
         // Create attachment record
         const [attachment] = await db.insert(ncrAttachment).values({
             ncrId,
             fileUrl,
             fileName,
-            mimeType: fileType,
+            mimeType: baseMimeType, // Store normalized type
             fileSize: fileSize || 0,
-            category: fileType.startsWith("image/") ? "EVIDENCE" : "OTHER",
+            category: baseMimeType.startsWith("image/") ? "EVIDENCE" : "OTHER",
             uploadedBy: session.user.id,
         }).returning();
 
@@ -78,6 +86,7 @@ export async function POST(
             fileUrl,
             key,
             attachmentId: attachment.id,
+            contentType: baseMimeType, // Return for client to use in upload
         });
     } catch (error) {
         console.error("[NCR_UPLOAD]", error);

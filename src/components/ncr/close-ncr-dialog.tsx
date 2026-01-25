@@ -66,8 +66,8 @@ export function CloseNCRDialog({
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    status: "CLOSED",
-                    closureNotes,
+                    action: "close",
+                    closedReason: closureNotes || "Issue resolved",
                     proofOfFixDocId: uploadedProof[0]?.id,
                     creditNoteDocId: requiresCreditNote ? uploadedCreditNote[0]?.id : undefined,
                 }),

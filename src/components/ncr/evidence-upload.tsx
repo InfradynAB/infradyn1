@@ -77,7 +77,7 @@ export function EvidenceUpload({
                     }),
                 });
 
-                const { uploadUrl, fileUrl, key } = await presignRes.json();
+                const { uploadUrl, fileUrl, key, attachmentId } = await presignRes.json();
 
                 if (!uploadUrl) {
                     throw new Error(`Failed to get upload URL for ${file.name}`);
@@ -93,7 +93,7 @@ export function EvidenceUpload({
                 });
 
                 uploaded.push({
-                    id: key,
+                    id: attachmentId || key, // Use attachment UUID, fallback to key
                     name: file.name,
                     url: fileUrl,
                     type: file.type,

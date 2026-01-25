@@ -256,14 +256,23 @@ export async function closeNCR(input: CloseNCRInput) {
     try {
         const existingNCR = await db.query.ncr.findFirst({
             where: eq(ncr.id, input.ncrId),
+            with: {
+                attachments: true, // Check if evidence was uploaded as attachment
+            },
         });
 
         if (!existingNCR) {
             return { success: false, error: "NCR not found" };
         }
 
+        // Check for evidence in attachments (uploaded via EvidenceUpload component)
+        const hasEvidenceAttachment = existingNCR.attachments?.some(
+            (a) => a.category === "EVIDENCE" || a.category === "CORRECTIVE_ACTION"
+        );
+
         // Evidence Enforcer: Block closure without proof (except MINOR with justification)
-        if (existingNCR.severity !== "MINOR" && !input.proofOfFixDocId) {
+        // Accept either a document ID OR uploaded evidence attachments
+        if (existingNCR.severity !== "MINOR" && !input.proofOfFixDocId && !hasEvidenceAttachment) {
             return {
                 success: false,
                 error: "Proof of fix document required for MAJOR/CRITICAL NCRs"
@@ -278,13 +287,17 @@ export async function closeNCR(input: CloseNCRInput) {
             };
         }
 
+        // Only set proofOfFixDocId if it's a valid UUID (not an S3 path)
+        const isValidUuid = input.proofOfFixDocId && 
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.proofOfFixDocId);
+
         const [closed] = await db.update(ncr)
             .set({
                 status: "CLOSED",
                 closedBy: input.userId,
                 closedAt: new Date(),
                 closedReason: input.closedReason,
-                proofOfFixDocId: input.proofOfFixDocId,
+                proofOfFixDocId: isValidUuid ? input.proofOfFixDocId : null,
                 creditNoteDocId: input.creditNoteDocId,
                 creditNoteVerifiedAt: input.creditNoteDocId ? new Date() : null,
                 updatedAt: new Date(),

@@ -46,6 +46,22 @@ const ROLE_COLORS: Record<string, string> = {
     USER: "bg-gray-500",
 };
 
+// Utility to convert S3 URLs to proxy URLs
+function getProxiedUrl(originalUrl: string): string {
+    if (!originalUrl || originalUrl.startsWith("blob:") || originalUrl.startsWith("/api/")) {
+        return originalUrl;
+    }
+    try {
+        const urlObj = new URL(originalUrl);
+        const key = urlObj.pathname.slice(1);
+        if (key) return `/api/audio/${key}`;
+    } catch {
+        const match = originalUrl.match(/amazonaws\.com\/(.+)$/);
+        if (match?.[1]) return `/api/audio/${match[1]}`;
+    }
+    return originalUrl;
+}
+
 export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER" }: NCRCommentThreadProps) {
     const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -313,7 +329,7 @@ export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER" }
                                             {comment.attachmentUrls.map((url, i) => (
                                                 <a
                                                     key={i}
-                                                    href={url}
+                                                    href={getProxiedUrl(url)}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded hover:bg-blue-100"
