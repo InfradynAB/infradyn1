@@ -31,11 +31,6 @@ const items = [
         icon: HouseIcon,
     },
     {
-        title: "Organizations",
-        url: "/dashboard/org",
-        icon: BuildingsIcon,
-    },
-    {
         title: "Projects",
         url: "/dashboard/projects",
         icon: FolderSimpleIcon,

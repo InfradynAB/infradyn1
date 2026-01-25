@@ -2,9 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, CaretUpDown, Buildings, Plus } from "@phosphor-icons/react";
+import { Check, CaretUpDown } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import {
     Command,
     CommandEmpty,
@@ -12,7 +11,6 @@ import {
     CommandInput,
     CommandItem,
     CommandList,
-    CommandSeparator,
 } from "@/components/ui/command";
 import {
     Popover,
@@ -20,9 +18,9 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { switchOrganization } from "@/lib/actions/organization";
 import { toast } from "sonner";
-import Link from "next/link";
 
 interface Organization {
     id: string;
@@ -63,13 +61,11 @@ export function OrgSwitcher({ organizations, activeOrgId }: OrgSwitcherProps) {
     };
 
     if (organizations.length === 0) {
+        // No organizations - user needs to be invited by admin
         return (
-            <Link href="/dashboard/org">
-                <Button variant="outline" className="w-full justify-start gap-2">
-                    <Plus className="h-4 w-4" />
-                    <span>Create Organization</span>
-                </Button>
-            </Link>
+            <div className="text-xs text-muted-foreground px-2 py-1">
+                No organization yet. Contact your admin for an invite.
+            </div>
         );
     }
 
@@ -128,29 +124,6 @@ export function OrgSwitcher({ organizations, activeOrgId }: OrgSwitcherProps) {
                                     />
                                 </CommandItem>
                             ))}
-                        </CommandGroup>
-                        <CommandSeparator />
-                        <CommandGroup>
-                            <CommandItem asChild>
-                                <Link
-                                    href="/dashboard/org"
-                                    className="flex items-center cursor-pointer"
-                                    onClick={() => setOpen(false)}
-                                >
-                                    <Buildings className="mr-2 h-4 w-4" />
-                                    Manage Organizations
-                                </Link>
-                            </CommandItem>
-                            <CommandItem asChild>
-                                <Link
-                                    href="/dashboard/org?new=true"
-                                    className="flex items-center cursor-pointer"
-                                    onClick={() => setOpen(false)}
-                                >
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Create Organization
-                                </Link>
-                            </CommandItem>
                         </CommandGroup>
                     </CommandList>
                 </Command>
