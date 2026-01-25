@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,7 @@ interface CreateProjectDialogProps {
 export function CreateProjectDialog({ organizations }: CreateProjectDialogProps) {
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const router = useRouter();
 
     async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -46,12 +48,16 @@ export function CreateProjectDialog({ organizations }: CreateProjectDialogProps)
             if (result.details) {
                 Object.values(result.details).flat().forEach((msg) => toast.error(String(msg)));
             }
-        } else if (result?.success) {
-            toast.success("Project created!");
+            setIsLoading(false);
+        } else if (result?.success && result.projectId) {
+            toast.success(`Project created! Code: ${result.projectCode}`);
             setOpen(false);
+            setIsLoading(false);
+            // Redirect to the new project dashboard
+            router.push(`/dashboard/projects/${result.projectId}`);
+        } else {
+            setIsLoading(false);
         }
-
-        setIsLoading(false);
     }
 
     return (
@@ -90,25 +96,20 @@ export function CreateProjectDialog({ organizations }: CreateProjectDialogProps)
                             <Input id="name" name="name" placeholder="Suspension Bridge Alpha" required />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="code">Project code</Label>
-                                <Input id="code" name="code" placeholder="PRJ-2024-001" />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="currency">Currency</Label>
-                                <Select name="currency" defaultValue="USD">
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select currency" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="USD">USD ($)</SelectItem>
-                                        <SelectItem value="EUR">EUR (€)</SelectItem>
-                                        <SelectItem value="GBP">GBP (£)</SelectItem>
-                                        <SelectItem value="KES">KES (Sh)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="currency">Currency</Label>
+                            <Select name="currency" defaultValue="USD">
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select currency" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="USD">USD ($)</SelectItem>
+                                    <SelectItem value="EUR">EUR (€)</SelectItem>
+                                    <SelectItem value="GBP">GBP (£)</SelectItem>
+                                    <SelectItem value="KES">KES (Sh)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">Project code will be auto-generated</p>
                         </div>
 
                         <div className="grid gap-2">
