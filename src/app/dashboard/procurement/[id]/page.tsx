@@ -50,6 +50,7 @@ import {
 // Phase 5 imports
 import { InvoiceUploadSheet } from "@/components/procurement/invoice-upload-sheet";
 import { ChangeOrderForm } from "@/components/procurement/change-order-form";
+import { ChangeOrderSheet } from "@/components/procurement/change-order-sheet";
 import { PaymentStatusBadge, COStatusBadge } from "@/components/procurement/payment-status-badge";
 import { getPaymentSummary, getPendingInvoices } from "@/lib/actions/finance-engine";
 import { getChangeOrdersForPO, getCOImpactSummary } from "@/lib/actions/change-order-engine";
@@ -521,7 +522,7 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                             <ClientInstructionUpload
                                                 projectId={(po as any).projectId}
                                             />
-                                            <ChangeOrderForm
+                                            <ChangeOrderSheet
                                                 purchaseOrderId={po.id}
                                                 currentPOValue={Number(po.totalValue)}
                                                 milestones={(po as any).milestones?.map((m: any) => ({
@@ -540,6 +541,7 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                         purchaseOrderId={po.id}
                                         currentPOValue={Number(po.totalValue)}
                                         milestones={(po as any).milestones || []}
+                                        boqItems={(po as any).boqItems || []}
                                     />
 
                                     <div>

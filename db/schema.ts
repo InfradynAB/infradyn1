@@ -2,7 +2,7 @@ import { pgTable, uuid, text, timestamp, boolean, integer, numeric, pgEnum, uniq
 import { relations, sql } from 'drizzle-orm';
 
 // --- ENUMS ---
-export const userRoleEnum = pgEnum('user_role', ['ADMIN', 'PM', 'SUPPLIER', 'QA', 'SITE_RECEIVER']);
+export const userRoleEnum = pgEnum('user_role', ['SUPER_ADMIN', 'ADMIN', 'PM', 'SUPPLIER', 'QA', 'SITE_RECEIVER']);
 export const parentTypeEnum = pgEnum('parent_type', ['PO', 'BOQ', 'INVOICE', 'PACKING_LIST', 'CMR', 'NCR', 'EVIDENCE']);
 export const progressSourceEnum = pgEnum('progress_source', ['SRP', 'IRP', 'FORECAST']);
 export const conflictTypeEnum = pgEnum('conflict_type', ['QUANTITY_MISMATCH', 'PROGRESS_MISMATCH', 'DATE_VARIANCE', 'EVIDENCE_FAILURE', 'NCR_CONFLICT']);

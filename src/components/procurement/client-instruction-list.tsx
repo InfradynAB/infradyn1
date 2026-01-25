@@ -22,7 +22,7 @@ import {
     ArrowRight,
 } from "@phosphor-icons/react";
 import { format } from "date-fns";
-import { ChangeOrderForm } from "./change-order-form";
+import { ChangeOrderSheet } from "./change-order-sheet";
 
 interface ClientInstruction {
     id: string;
@@ -34,11 +34,23 @@ interface ClientInstruction {
     status: string;
 }
 
+interface BOQItem {
+    id: string;
+    itemNumber: string;
+    description: string;
+    unit: string;
+    quantity: string;
+    unitPrice: string;
+    totalPrice: string;
+    quantityCertified: string | null;
+}
+
 interface ClientInstructionListProps {
     projectId: string;
     purchaseOrderId: string;
     currentPOValue: number;
     milestones: any[];
+    boqItems?: BOQItem[];
     onCOCreated?: () => void;
 }
 
@@ -47,6 +59,7 @@ export function ClientInstructionList({
     purchaseOrderId,
     currentPOValue,
     milestones,
+    boqItems = [],
     onCOCreated,
 }: ClientInstructionListProps) {
     const router = useRouter();
@@ -153,39 +166,21 @@ export function ClientInstructionList({
                             </p>
 
                             <div className="flex gap-2">
-                                <ChangeOrderForm
+                                <ChangeOrderSheet
                                     purchaseOrderId={purchaseOrderId}
                                     currentPOValue={currentPOValue}
                                     milestones={milestones}
+                                    boqItems={boqItems}
                                     initialInstructionId={instruction.id}
-                                    initialType="ADDITION"
                                     onSuccess={() => {
                                         fetchInstructions();
                                         router.refresh();
                                         onCOCreated?.();
                                     }}
                                     trigger={
-                                        <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700">
+                                        <Button size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700">
                                             <PlusCircle className="mr-2" />
-                                            Scope Addition
-                                        </Button>
-                                    }
-                                />
-                                <ChangeOrderForm
-                                    purchaseOrderId={purchaseOrderId}
-                                    currentPOValue={currentPOValue}
-                                    milestones={milestones}
-                                    initialInstructionId={instruction.id}
-                                    initialType="OMISSION"
-                                    onSuccess={() => {
-                                        fetchInstructions();
-                                        router.refresh();
-                                        onCOCreated?.();
-                                    }}
-                                    trigger={
-                                        <Button size="sm" variant="outline" className="flex-1 text-red-600 border-red-200 hover:bg-red-50">
-                                            <ArrowRight className="mr-2" />
-                                            Scope Omission
+                                            Execute Instruction
                                         </Button>
                                     }
                                 />

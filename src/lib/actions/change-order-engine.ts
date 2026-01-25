@@ -200,7 +200,7 @@ export async function submitChangeOrder(input: SubmitCOInput) {
         // Notify PM(s) about new CO TODO: Get actual PM users
         // For now, we'll skip notification creation
 
-        revalidatePath("/procurement");
+        revalidatePath("/dashboard/procurement");
         return { success: true, data: newCO };
     } catch (error) {
         console.error("[submitChangeOrder] Error:", error);
@@ -271,7 +271,7 @@ export async function reviewChangeOrder(changeOrderId: string) {
             purchaseOrderId: co?.purchaseOrderId,
         });
 
-        revalidatePath("/procurement");
+        revalidatePath("/dashboard/procurement");
         return { success: true };
     } catch (error) {
         console.error("[reviewChangeOrder] Error:", error);
@@ -380,7 +380,8 @@ export async function approveChangeOrder(input: ApproveCOInput) {
             newTotal: co.newTotalValue,
         });
 
-        revalidatePath("/procurement");
+        revalidatePath("/dashboard/procurement");
+        revalidatePath(`/dashboard/procurement/${co.purchaseOrderId}`);
         return { success: true };
     } catch (error) {
         console.error("[approveChangeOrder] Error:", error);
@@ -418,7 +419,7 @@ export async function rejectChangeOrder(input: RejectCOInput) {
             reason: input.rejectionReason,
         });
 
-        revalidatePath("/procurement");
+        revalidatePath("/dashboard/procurement");
         return { success: true };
     } catch (error) {
         console.error("[rejectChangeOrder] Error:", error);
@@ -582,7 +583,7 @@ export async function createClientInstruction(input: CreateClientInstructionInpu
             type: input.type,
         });
 
-        revalidatePath("/procurement");
+        revalidatePath("/dashboard/procurement");
         return { success: true, data: newInstruction };
     } catch (error) {
         console.error("[createClientInstruction] Error:", error);
@@ -668,7 +669,7 @@ export async function createVariationOrder(input: CreateVariationOrderInput) {
             clientInstructionId: input.clientInstructionId,
         });
 
-        revalidatePath("/procurement");
+        revalidatePath("/dashboard/procurement");
         return { success: true, data: { changeOrder: newCO, items: newItems, voNumber } };
     } catch (error) {
         console.error("[createVariationOrder] Error:", error);
@@ -777,7 +778,7 @@ export async function createDeScope(input: CreateDeScopeInput) {
             clientInstructionId: input.clientInstructionId,
         });
 
-        revalidatePath("/procurement");
+        revalidatePath("/dashboard/procurement");
         return { success: true, data: newCO };
     } catch (error) {
         console.error("[createDeScope] Error:", error);
@@ -825,7 +826,7 @@ export async function updateQuantityInstalled(input: UpdateProgressInput) {
             quantityInstalled: input.quantityInstalled,
         });
 
-        revalidatePath("/procurement");
+        revalidatePath("/dashboard/procurement");
         return { success: true };
     } catch (error) {
         console.error("[updateQuantityInstalled] Error:", error);
@@ -874,7 +875,7 @@ export async function certifyQuantity(input: UpdateProgressInput) {
             quantityCertified: input.quantityCertified,
         });
 
-        revalidatePath("/procurement");
+        revalidatePath("/dashboard/procurement");
         return { success: true };
     } catch (error) {
         console.error("[certifyQuantity] Error:", error);
