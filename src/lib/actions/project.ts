@@ -71,7 +71,7 @@ export async function createProject(formData: FormData) {
         };
     }
 
-    const { name, code, organizationId, budget, location, currency, startDate, endDate, materialCategories: categoriesJson } = validatedFields.data;
+    const { name, organizationId, budget, location, currency, startDate, endDate, materialCategories: categoriesJson } = validatedFields.data;
 
     // 3. Verify Membership (Security check)
     // User must be a member of the organization to create a project there
