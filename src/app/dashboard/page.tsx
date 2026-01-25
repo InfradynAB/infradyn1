@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { BuildingsIcon, FolderSimpleIcon, PlusIcon, CheckCircle } from "@phosphor-icons/react/dist/ssr";
+import { FolderSimpleIcon, PlusIcon, CheckCircle } from "@phosphor-icons/react/dist/ssr";
 import { auth } from "@/auth";
 import { getActiveOrganization } from "@/lib/actions/organization";
 
@@ -22,7 +22,7 @@ export default async function DashboardPage() {
         <div className="space-y-8">
             <div>
                 <h1 className="text-3xl font-bold">Welcome, {session.user.name}!</h1>
-                <p className="text-muted-foreground">Manage your organizations and projects from here.</p>
+                <p className="text-muted-foreground">Manage your projects from here.</p>
             </div>
 
             {activeOrg && (
@@ -47,23 +47,6 @@ export default async function DashboardPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <BuildingsIcon className="h-5 w-5" />
-                            Organizations
-                        </CardTitle>
-                        <CardDescription>View and manage your organizations</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button asChild variant="outline" className="w-full">
-                            <Link href="/dashboard/org">
-                                View Organizations
-                            </Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
                             <FolderSimpleIcon className="h-5 w-5" />
                             Projects
                         </CardTitle>
@@ -73,7 +56,7 @@ export default async function DashboardPage() {
                         <Button asChild className="w-full">
                             <Link href="/dashboard/projects">
                                 <PlusIcon className="mr-2 h-4 w-4" />
-                                New Project
+                                View Projects
                             </Link>
                         </Button>
                     </CardContent>

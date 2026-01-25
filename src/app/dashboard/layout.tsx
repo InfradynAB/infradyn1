@@ -21,6 +21,7 @@ import { headers } from "next/headers"
 import { noIndexMetadata } from "@/lib/seo.config"
 import type { Metadata } from "next"
 import { getUserOrganizationsWithActive } from "@/lib/utils/org-context"
+import { redirect } from "next/navigation"
 
 // Prevent search engine indexing of dashboard pages
 export const metadata: Metadata = {
@@ -38,16 +39,27 @@ export default async function DashboardLayout({
         headers: await headers()
     });
 
-    const user = session?.user ? {
+    // If not logged in, redirect to sign-in
+    if (!session?.user) {
+        redirect("/sign-in");
+    }
+
+    const user = {
         id: session.user.id,
         name: session.user.name,
         email: session.user.email,
         image: session.user.image,
-        role: session.user.role, // Pass role for sidebar logic
-    } : null;
+        role: session.user.role,
+    };
 
     // Fetch organizations for the org switcher
     const { organizations, activeOrgId } = await getUserOrganizationsWithActive();
+
+    // CRITICAL: User must belong to at least one organization to access the dashboard
+    // Only invited users can access the software
+    if (organizations.length === 0) {
+        redirect("/access-denied");
+    }
 
     return (
         <SidebarProvider>

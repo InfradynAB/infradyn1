@@ -110,8 +110,8 @@ export function AppSidebar({
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
-                {/* Organization Switcher */}
-                {!isSupplier && organizations.length > 0 && (
+                {/* Organization Switcher - always show for non-suppliers */}
+                {!isSupplier && (
                     <div className="px-2 pb-2">
                         <OrgSwitcher 
                             organizations={organizations} 
