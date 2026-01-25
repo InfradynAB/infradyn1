@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { acceptInvitation } from "@/lib/actions/invitation";
@@ -29,7 +28,6 @@ export function InviteClient({
     currentUserEmail
 }: InviteClientProps) {
     const [isPending, startTransition] = useTransition();
-    const router = useRouter();
     const [isLoggedIn, setIsLoggedIn] = useState(initialIsLoggedIn);
 
     const handleAccept = () => {
@@ -38,10 +36,12 @@ export function InviteClient({
                 const result = await acceptInvitation(token);
                 if (result.success) {
                     toast.success("Invitation accepted! Redirecting...");
+                    // Use hard redirect to ensure the new active org cookie is read by the server
+                    // router.push() does client-side navigation which may not pick up the new cookie
                     if (result.role === "SUPPLIER") {
-                        router.push("/dashboard/supplier/onboarding");
+                        window.location.href = "/dashboard/supplier/onboarding";
                     } else {
-                        router.push("/dashboard");
+                        window.location.href = "/dashboard";
                     }
                 } else {
                     toast.error(result.error || "Failed to accept invitation.");
