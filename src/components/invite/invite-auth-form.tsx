@@ -15,10 +15,10 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { CircleNotch, Eye, EyeSlash } from "@phosphor-icons/react";
+import { CircleNotch, Eye, EyeSlash, UserPlus, SignIn, EnvelopeSimple, Lock, User } from "@phosphor-icons/react";
 import { PasswordStrengthIndicator } from "@/components/ui/password-strength";
+import Link from "next/link";
 
 interface InviteAuthFormProps {
     email: string; // Pre-filled and readonly
@@ -103,21 +103,53 @@ export function InviteAuthForm({ email, onSuccess }: InviteAuthFormProps) {
     }
 
     return (
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="register">Create Account</TabsTrigger>
-                <TabsTrigger value="login">Log In</TabsTrigger>
-            </TabsList>
+        <div className="w-full space-y-4">
+            {/* Custom Tab Switcher */}
+            <div className="flex bg-muted/50 p-1 rounded-xl gap-1">
+                <button
+                    type="button"
+                    onClick={() => setActiveTab("register")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
+                        activeTab === "register"
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                    }`}
+                >
+                    <UserPlus className="h-4 w-4" weight={activeTab === "register" ? "fill" : "regular"} />
+                    Create Account
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab("login")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
+                        activeTab === "login"
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                    }`}
+                >
+                    <SignIn className="h-4 w-4" weight={activeTab === "login" ? "fill" : "regular"} />
+                    Sign In
+                </button>
+            </div>
 
-            {/* REGISTER TAB */}
-            <TabsContent value="register">
+            {/* REGISTER FORM */}
+            {activeTab === "register" && (
                 <Form {...signUpForm}>
                     <form onSubmit={signUpForm.handleSubmit(onSignUp)} className="space-y-4">
+                        {/* Email - Locked */}
                         <div className="space-y-2">
-                            <FormLabel>Email</FormLabel>
-                            <Input value={email} disabled className="bg-muted" />
-                            <p className="text-xs text-muted-foreground">You must use the email you were invited with.</p>
+                            <FormLabel className="text-sm font-medium">Email</FormLabel>
+                            <div className="relative">
+                                <EnvelopeSimple className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input 
+                                    value={email} 
+                                    disabled 
+                                    className="bg-muted/50 pl-10 h-11" 
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground">This email is linked to your invitation.</p>
                         </div>
+
                         <FormField
                             control={signUpForm.control}
                             name="name"
@@ -125,22 +157,33 @@ export function InviteAuthForm({ email, onSuccess }: InviteAuthFormProps) {
                                 <FormItem>
                                     <FormLabel>Full Name</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="John Doe" {...field} />
+                                        <div className="relative">
+                                            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <Input 
+                                                placeholder="John Doe" 
+                                                className="pl-10 h-11" 
+                                                {...field} 
+                                            />
+                                        </div>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
+
                         <FormField
                             control={signUpForm.control}
                             name="password"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Choose Password</FormLabel>
+                                    <FormLabel>Create Password</FormLabel>
                                     <FormControl>
                                         <div className="relative">
+                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                             <Input
                                                 type={showPassword ? "text" : "password"}
+                                                placeholder="••••••••"
+                                                className="pl-10 pr-10 h-11"
                                                 {...field}
                                             />
                                             <button
@@ -149,9 +192,9 @@ export function InviteAuthForm({ email, onSuccess }: InviteAuthFormProps) {
                                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                                             >
                                                 {showPassword ? (
-                                                    <EyeSlash className="h-5 w-5" />
+                                                    <EyeSlash className="h-4 w-4" />
                                                 ) : (
-                                                    <Eye className="h-5 w-5" />
+                                                    <Eye className="h-4 w-4" />
                                                 )}
                                             </button>
                                         </div>
@@ -161,6 +204,7 @@ export function InviteAuthForm({ email, onSuccess }: InviteAuthFormProps) {
                                 </FormItem>
                             )}
                         />
+
                         <FormField
                             control={signUpForm.control}
                             name="confirmPassword"
@@ -169,8 +213,11 @@ export function InviteAuthForm({ email, onSuccess }: InviteAuthFormProps) {
                                     <FormLabel>Confirm Password</FormLabel>
                                     <FormControl>
                                         <div className="relative">
+                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                             <Input
                                                 type={showConfirmPassword ? "text" : "password"}
+                                                placeholder="••••••••"
+                                                className="pl-10 pr-10 h-11"
                                                 {...field}
                                             />
                                             <button
@@ -179,9 +226,9 @@ export function InviteAuthForm({ email, onSuccess }: InviteAuthFormProps) {
                                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                                             >
                                                 {showConfirmPassword ? (
-                                                    <EyeSlash className="h-5 w-5" />
+                                                    <EyeSlash className="h-4 w-4" />
                                                 ) : (
-                                                    <Eye className="h-5 w-5" />
+                                                    <Eye className="h-4 w-4" />
                                                 )}
                                             </button>
                                         </div>
@@ -190,32 +237,62 @@ export function InviteAuthForm({ email, onSuccess }: InviteAuthFormProps) {
                                 </FormItem>
                             )}
                         />
-                        <Button type="submit" className="w-full" disabled={isLoading}>
-                            {isLoading && <CircleNotch className="mr-2 h-4 w-4 animate-spin" />}
-                            Create Account & Accept
+
+                        <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={isLoading}>
+                            {isLoading ? (
+                                <>
+                                    <CircleNotch className="mr-2 h-4 w-4 animate-spin" />
+                                    Creating Account...
+                                </>
+                            ) : (
+                                <>
+                                    <UserPlus className="mr-2 h-4 w-4" weight="bold" />
+                                    Create Account & Join
+                                </>
+                            )}
                         </Button>
                     </form>
                 </Form>
-            </TabsContent>
+            )}
 
-            {/* LOGIN TAB */}
-            <TabsContent value="login">
+            {/* LOGIN FORM */}
+            {activeTab === "login" && (
                 <Form {...signInForm}>
                     <form onSubmit={signInForm.handleSubmit(onSignIn)} className="space-y-4">
+                        {/* Email - Locked */}
                         <div className="space-y-2">
-                            <FormLabel>Email</FormLabel>
-                            <Input value={email} disabled className="bg-muted" />
+                            <FormLabel className="text-sm font-medium">Email</FormLabel>
+                            <div className="relative">
+                                <EnvelopeSimple className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input 
+                                    value={email} 
+                                    disabled 
+                                    className="bg-muted/50 pl-10 h-11" 
+                                />
+                            </div>
                         </div>
+
                         <FormField
                             control={signInForm.control}
                             name="password"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Password</FormLabel>
+                                    <div className="flex items-center justify-between">
+                                        <FormLabel>Password</FormLabel>
+                                        <Link
+                                            href="/reset-password"
+                                            className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                                        >
+                                            Forgot password?
+                                        </Link>
+                                    </div>
                                     <FormControl>
                                         <div className="relative">
+                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                             <Input
                                                 type={showLoginPassword ? "text" : "password"}
+                                                placeholder="••••••••"
+                                                className="pl-10 pr-10 h-11"
                                                 {...field}
                                             />
                                             <button
@@ -224,9 +301,9 @@ export function InviteAuthForm({ email, onSuccess }: InviteAuthFormProps) {
                                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                                             >
                                                 {showLoginPassword ? (
-                                                    <EyeSlash className="h-5 w-5" />
+                                                    <EyeSlash className="h-4 w-4" />
                                                 ) : (
-                                                    <Eye className="h-5 w-5" />
+                                                    <Eye className="h-4 w-4" />
                                                 )}
                                             </button>
                                         </div>
@@ -235,13 +312,23 @@ export function InviteAuthForm({ email, onSuccess }: InviteAuthFormProps) {
                                 </FormItem>
                             )}
                         />
-                        <Button type="submit" className="w-full" disabled={isLoading}>
-                            {isLoading && <CircleNotch className="mr-2 h-4 w-4 animate-spin" />}
-                            Sign In & Accept
+
+                        <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={isLoading}>
+                            {isLoading ? (
+                                <>
+                                    <CircleNotch className="mr-2 h-4 w-4 animate-spin" />
+                                    Signing In...
+                                </>
+                            ) : (
+                                <>
+                                    <SignIn className="mr-2 h-4 w-4" weight="bold" />
+                                    Sign In & Join
+                                </>
+                            )}
                         </Button>
                     </form>
                 </Form>
-            </TabsContent>
-        </Tabs>
+            )}
+        </div>
     );
 }
