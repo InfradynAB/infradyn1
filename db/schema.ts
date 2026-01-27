@@ -647,6 +647,9 @@ export const ncrComment = pgTable('ncr_comment', {
 
     // Visibility
     isInternal: boolean('is_internal').default(false), // Hidden from supplier
+
+    // Read tracking - stores array of { userId: string, readAt: string, role: string }
+    readBy: jsonb('read_by').$type<{ userId: string; readAt: string; role: string }[]>().default([]),
 });
 
 export const ncrAttachment = pgTable('ncr_attachment', {

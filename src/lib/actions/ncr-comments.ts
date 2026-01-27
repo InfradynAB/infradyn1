@@ -413,3 +413,96 @@ async function sendNCRCommentEmailNotification(context: NCRCommentEmailContext) 
         console.error("[NCR_COMMENT_EMAIL] Failed to send notification:", error);
     }
 }
+
+// ============================================================================
+// READ STATUS MANAGEMENT
+// ============================================================================
+
+interface MarkCommentsAsReadInput {
+    ncrId: string;
+    commentIds: string[];
+    userId: string;
+    userRole: string;
+}
+
+interface ReadByEntry {
+    userId: string;
+    readAt: string;
+    role: string;
+}
+
+/**
+ * Mark comments as read by a user
+ */
+export async function markCommentsAsRead(input: MarkCommentsAsReadInput) {
+    try {
+        const { ncrId, commentIds, userId, userRole } = input;
+
+        // Fetch all comments to update
+        const comments = await db.query.ncrComment.findMany({
+            where: and(
+                eq(ncrComment.ncrId, ncrId),
+            ),
+        });
+
+        // Filter to only comments in the commentIds array and not authored by this user
+        const commentsToUpdate = comments.filter(c => 
+            commentIds.includes(c.id) && c.userId !== userId
+        );
+
+        const readEntry: ReadByEntry = {
+            userId,
+            readAt: new Date().toISOString(),
+            role: userRole,
+        };
+
+        // Update each comment's readBy array
+        for (const comment of commentsToUpdate) {
+            const currentReadBy = (comment.readBy as ReadByEntry[] | null) || [];
+            
+            // Check if user already marked as read
+            if (currentReadBy.some(r => r.userId === userId)) {
+                continue;
+            }
+
+            const updatedReadBy = [...currentReadBy, readEntry];
+
+            await db.update(ncrComment)
+                .set({ readBy: updatedReadBy, updatedAt: new Date() })
+                .where(eq(ncrComment.id, comment.id));
+        }
+
+        return { success: true, data: { markedCount: commentsToUpdate.length } };
+    } catch (error) {
+        console.error("[MARK_COMMENTS_AS_READ]", error);
+        return { success: false, error: error instanceof Error ? error.message : "Failed to mark comments as read" };
+    }
+}
+
+/**
+ * Get unread comment count for a user in an NCR
+ */
+export async function getUnreadCommentCount(ncrId: string, userId: string, includeInternal: boolean = false) {
+    try {
+        const comments = await db.query.ncrComment.findMany({
+            where: includeInternal
+                ? eq(ncrComment.ncrId, ncrId)
+                : and(eq(ncrComment.ncrId, ncrId), eq(ncrComment.isInternal, false)),
+        });
+
+        // Count comments not authored by user and not read by user
+        const unreadCount = comments.filter(comment => {
+            // Skip own comments
+            if (comment.userId === userId) return false;
+            
+            const readBy = (comment.readBy as ReadByEntry[] | null) || [];
+            return !readBy.some(r => r.userId === userId);
+        }).length;
+
+        return { success: true, data: { unreadCount } };
+    } catch (error) {
+        console.error("[GET_UNREAD_COMMENT_COUNT]", error);
+        return { success: false, error: error instanceof Error ? error.message : "Failed to get unread count", data: { unreadCount: 0 } };
+    }
+}
+

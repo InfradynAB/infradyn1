@@ -15,6 +15,13 @@
       "when": 1765550958347,
       "tag": "0001_great_moondragon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1765640000000,
+      "tag": "0002_add_ncr_comment_read_by",
+      "breakpoints": true
     }
   ]
 }

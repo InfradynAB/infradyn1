@@ -188,6 +188,7 @@ export default async function NCRDetailPage({ params }: { params: Promise<{ id: 
                         ncrId={id}
                         canComment={true}
                         userRole={session.user.role || "USER"}
+                        currentUserId={session.user.id}
                     />
                 </div>
             </div>

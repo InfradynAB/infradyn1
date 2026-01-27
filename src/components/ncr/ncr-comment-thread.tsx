@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Send, Paperclip, Mic, Lock, Clock, Image as ImageIcon, FileText, X } from "lucide-react";
+import { Send, Paperclip, Mic, Lock, Clock, Image as ImageIcon, FileText, X, Check, CheckCheck } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { EvidenceUpload } from "./evidence-upload";
 import { VoiceRecorder, VoiceNotePlayer } from "./voice-recorder";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface UploadedFile {
     id: string;
@@ -19,6 +20,12 @@ interface UploadedFile {
     url: string;
     type: string;
     size: number;
+}
+
+interface ReadByEntry {
+    userId: string;
+    readAt: string;
+    role: string;
 }
 
 interface Comment {
@@ -29,13 +36,16 @@ interface Comment {
     voiceNoteUrl: string | null;
     isInternal: boolean | null;
     createdAt: string;
-    user?: { name: string } | null;
+    user?: { name: string; id?: string } | null;
+    userId?: string | null;
+    readBy?: ReadByEntry[] | null;
 }
 
 interface NCRCommentThreadProps {
     ncrId: string;
     canComment?: boolean;
     userRole?: string;
+    currentUserId?: string;
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -62,12 +72,14 @@ function getProxiedUrl(originalUrl: string): string {
     return originalUrl;
 }
 
-export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER" }: NCRCommentThreadProps) {
+export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER", currentUserId }: NCRCommentThreadProps) {
     const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(true);
     const [newComment, setNewComment] = useState("");
     const [isInternal, setIsInternal] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const hasMarkedRead = useRef(false);
 
     // Attachment states
     const [showAttachments, setShowAttachments] = useState(false);
@@ -75,9 +87,76 @@ export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER" }
     const [pendingAttachments, setPendingAttachments] = useState<UploadedFile[]>([]);
     const [pendingVoiceNote, setPendingVoiceNote] = useState<string | null>(null);
 
+    // Check if a comment is read by the current user
+    const isReadByCurrentUser = useCallback((comment: Comment): boolean => {
+        if (!currentUserId) return true; // If no user ID, assume read
+        if (comment.userId === currentUserId) return true; // Own comments are always "read"
+        const readBy = comment.readBy || [];
+        return readBy.some(r => r.userId === currentUserId);
+    }, [currentUserId]);
+
+    // Check if a comment is read by others (for the author to see)
+    const getReadStatus = useCallback((comment: Comment): { isRead: boolean; readBy: ReadByEntry[] } => {
+        const readBy = comment.readBy || [];
+        const othersWhoRead = readBy.filter(r => r.userId !== comment.userId);
+        return {
+            isRead: othersWhoRead.length > 0,
+            readBy: othersWhoRead,
+        };
+    }, []);
+
+    // Mark comments as read
+    const markCommentsAsRead = useCallback(async (commentIds: string[]) => {
+        if (!currentUserId || commentIds.length === 0) return;
+        
+        try {
+            const res = await fetch(`/api/ncr/${ncrId}/comments/read`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ commentIds }),
+            });
+            
+            if (res.ok) {
+                // Update local state to reflect read status
+                setComments(prev => prev.map(comment => {
+                    if (commentIds.includes(comment.id)) {
+                        const currentReadBy = comment.readBy || [];
+                        if (!currentReadBy.some(r => r.userId === currentUserId)) {
+                            return {
+                                ...comment,
+                                readBy: [
+                                    ...currentReadBy,
+                                    { userId: currentUserId, readAt: new Date().toISOString(), role: userRole }
+                                ]
+                            };
+                        }
+                    }
+                    return comment;
+                }));
+                setUnreadCount(0);
+            }
+        } catch (error) {
+            console.error("Failed to mark comments as read:", error);
+        }
+    }, [ncrId, currentUserId, userRole]);
+
     useEffect(() => {
         fetchComments();
     }, [ncrId]);
+
+    // Auto-mark comments as read when component mounts/comments load
+    useEffect(() => {
+        if (!loading && comments.length > 0 && currentUserId && !hasMarkedRead.current) {
+            const unreadCommentIds = comments
+                .filter(c => !isReadByCurrentUser(c))
+                .map(c => c.id);
+            
+            if (unreadCommentIds.length > 0) {
+                hasMarkedRead.current = true;
+                markCommentsAsRead(unreadCommentIds);
+            }
+        }
+    }, [loading, comments, currentUserId, isReadByCurrentUser, markCommentsAsRead]);
 
     const fetchComments = async () => {
         try {
@@ -295,61 +374,108 @@ export function NCRCommentThread({ ncrId, canComment = true, userRole = "USER" }
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        {comments.map((comment) => (
-                            <div key={comment.id} className="flex gap-3">
-                                <Avatar className="h-10 w-10">
-                                    <AvatarFallback className={ROLE_COLORS[comment.authorRole || "USER"]}>
-                                        {comment.user?.name?.[0] || comment.authorRole?.[0] || "?"}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 space-y-1">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="font-medium text-sm">
-                                            {comment.user?.name || comment.authorRole || "Unknown"}
-                                        </span>
-                                        <Badge variant="outline" className="text-xs">
-                                            {comment.authorRole}
-                                        </Badge>
-                                        {comment.isInternal && (
-                                            <Badge variant="secondary" className="text-xs">
-                                                <Lock className="h-2 w-2 mr-1" />
-                                                Internal
+                        {comments.map((comment) => {
+                            const isOwnComment = comment.userId === currentUserId;
+                            const readStatus = getReadStatus(comment);
+                            const isUnread = !isReadByCurrentUser(comment);
+                            
+                            return (
+                                <div 
+                                    key={comment.id} 
+                                    className={`flex gap-3 p-2 rounded-lg transition-colors ${
+                                        isUnread ? "bg-blue-50/50 dark:bg-blue-950/20 border-l-2 border-blue-400" : ""
+                                    }`}
+                                >
+                                    <Avatar className="h-10 w-10">
+                                        <AvatarFallback className={ROLE_COLORS[comment.authorRole || "USER"]}>
+                                            {comment.user?.name?.[0] || comment.authorRole?.[0] || "?"}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 space-y-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-medium text-sm">
+                                                {comment.user?.name || comment.authorRole || "Unknown"}
+                                            </span>
+                                            <Badge variant="outline" className="text-xs">
+                                                {comment.authorRole}
                                             </Badge>
+                                            {comment.isInternal && (
+                                                <Badge variant="secondary" className="text-xs">
+                                                    <Lock className="h-2 w-2 mr-1" />
+                                                    Internal
+                                                </Badge>
+                                            )}
+                                            {isUnread && (
+                                                <Badge variant="default" className="text-xs bg-blue-500 hover:bg-blue-500">
+                                                    New
+                                                </Badge>
+                                            )}
+                                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                                <Clock className="h-3 w-3" />
+                                                {format(new Date(comment.createdAt), "MMM d, h:mm a")}
+                                            </span>
+                                            
+                                            {/* Read status indicator for own messages */}
+                                            {isOwnComment && (
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <span className="flex items-center ml-auto">
+                                                                {readStatus.isRead ? (
+                                                                    <CheckCheck className="h-4 w-4 text-blue-500" />
+                                                                ) : (
+                                                                    <Check className="h-4 w-4 text-muted-foreground" />
+                                                                )}
+                                                            </span>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="left" className="max-w-xs">
+                                                            {readStatus.isRead ? (
+                                                                <div className="space-y-1">
+                                                                    <p className="font-medium">Read by:</p>
+                                                                    {readStatus.readBy.map((r, i) => (
+                                                                        <p key={i} className="text-xs">
+                                                                            {r.role} • {format(new Date(r.readAt), "MMM d, h:mm a")}
+                                                                        </p>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <p>Message sent, awaiting read</p>
+                                                            )}
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            )}
+                                        </div>
+                                        {comment.content && <p className="text-sm">{comment.content}</p>}
+
+                                        {/* Attachments */}
+                                        {comment.attachmentUrls && comment.attachmentUrls.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {comment.attachmentUrls.map((url, i) => (
+                                                    <a
+                                                        key={i}
+                                                        href={getProxiedUrl(url)}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded hover:bg-blue-100"
+                                                    >
+                                                        <Paperclip className="h-3 w-3" />
+                                                        Attachment {i + 1}
+                                                    </a>
+                                                ))}
+                                            </div>
                                         )}
-                                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                            <Clock className="h-3 w-3" />
-                                            {format(new Date(comment.createdAt), "MMM d, h:mm a")}
-                                        </span>
+
+                                        {/* Voice Note */}
+                                        {comment.voiceNoteUrl && (
+                                            <div className="mt-2">
+                                                <VoiceNotePlayer url={comment.voiceNoteUrl} />
+                                            </div>
+                                        )}
                                     </div>
-                                    {comment.content && <p className="text-sm">{comment.content}</p>}
-
-                                    {/* Attachments */}
-                                    {comment.attachmentUrls && comment.attachmentUrls.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 mt-2">
-                                            {comment.attachmentUrls.map((url, i) => (
-                                                <a
-                                                    key={i}
-                                                    href={getProxiedUrl(url)}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded hover:bg-blue-100"
-                                                >
-                                                    <Paperclip className="h-3 w-3" />
-                                                    Attachment {i + 1}
-                                                </a>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Voice Note */}
-                                    {comment.voiceNoteUrl && (
-                                        <div className="mt-2">
-                                            <VoiceNotePlayer url={comment.voiceNoteUrl} />
-                                        </div>
-                                    )}
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </CardContent>
