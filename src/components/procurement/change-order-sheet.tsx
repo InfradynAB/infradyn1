@@ -53,6 +53,8 @@ import {
   CurrencyDollar,
   ListBullets,
   PencilSimple,
+  MagnifyingGlass,
+  X,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -129,6 +131,7 @@ export function ChangeOrderSheet({
 }: ChangeOrderSheetProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Track changes for existing items
   const [itemChanges, setItemChanges] = useState<ItemChange[]>(() =>
@@ -181,6 +184,7 @@ export function ChangeOrderSheet({
         }))
       );
       setNewItems([]);
+      setSearchQuery("");
       form.reset();
     }
   };
@@ -479,20 +483,82 @@ export function ChangeOrderSheet({
                     </Badge>
                   </div>
 
+                  {/* Search Input */}
+                  <div className="relative">
+                    <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by item number or description..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 pr-9 h-10 bg-muted/30 border-muted-foreground/20 focus:bg-background transition-colors"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Search Results Info */}
+                  {searchQuery && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Badge variant="secondary" className="font-normal">
+                        {itemChanges.filter((item) => 
+                          item.itemNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          item.description.toLowerCase().includes(searchQuery.toLowerCase())
+                        ).length} of {itemChanges.length} items
+                      </Badge>
+                      <span className="text-muted-foreground">
+                        matching &quot;{searchQuery}&quot;
+                      </span>
+                    </div>
+                  )}
+
                   <ScrollArea className="max-h-[400px] pr-4">
                     <div className="space-y-2">
-                      {itemChanges.map((item) => (
-                        <BOQItemRow
-                          key={item.id}
-                          item={item}
-                          onUpdate={(updates) => updateItemChange(item.id, updates)}
-                        />
-                      ))}
+                      {itemChanges
+                        .filter((item) => {
+                          if (!searchQuery) return true;
+                          const query = searchQuery.toLowerCase();
+                          return (
+                            item.itemNumber.toLowerCase().includes(query) ||
+                            item.description.toLowerCase().includes(query)
+                          );
+                        })
+                        .map((item) => (
+                          <BOQItemRow
+                            key={item.id}
+                            item={item}
+                            onUpdate={(updates) => updateItemChange(item.id, updates)}
+                            searchQuery={searchQuery}
+                          />
+                        ))}
 
                       {itemChanges.length === 0 && (
                         <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
                           <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
                           <p>No existing BOQ items</p>
+                        </div>
+                      )}
+
+                      {itemChanges.length > 0 && searchQuery && itemChanges.filter((item) => 
+                        item.itemNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        item.description.toLowerCase().includes(searchQuery.toLowerCase())
+                      ).length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                          <MagnifyingGlass className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>No items match &quot;{searchQuery}&quot;</p>
+                          <button 
+                            type="button"
+                            onClick={() => setSearchQuery("")}
+                            className="text-sm text-primary hover:underline mt-1"
+                          >
+                            Clear search
+                          </button>
                         </div>
                       )}
                     </div>
@@ -654,13 +720,36 @@ export function ChangeOrderSheet({
   );
 }
 
+// Helper function to highlight search matches
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query) return <>{text}</>;
+  
+  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+  
+  return (
+    <>
+      {parts.map((part, i) => 
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark key={i} className="bg-yellow-200 dark:bg-yellow-800 rounded px-0.5">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
+
 // Component for existing BOQ item row
 function BOQItemRow({
   item,
   onUpdate,
+  searchQuery = "",
 }: {
   item: ItemChange;
   onUpdate: (updates: Partial<Omit<ItemChange, "id" | "itemNumber" | "description" | "unit" | "originalQty" | "originalPrice" | "maxReduction" | "certifiedQty">>) => void;
+  searchQuery?: string;
 }) {
   const hasChange = item.changeType !== "none";
   const qtyDiff = item.newQty - item.originalQty;
@@ -686,7 +775,7 @@ function BOQItemRow({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="font-mono text-xs shrink-0">
-                {item.itemNumber}
+                <HighlightText text={item.itemNumber} query={searchQuery} />
               </Badge>
               {hasChange && (
                 <Badge
@@ -707,7 +796,9 @@ function BOQItemRow({
                 </Badge>
               )}
             </div>
-            <p className="text-sm font-medium mt-1 line-clamp-2">{item.description}</p>
+            <p className="text-sm font-medium mt-1 line-clamp-2">
+              <HighlightText text={item.description} query={searchQuery} />
+            </p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Unit: {item.unit} | Certified: {item.certifiedQty} | Max Reduction:{" "}
               {item.maxReduction}
