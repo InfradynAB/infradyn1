@@ -368,10 +368,35 @@ export default function ProjectDetailPage() {
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
+                                            {/* Major Currencies */}
                                             <SelectItem value="USD">USD ($)</SelectItem>
                                             <SelectItem value="EUR">EUR (€)</SelectItem>
                                             <SelectItem value="GBP">GBP (£)</SelectItem>
                                             <SelectItem value="KES">KES (Sh)</SelectItem>
+                                            {/* European Currencies */}
+                                            <SelectItem value="CHF">CHF (Fr) - Swiss Franc</SelectItem>
+                                            <SelectItem value="SEK">SEK (kr) - Swedish Krona</SelectItem>
+                                            <SelectItem value="NOK">NOK (kr) - Norwegian Krone</SelectItem>
+                                            <SelectItem value="DKK">DKK (kr) - Danish Krone</SelectItem>
+                                            <SelectItem value="PLN">PLN (zł) - Polish Zloty</SelectItem>
+                                            <SelectItem value="CZK">CZK (Kč) - Czech Koruna</SelectItem>
+                                            <SelectItem value="HUF">HUF (Ft) - Hungarian Forint</SelectItem>
+                                            <SelectItem value="RON">RON (lei) - Romanian Leu</SelectItem>
+                                            <SelectItem value="BGN">BGN (лв) - Bulgarian Lev</SelectItem>
+                                            <SelectItem value="HRK">HRK (kn) - Croatian Kuna</SelectItem>
+                                            <SelectItem value="RSD">RSD (дин) - Serbian Dinar</SelectItem>
+                                            <SelectItem value="UAH">UAH (₴) - Ukrainian Hryvnia</SelectItem>
+                                            <SelectItem value="ISK">ISK (kr) - Icelandic Króna</SelectItem>
+                                            <SelectItem value="TRY">TRY (₺) - Turkish Lira</SelectItem>
+                                            <SelectItem value="RUB">RUB (₽) - Russian Ruble</SelectItem>
+                                            <SelectItem value="GEL">GEL (₾) - Georgian Lari</SelectItem>
+                                            <SelectItem value="AMD">AMD (֏) - Armenian Dram</SelectItem>
+                                            <SelectItem value="AZN">AZN (₼) - Azerbaijani Manat</SelectItem>
+                                            <SelectItem value="MDL">MDL (L) - Moldovan Leu</SelectItem>
+                                            <SelectItem value="ALL">ALL (L) - Albanian Lek</SelectItem>
+                                            <SelectItem value="MKD">MKD (ден) - Macedonian Denar</SelectItem>
+                                            <SelectItem value="BAM">BAM (KM) - Bosnia Mark</SelectItem>
+                                            <SelectItem value="BYN">BYN (Br) - Belarusian Ruble</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
