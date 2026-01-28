@@ -30,6 +30,8 @@ export function InviteClient({
     const [isPending, startTransition] = useTransition();
     const [isLoggedIn, setIsLoggedIn] = useState(initialIsLoggedIn);
     const [isAccepting, setIsAccepting] = useState(false);
+    // Track if auth just succeeded to prevent flash of expired state during redirect
+    const [isAuthenticating, setIsAuthenticating] = useState(false);
 
     const handleAccept = () => {
         startTransition(async () => {
@@ -47,20 +49,55 @@ export function InviteClient({
                 } else {
                     toast.error(result.error || "Failed to accept invitation.");
                     setIsAccepting(false);
+                    setIsAuthenticating(false);
                 }
             } catch (error) {
                 toast.error("Something went wrong. Please try again.");
                 setIsAccepting(false);
+                setIsAuthenticating(false);
             }
         });
     };
 
     // Callback when auth succeeds in the inline form
     const onAuthSuccess = () => {
+        // Set authenticating flag FIRST to prevent flash of expired state
+        setIsAuthenticating(true);
         setIsLoggedIn(true);
         // Automatically try to accept the invite
         handleAccept();
     };
+
+    // Show loading state while authenticating/accepting to prevent flash
+    if (isAuthenticating || isAccepting) {
+        return (
+            <Card className="w-full max-w-md border shadow-lg">
+                <CardHeader className="text-center pb-4">
+                    <div className="flex justify-center mb-4">
+                        <div className="h-14 w-14 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                            <CircleNotch className="h-8 w-8 animate-spin" />
+                        </div>
+                    </div>
+                    <CardTitle className="text-xl">Setting up your workspace...</CardTitle>
+                    <CardDescription>
+                        Please wait while we complete your setup.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 space-y-2">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Organization</span>
+                            <span className="font-medium">{organizationName}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Role</span>
+                            <span className="font-medium capitalize">{role.toLowerCase().replace('_', ' ')}</span>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
 
     // Warning if logged in with wrong email
     const emailMismatch = isLoggedIn && currentUserEmail && currentUserEmail !== inviteEmail;
