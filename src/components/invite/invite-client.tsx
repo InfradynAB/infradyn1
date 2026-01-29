@@ -32,6 +32,8 @@ export function InviteClient({
     const [isAccepting, setIsAccepting] = useState(false);
     // Track if auth just succeeded to prevent flash of expired state during redirect
     const [isAuthenticating, setIsAuthenticating] = useState(false);
+    // Track if we're redirecting to prevent any UI flash
+    const [isRedirecting, setIsRedirecting] = useState(false);
 
     const handleAccept = () => {
         startTransition(async () => {
@@ -39,6 +41,8 @@ export function InviteClient({
                 setIsAccepting(true);
                 const result = await acceptInvitation(token);
                 if (result.success) {
+                    // Set redirecting flag BEFORE the redirect to prevent any flash
+                    setIsRedirecting(true);
                     toast.success("Welcome aboard! Redirecting to your dashboard...");
                     // Use hard redirect to ensure the new active org cookie is read by the server
                     if (result.role === "SUPPLIER") {
@@ -69,7 +73,7 @@ export function InviteClient({
     };
 
     // Show loading state while authenticating/accepting to prevent flash
-    if (isAuthenticating || isAccepting) {
+    if (isAuthenticating || isAccepting || isRedirecting) {
         return (
             <Card className="w-full max-w-md border shadow-lg">
                 <CardHeader className="text-center pb-4">
@@ -117,7 +121,7 @@ export function InviteClient({
                         You&apos;re signed in and ready to accept this invitation.
                     </CardDescription>
                 </CardHeader>
-                
+
                 <CardContent className="space-y-4">
                     {emailMismatch && (
                         <div className="bg-amber-500/10 text-amber-700 dark:text-amber-400 p-4 rounded-xl text-sm border border-amber-500/20 flex items-start gap-3">
@@ -186,7 +190,7 @@ export function InviteClient({
                     Create an account or sign in to accept your invitation
                 </CardDescription>
             </CardHeader>
-            
+
             <CardContent className="pt-4">
                 {/* Invitation info badge */}
                 <div className="mb-6 p-3 bg-muted/40 rounded-xl border flex items-center justify-between">

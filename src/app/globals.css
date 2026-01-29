@@ -72,9 +72,9 @@
   --muted-foreground: #888888;
   /* Grey 500 */
 
-  /* Infra Magenta Accent */
-  --accent: #E14FE3;
-  --accent-foreground: #FFFFFF;
+  /* Neutral Gray Accent */
+  --accent: #F5F5F5;
+  --accent-foreground: #1E1E1E;
 
   --destructive: #FF4F4F;
   /* Danger Red */
@@ -126,8 +126,8 @@
   --muted: #1E2D3D;
   --muted-foreground: #A0A0A0;
 
-  --accent: #E14FE3;
-  --accent-foreground: #FFFFFF;
+  --accent: #1E2D3D;
+  --accent-foreground: #F5F5F5;
 
   --destructive: #FF4F4F;
   --destructive-foreground: #FFFFFF;

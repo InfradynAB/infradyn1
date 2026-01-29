@@ -152,7 +152,7 @@ export function CreateProjectDialog({ organizations }: CreateProjectDialogProps)
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label htmlFor="startDate">Start Date</Label>
-                                <Input id="startDate" name="startDate" type="date" />
+                                <Input id="startDate" name="startDate" type="date" min={new Date().toISOString().split('T')[0]} />
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="endDate">End Date</Label>
