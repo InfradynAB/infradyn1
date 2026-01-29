@@ -323,6 +323,7 @@ Respond ONLY with valid JSON in this exact format:
 Rules:
 - Set fields to null if not found
 - milestones and boqItems should be empty arrays [] if none found
+- **BOQ Filtering**: DO NOT extract any line items that are explicitly marked as "Optional" or "Alternative" in the document. These should be skipped entirely.
 - BOQ item totalPrice should be quantity * unitPrice if not explicitly stated
 - Confidence (0-1) reflects overall extraction quality`;
 
@@ -477,13 +478,41 @@ export async function extractMilestonesFromExcel(buffer: Buffer): Promise<Extrac
  */
 export async function extractMilestonesFromPDF(rawText: string): Promise<ExtractedMilestone[]> {
     try {
+        console.log("[PDF Milestone] Starting extraction, text length:", rawText.length);
+        console.log("[PDF Milestone] Text preview:", rawText.slice(0, 500));
+
+        if (!rawText || rawText.trim().length < 20) {
+            console.warn("[PDF Milestone] Text too short or empty, skipping extraction");
+            return [];
+        }
+
         const systemPrompt = `You are a specialist in extracting payment milestones from construction or procurement documents.
-Extract all payment milestones, delivery stages, or project phases. 
+
+CRITICAL RULES:
+1. Extract PAYMENT milestones only - these are the actual % of contract value to be paid at each stage
+2. The percentages should be INCREMENTAL (per milestone), NOT cumulative progress
+3. All payment percentages should SUM TO 100% (or close to it)
+4. Do NOT extract progress tracking percentages like "25% complete", "50% complete" etc. - those are progress, not payments
+5. Look for payment terms like "35% upon X", "30% at delivery", etc.
+
+Examples of CORRECT extraction:
+- "35% payment upon purchase of material" → {title: "Material Purchase", paymentPercentage: 35}
+- "35% upon production completion" → {title: "Production", paymentPercentage: 35}
+- "30% payment upon delivery" → {title: "Delivery", paymentPercentage: 30}
+- Total: 35 + 35 + 30 = 100% ✓
+
+Examples of WRONG extraction (DO NOT do this):
+- "25% Production Complete" with paymentPercentage: 25 ← WRONG, this is progress, not payment
+- "50% Production Complete" with paymentPercentage: 50 ← WRONG, cumulative progress
+- "75% Production Complete" with paymentPercentage: 75 ← WRONG, cumulative progress
+- "100% Production Complete" with paymentPercentage: 100 ← WRONG, completion status
+
+Extract only PAYMENT milestones with their payment percentage.
 Each milestone should have:
-- title: Name of the milestone
+- title: A short descriptive name for the payment milestone
 - description: Brief description (optional)
-- expectedDate: Date in YYYY-MM-DD format (optional)
-- paymentPercentage: Payment % for this milestone (number)
+- expectedDate: Date in YYYY-MM-DD format if mentioned (optional)
+- paymentPercentage: The payment % for this milestone (must be incremental, not cumulative)
 
 Respond ONLY with valid JSON in this exact format:
 {
@@ -492,26 +521,34 @@ Respond ONLY with valid JSON in this exact format:
   ]
 }
 
-Ensure the percentages sum up to or represent the total contract value.`;
+The sum of all paymentPercentage values should equal or be close to 100%.`;
 
         const response = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
                 { role: "system", content: systemPrompt },
-                { role: "user", content: `Extract milestones from this text:\n\n${rawText.slice(0, 15000)}` },
+                { role: "user", content: `Extract ALL payment milestones from this document text. Look for any percentages associated with payments:\n\n${rawText.slice(0, 15000)}` },
             ],
             temperature: 0,
             response_format: { type: "json_object" },
         });
 
         const content = response.choices[0]?.message?.content;
-        if (!content) return [];
+        console.log("[PDF Milestone] GPT response:", content);
+
+        if (!content) {
+            console.warn("[PDF Milestone] No response from GPT");
+            return [];
+        }
 
         const parsed = JSON.parse(content);
-        return (parsed.milestones || []).map((m: any) => ({
+        const milestones = (parsed.milestones || []).map((m: any) => ({
             ...m,
             paymentPercentage: Number(m.paymentPercentage) || 0
         }));
+
+        console.log("[PDF Milestone] Extracted milestones count:", milestones.length);
+        return milestones;
     } catch (error) {
         console.error("[PDF Milestone GPT] Error:", error);
         return [];
@@ -524,30 +561,43 @@ Ensure the percentages sum up to or represent the total contract value.`;
 export async function extractMilestonesFromS3(fileUrl: string): Promise<{ success: boolean; milestones: ExtractedMilestone[]; error?: string }> {
     try {
         const key = extractS3KeyFromUrl(fileUrl);
+        console.log("[extractMilestonesFromS3] Processing file:", key);
+
         if (!key) return { success: false, milestones: [], error: "Invalid S3 URL" };
 
         const extension = key.split('.').pop()?.toLowerCase();
+        console.log("[extractMilestonesFromS3] File extension:", extension);
 
         // Excel files
         if (extension === 'xlsx' || extension === 'xls' || extension === 'csv') {
+            console.log("[extractMilestonesFromS3] Processing as Excel file");
             const buffer = await getFileBuffer(key);
             const milestones = await extractMilestonesFromExcel(buffer);
+            console.log("[extractMilestonesFromS3] Excel milestones extracted:", milestones.length);
+            if (milestones.length === 0) {
+                return { success: false, milestones: [], error: "No payment milestones found in Excel file" };
+            }
             return { success: true, milestones };
         }
 
         // Word documents
         if (extension === 'doc' || extension === 'docx') {
-            console.log("[extractMilestonesFromS3] Detected Word document");
+            console.log("[extractMilestonesFromS3] Processing as Word document");
             const buffer = await getFileBuffer(key);
             const wordResult = await extractTextFromWord(buffer);
             if (!wordResult.success || !wordResult.text) {
-                return { success: false, milestones: [], error: wordResult.error };
+                return { success: false, milestones: [], error: wordResult.error || "Failed to extract text from Word document" };
             }
+            console.log("[extractMilestonesFromS3] Word text extracted, length:", wordResult.text.length);
             const milestones = await extractMilestonesFromPDF(wordResult.text);
+            if (milestones.length === 0) {
+                return { success: false, milestones: [], error: "No payment milestones found in document content" };
+            }
             return { success: true, milestones };
         }
 
         // PDF/Image - use Textract + GPT
+        console.log("[extractMilestonesFromS3] Processing as PDF/Image with Textract");
         const urlPattern = /https:\/\/([^.]+)\.s3\.([^.]+)\.amazonaws\.com\/(.+)/;
         const match = fileUrl.match(urlPattern);
         if (!match) return { success: false, milestones: [], error: "Invalid S3 URL format" };
@@ -556,15 +606,27 @@ export async function extractMilestonesFromS3(fileUrl: string): Promise<{ succes
         const decodedKey = decodeURIComponent(s3Key);
 
         const textractResult = await extractTextWithTextract(bucket, decodedKey);
+        console.log("[extractMilestonesFromS3] Textract result:", {
+            success: textractResult.success,
+            textLength: textractResult.text?.length || 0,
+            error: textractResult.error
+        });
+
         if (!textractResult.success || !textractResult.text) {
-            return { success: false, milestones: [], error: textractResult.error };
+            return { success: false, milestones: [], error: textractResult.error || "No text extracted from document" };
         }
 
         const milestones = await extractMilestonesFromPDF(textractResult.text);
+        console.log("[extractMilestonesFromS3] Final milestones count:", milestones.length);
+
+        if (milestones.length === 0) {
+            return { success: false, milestones: [], error: "No payment milestones found in document content" };
+        }
+
         return { success: true, milestones };
     } catch (error) {
         console.error("[extractMilestonesFromS3] Error:", error);
-        return { success: false, milestones: [], error: "Extraction failed" };
+        return { success: false, milestones: [], error: error instanceof Error ? error.message : "Extraction failed" };
     }
 }
 

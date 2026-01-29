@@ -166,6 +166,8 @@ export function importBOQItems(
         const description = extractCellValue(row[columnMap.description], "string");
         if (!description) continue; // Skip rows without description
 
+        // Skip optional items
+        if (description.toLowerCase().startsWith("optional")) continue;
         const itemNumber = extractCellValue(row[columnMap.itemNumber], "string") || String(items.length + 1);
         const unit = extractCellValue(row[columnMap.unit], "string") || "EA";
         const quantity = extractCellValue(row[columnMap.quantity], "number") || 0;

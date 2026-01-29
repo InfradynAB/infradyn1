@@ -293,6 +293,19 @@ export default function POWizard({
                         sequenceOrder: i,
                     })));
                     toast.success(`Extracted ${msResult.milestones.length} milestones from document`);
+                } else if (milestoneDoc?.fileUrl) {
+                    // User uploaded a milestone doc but extraction failed
+                    console.warn("[PO Wizard] Milestone document extraction failed:", msResult?.error);
+                    toast.warning("Could not extract milestones from uploaded document", {
+                        description: msResult?.error || "Try using Import on the Milestones step with an Excel file"
+                    });
+                    // Still fall back to PO milestones if available
+                    if (data.milestones?.length > 0) {
+                        setMilestones(data.milestones.map((m: any, i: number) => ({
+                            ...m,
+                            sequenceOrder: i,
+                        })));
+                    }
                 } else if (data.milestones?.length > 0) {
                     setMilestones(data.milestones.map((m: any, i: number) => ({
                         ...m,
@@ -434,6 +447,23 @@ export default function POWizard({
             }
             if (!totalValue || totalValue <= 0) {
                 toast.error("Please enter a valid total value");
+                return;
+            }
+        }
+
+        // Step 3 validation: Milestones must total exactly 100% (or be empty)
+        if (currentStep === "milestones") {
+            const totalPercentage = milestones.reduce((sum, m) => sum + (m.paymentPercentage || 0), 0);
+            if (milestones.length > 0 && totalPercentage !== 100) {
+                if (totalPercentage > 100) {
+                    toast.error(`Milestone percentages total ${totalPercentage}% - must equal 100%`, {
+                        description: "Please adjust the payment percentages before proceeding."
+                    });
+                } else {
+                    toast.error(`Milestone percentages total ${totalPercentage}% - must equal 100%`, {
+                        description: `Missing ${100 - totalPercentage}% allocation.`
+                    });
+                }
                 return;
             }
         }
