@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Clock, TrendingUp, ExternalLink } from "lucide-react";
+import { HelpTooltip, TOOLTIPS } from "@/components/ui/help-tooltip";
 
 interface NCRDashboardData {
     total: number;
@@ -64,15 +65,20 @@ export function NCRDashboardWidget() {
         return (
             <Card>
                 <CardHeader className="pb-2">
-                    <CardTitle className="text-lg flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                         <AlertTriangle className="h-5 w-5 text-muted-foreground" />
-                        Quality Overview
-                    </CardTitle>
+                        <CardTitle className="text-lg">Quality Overview</CardTitle>
+                        <HelpTooltip content={TOOLTIPS.ncr} />
+                    </div>
+                    <CardDescription>
+                        Track quality issues with materials or work
+                    </CardDescription>
                 </CardHeader>
-                <CardContent className="text-center py-6">
-                    <p className="text-muted-foreground">No NCRs recorded yet</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                        NCRs will appear here when created from purchase orders
+                <CardContent className="text-center py-8">
+                    <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-2 opacity-20" />
+                    <p className="text-sm font-medium text-muted-foreground">No NCRs recorded yet</p>
+                    <p className="text-xs text-muted-foreground mt-2 max-w-md mx-auto">
+                        Non-Conformance Reports (NCRs) help track when materials or work don&apos;t meet quality standards. They&apos;ll appear here when created from purchase orders.
                     </p>
                 </CardContent>
             </Card>
@@ -83,16 +89,20 @@ export function NCRDashboardWidget() {
         <Card>
             <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        <AlertTriangle className="h-5 w-5" />
-                        Quality Overview
-                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-amber-500" />
+                        <CardTitle className="text-lg">Quality Overview</CardTitle>
+                        <HelpTooltip content={TOOLTIPS.ncr} />
+                    </div>
                     {data.criticalOpen > 0 && (
                         <Badge variant="destructive" className="animate-pulse">
-                            {data.criticalOpen} Critical
+                            {data.criticalOpen} Critical Issue{data.criticalOpen !== 1 ? 's' : ''}
                         </Badge>
                     )}
                 </div>
+                <CardDescription>
+                    Track and resolve quality issues across your projects
+                </CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="grid gap-4 md:grid-cols-4">

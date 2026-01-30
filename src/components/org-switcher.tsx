@@ -40,7 +40,7 @@ export function OrgSwitcher({ organizations, activeOrgId }: OrgSwitcherProps) {
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
 
-    const activeOrg = organizations.find(org => org.id === activeOrgId) || organizations[0];
+    const activeOrg = organizations.find(org => org.id === activeOrgId) || (organizations.length > 0 ? organizations[0] : null);
 
     const handleSwitch = (orgId: string) => {
         if (orgId === activeOrgId) {
@@ -81,12 +81,14 @@ export function OrgSwitcher({ organizations, activeOrgId }: OrgSwitcherProps) {
                     disabled={isPending}
                 >
                     <div className="flex items-center gap-2 truncate">
-                        <Avatar className="h-5 w-5">
-                            <AvatarImage src={activeOrg?.logo || undefined} alt={activeOrg?.name} />
-                            <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                                {activeOrg?.name?.slice(0, 2).toUpperCase() || "??"}
-                            </AvatarFallback>
-                        </Avatar>
+                        {activeOrg && (
+                            <Avatar className="h-5 w-5">
+                                <AvatarImage src={activeOrg.logo || undefined} alt={activeOrg.name} />
+                                <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                    {activeOrg.name.slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                            </Avatar>
+                        )}
                         <span className="truncate">{activeOrg?.name || "Select organization"}</span>
                     </div>
                     <CaretUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />

@@ -25,14 +25,61 @@ import { PlusIcon, FileTextIcon, ArrowRightIcon } from "@phosphor-icons/react/di
 import { formatDistanceToNow } from "date-fns";
 import { ProgressDashboard } from "@/components/procurement/progress-dashboard";
 import { NCRDashboardWidget } from "@/components/procurement/ncr-dashboard-widget";
+import { QuickActions } from "@/components/procurement/quick-actions";
+import { AttentionStrip } from "@/components/procurement/attention-strip";
+import { cn } from "@/lib/utils";
 
-// Status badge color mapping
+// Status badge color mapping with visual indicators
 const statusColors: Record<string, string> = {
-    DRAFT: "bg-gray-100 text-gray-700",
-    ACTIVE: "bg-green-100 text-green-700",
-    COMPLETED: "bg-blue-100 text-blue-700",
-    CANCELLED: "bg-red-100 text-red-700",
+    DRAFT: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 border-yellow-200",
+    ACTIVE: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-green-200",
+    COMPLETED: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 border-blue-200",
+    CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 border-red-200",
 };
+
+const statusIcons: Record<string, string> = {
+    DRAFT: "🟡",
+    ACTIVE: "🟢",
+    COMPLETED: "🔵",
+    CANCELLED: "🔴",
+};
+
+const statusLabels: Record<string, string> = {
+    DRAFT: "Draft",
+    ACTIVE: "Active",
+    COMPLETED: "Completed",
+    CANCELLED: "Cancelled",
+};
+
+// Get primary action for each PO status
+function getPrimaryAction(status: string, poId: string, poNumber: string) {
+    switch (status) {
+        case "DRAFT":
+            return {
+                label: "Submit PO",
+                href: `/dashboard/procurement/${poId}/submit`,
+                variant: "default" as const,
+            };
+        case "ACTIVE":
+            return {
+                label: "Track Progress",
+                href: `/dashboard/procurement/${poId}#milestones`,
+                variant: "outline" as const,
+            };
+        case "COMPLETED":
+            return {
+                label: "View Summary",
+                href: `/dashboard/procurement/${poId}`,
+                variant: "ghost" as const,
+            };
+        default:
+            return {
+                label: "View Details",
+                href: `/dashboard/procurement/${poId}`,
+                variant: "outline" as const,
+            };
+    }
+}
 
 // Loading skeleton
 function POTableSkeleton() {
@@ -51,21 +98,34 @@ function POTableSkeleton() {
 // Empty state
 function EmptyState() {
     return (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-full bg-muted p-4 mb-4">
-                <FileTextIcon className="h-8 w-8 text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+            <div className="rounded-full bg-primary/10 p-6 mb-4">
+                <FileTextIcon className="h-12 w-12 text-primary" weight="duotone" />
             </div>
-            <h3 className="text-lg font-semibold mb-1">No Purchase Orders</h3>
-            <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-                Get started by creating your first purchase order to track
-                materials and suppliers.
+            <h3 className="text-xl font-semibold mb-2">No Purchase Orders Yet</h3>
+            <p className="text-sm text-muted-foreground mb-6 max-w-md">
+                Purchase orders help you track materials, manage suppliers, and control project costs. 
+                Get started by creating your first one.
             </p>
-            <Button asChild>
-                <Link href="/dashboard/procurement/new">
-                    <PlusIcon className="mr-2 h-4 w-4" />
-                    Create First PO
-                </Link>
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3">
+                <Button asChild size="lg">
+                    <Link href="/dashboard/procurement/new">
+                        <PlusIcon className="mr-2 h-5 w-5" />
+                        Create First Purchase Order
+                    </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg">
+                    <Link href="/dashboard/settings/suppliers">
+                        <FileTextIcon className="mr-2 h-5 w-5" />
+                        Add Suppliers First
+                    </Link>
+                </Button>
+            </div>
+            <div className="mt-8 p-4 bg-muted/50 rounded-lg max-w-md">
+                <p className="text-xs text-muted-foreground">
+                    💡 <strong>Tip:</strong> You can upload existing PO documents and our AI will extract the details automatically
+                </p>
+            </div>
         </div>
     );
 }
@@ -91,58 +151,83 @@ async function POList() {
     }
 
     return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>PO Number</TableHead>
-                    <TableHead>Project</TableHead>
-                    <TableHead>Supplier</TableHead>
-                    <TableHead className="text-right">Value</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Updated</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {purchaseOrders.map((po: any) => (
-                    <TableRow key={po.id} className="group">
-                        <TableCell className="font-medium">
-                            <Link
-                                href={`/dashboard/procurement/${po.id}`}
-                                className="hover:underline text-primary"
-                            >
-                                {po.poNumber}
-                            </Link>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                            {po.project?.name || "—"}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                            {po.supplier?.name || "—"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
-                            {po.currency} {Number(po.totalValue ?? 0).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                            <Badge
-                                variant="secondary"
-                                className={statusColors[po.status] || ""}
-                            >
-                                {po.status}
-                            </Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
-                            {formatDistanceToNow(new Date(po.updatedAt), {
-                                addSuffix: true,
-                            })}
-                        </TableCell>
-                        <TableCell className="text-right">
-                            <POActions poId={po.id} poNumber={po.poNumber} />
-                        </TableCell>
+        <div className="rounded-lg border">
+            <Table>
+                <TableHeader>
+                    <TableRow className="bg-muted/50">
+                        <TableHead className="font-semibold">PO Number</TableHead>
+                        <TableHead className="font-semibold">Project</TableHead>
+                        <TableHead className="font-semibold">Supplier</TableHead>
+                        <TableHead className="text-right font-semibold">Value</TableHead>
+                        <TableHead className="font-semibold">Status</TableHead>
+                        <TableHead className="font-semibold">Last Activity</TableHead>
+                        <TableHead className="text-right font-semibold">Actions</TableHead>
                     </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+                </TableHeader>
+                <TableBody>
+                    {purchaseOrders.map((po: any) => (
+                        <TableRow key={po.id} className="group hover:bg-muted/50 transition-colors">
+                            <TableCell className="font-medium">
+                                <Link
+                                    href={`/dashboard/procurement/${po.id}`}
+                                    className="hover:underline text-primary font-semibold flex items-center gap-2"
+                                >
+                                    {po.poNumber}
+                                    <ArrowRightIcon className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </Link>
+                            </TableCell>
+                            <TableCell>
+                                <div className="flex items-center gap-2">
+                                    <div className="h-2 w-2 rounded-full bg-blue-500" />
+                                    <span className="text-foreground">{po.project?.name || "—"}</span>
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <span className="text-foreground">{po.supplier?.name || "—"}</span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <div className="font-mono font-semibold">
+                                    {po.currency} {Number(po.totalValue ?? 0).toLocaleString()}
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <Badge
+                                    variant="secondary"
+                                    className={cn("border", statusColors[po.status] || "")}
+                                >
+                                    <span className="mr-1">{statusIcons[po.status]}</span>
+                                    {statusLabels[po.status] || po.status}
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-sm">
+                                {formatDistanceToNow(new Date(po.updatedAt), {
+                                    addSuffix: true,
+                                })}
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                    {(() => {
+                                        const action = getPrimaryAction(po.status, po.id, po.poNumber);
+                                        return (
+                                            <Button
+                                                asChild
+                                                variant={action.variant}
+                                                size="sm"
+                                            >
+                                                <Link href={action.href}>
+                                                    {action.label}
+                                                </Link>
+                                            </Button>
+                                        );
+                                    })()}
+                                    <POActions poId={po.id} poNumber={po.poNumber} />
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
     );
 }
 
@@ -159,30 +244,36 @@ export default async function ProcurementPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
                         Procurement
                     </h1>
-                    <p className="text-muted-foreground">
+                    <p className="text-muted-foreground mt-1">
                         Manage purchase orders and track materials
                     </p>
                 </div>
-                <Button asChild>
+                <Button asChild size="lg" className="sm:w-auto w-full">
                     <Link href="/dashboard/procurement/new">
-                        <PlusIcon className="mr-2 h-4 w-4" />
+                        <PlusIcon className="mr-2 h-5 w-5" />
                         New Purchase Order
                     </Link>
                 </Button>
             </div>
 
-            {/* Phase 5: Progress Dashboard Overview */}
+            {/* 1️⃣ ATTENTION STRIP - What needs action NOW */}
+            <AttentionStrip />
+
+            {/* 2️⃣ FINANCIAL SNAPSHOT */}
             <ProgressDashboard />
 
-            {/* Phase 7: NCR/Quality Overview */}
+            {/* 3️⃣ QUICK ACTIONS */}
+            <QuickActions />
+
+            {/* 4️⃣ QUALITY OVERVIEW */}
             <NCRDashboardWidget />
 
-            {/* PO List Card */}
+            {/* 5️⃣ ACTIVE PURCHASE ORDERS */}
             <Card>
                 <CardHeader>
                     <CardTitle>Purchase Orders</CardTitle>
