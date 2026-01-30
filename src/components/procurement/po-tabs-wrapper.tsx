@@ -26,7 +26,7 @@ interface POTabsWrapperProps {
 }
 
 const secondaryTabs = [
-    { id: "progress", label: "Deliveries", icon: ChartLineUp },
+    { id: "change-orders", label: "Change Orders", icon: ArrowsClockwise },
     { id: "gallery", label: "Documents", icon: Images },
     { id: "quality", label: "Quality / NCR", icon: AlertTriangle },
     { id: "history", label: "History", icon: ClockCounterClockwise },
@@ -52,9 +52,9 @@ export function POTabsWrapper({ children, defaultTab = "overview" }: POTabsWrapp
                         <Receipt className="h-4 w-4" />
                         Invoices
                     </TabsTrigger>
-                    <TabsTrigger value="change-orders" className={cn(tabTriggerStyles, "gap-1.5")}>
-                        <ArrowsClockwise className="h-4 w-4" />
-                        Change Orders
+                    <TabsTrigger value="progress" className={cn(tabTriggerStyles, "gap-1.5")}>
+                        <ChartLineUp className="h-4 w-4" />
+                        Deliveries
                     </TabsTrigger>
                     <TabsTrigger value="boq" className={tabTriggerStyles}>
                         BOQ / Scope
