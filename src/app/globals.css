@@ -50,54 +50,58 @@
   /* Base Light Theme */
   --background: #F5F5F5;
   /* Grey 100 */
-  --foreground: #1E1E1E;
-  /* Grey 900 */
+  --foreground: #1E293B;
+  /* Deep Navy */
 
   --card: #FFFFFF;
-  --card-foreground: #1E1E1E;
+  --card-foreground: #1E293B;
 
   --popover: #FFFFFF;
-  --popover-foreground: #1E1E1E;
+  --popover-foreground: #1E293B;
 
-  /* Infra Green Primary */
-  --primary: #0F6157;
+  /* Deep Navy Primary - Infradyn Design System */
+  --primary: #1E293B;
   --primary-foreground: #FFFFFF;
 
   /* Secondary / Muted */
   --secondary: #DDDDDD;
   /* Grey 300 */
-  --secondary-foreground: #1E1E1E;
+  --secondary-foreground: #1E293B;
 
   --muted: #F5F5F5;
-  --muted-foreground: #888888;
-  /* Grey 500 */
+  --muted-foreground: #64748B;
+  /* Slate 500 */
 
   /* Neutral Gray Accent */
   --accent: #F5F5F5;
-  --accent-foreground: #1E1E1E;
+  --accent-foreground: #1E293B;
 
-  --destructive: #FF4F4F;
-  /* Danger Red */
+  /* Emerald Green for Success States */
+  --success: #059669;
+  --success-foreground: #FFFFFF;
+
+  /* Crimson Red for Critical Actions */
+  --destructive: #DC2626;
   --destructive-foreground: #FFFFFF;
 
-  --border: #DDDDDD;
-  /* Grey 300 */
-  --input: #DDDDDD;
-  --ring: #0F6157;
-  /* Infra Green Ring */
+  --border: #E2E8F0;
+  /* Slate 200 */
+  --input: #E2E8F0;
+  --ring: #1E293B;
+  /* Deep Navy Ring */
 
-  --chart-1: #0F6157;
-  --chart-2: #E14FE3;
-  --chart-3: #0A1C27;
-  --chart-4: #FFC107;
-  --chart-5: #FF4F4F;
+  --chart-1: #1E293B;
+  --chart-2: #059669;
+  --chart-3: #DC2626;
+  --chart-4: #F59E0B;
+  --chart-5: #8B5CF6;
 
   /* Sidebar - Light Mode */
-  --sidebar: #F5F5F5;
-  --sidebar-foreground: #1E1E1E;
-  --sidebar-primary: #0F6157;
+  --sidebar: #F8FAFC;
+  --sidebar-foreground: #1E293B;
+  --sidebar-primary: #1E293B;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #E5E5E5;
+  --sidebar-accent: #F1F5F9;
   --sidebar-accent-foreground: #1E1E1E;
   --sidebar-border: #DDDDDD;
   --sidebar-ring: #0F6157;

@@ -37,7 +37,14 @@ const actionConfig: Record<string, { icon: React.ReactNode; color: string; label
 };
 
 export async function AuditLogTimeline({ purchaseOrderId }: AuditLogTimelineProps) {
-    const result = await getPOAuditLogs(purchaseOrderId);
+    let result;
+    
+    try {
+        result = await getPOAuditLogs(purchaseOrderId);
+    } catch (error) {
+        console.error("[AuditLogTimeline] Failed to load audit logs:", error);
+        result = { success: false, error: "Failed to load activity log" };
+    }
 
     if (!result.success || !result.data || result.data.length === 0) {
         return (
@@ -48,9 +55,21 @@ export async function AuditLogTimeline({ purchaseOrderId }: AuditLogTimelineProp
                         Activity Log
                     </CardTitle>
                     <CardDescription>
-                        No activity recorded yet
+                        {result.error ? (
+                            <span className="text-amber-600">
+                                ⚠️ Activity log is currently unavailable. Please run database migrations.
+                            </span>
+                        ) : (
+                            "Recent activity on this purchase order"
+                        )}
                     </CardDescription>
                 </CardHeader>
+                <CardContent>
+                    <div className="text-center py-8 text-muted-foreground">
+                        <ClockCounterClockwise className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                        <p>{result.error || "No activity recorded yet"}</p>
+                    </div>
+                </CardContent>
             </Card>
         );
     }

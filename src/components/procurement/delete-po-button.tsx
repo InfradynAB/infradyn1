@@ -52,7 +52,11 @@ export function DeletePOButton({ poId, poNumber }: DeletePOButtonProps) {
 
     return (
         <>
-            <Button variant="destructive" onClick={() => setIsOpen(true)}>
+            <Button
+                variant="ghost"
+                onClick={() => setIsOpen(true)}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
                 <TrashIcon className="mr-2 h-4 w-4" />
                 Delete PO
             </Button>

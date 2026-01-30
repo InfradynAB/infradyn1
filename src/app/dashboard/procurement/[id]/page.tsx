@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
+import { cn } from "@/lib/utils";
 import { getPurchaseOrder } from "@/lib/actions/procurement";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +13,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TabsContent } from "@/components/ui/tabs";
 import {
     Table,
     TableBody,
@@ -32,6 +33,9 @@ import {
     ChartLineUpIcon,
     ImagesIcon,
     WarningCircleIcon,
+    BuildingsIcon,
+    CalendarIcon,
+    TruckIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { format } from "date-fns";
 import { UploadVersionDialog } from "@/components/procurement/upload-version-dialog";
@@ -71,13 +75,16 @@ import { MilestoneInvoiceStatus } from "@/components/procurement/milestone-invoi
 // Phase 7: NCR/Quality imports
 import { POQualityTab } from "@/components/procurement/po-quality-tab";
 import { AlertTriangle } from "lucide-react";
+import { PizzaTrackerProgress } from "@/components/ui/pizza-tracker-progress";
+import { POTabsWrapper } from "@/components/procurement/po-tabs-wrapper";
 
-// Status badge colors
-const statusColors: Record<string, string> = {
-    DRAFT: "bg-gray-100 text-gray-700",
-    ACTIVE: "bg-green-100 text-green-700",
-    COMPLETED: "bg-blue-100 text-blue-700",
-    CANCELLED: "bg-red-100 text-red-700",
+// Status badge colors and icons - Infradyn Design System
+const statusConfig: Record<string, { color: string; icon: string; label: string }> = {
+    DRAFT: { color: "bg-slate-700 text-white border-slate-800", icon: "🟡", label: "Draft" },
+    SUBMITTED: { color: "bg-[#1E293B] text-white border-[#1E293B]", icon: "🔵", label: "Submitted" },
+    ACTIVE: { color: "bg-emerald-600 text-white border-emerald-700", icon: "🟢", label: "Approved" },
+    COMPLETED: { color: "bg-slate-500 text-white border-slate-600", icon: "⚪", label: "Closed" },
+    CANCELLED: { color: "bg-red-600 text-white border-red-700", icon: "🔴", label: "Cancelled" },
 };
 
 interface PageProps {
@@ -158,29 +165,54 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
 
     return (
         <div className="space-y-6">
-            {/* Header */}
+            {/* Hero Header - Ticket Layout */}
             <div className="flex items-start justify-between">
-                <div className="flex items-center gap-4">
+                <div className="flex items-start gap-4">
                     <Button variant="ghost" size="icon" asChild>
                         <Link href="/dashboard/procurement">
                             <ArrowLeftIcon className="h-4 w-4" />
                         </Link>
                     </Button>
-                    <div>
+                    <div className="space-y-3">
+                        {/* Total Value - Large & Bold */}
+                        <div>
+                            <p className="text-sm font-medium text-muted-foreground mb-1">Total Value</p>
+                            <p className="text-5xl font-bold tracking-tight" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+                                {po.currency} {Number(po.totalValue ?? 0).toLocaleString()}
+                            </p>
+                        </div>
+                        
+                        {/* PO Number + Status */}
                         <div className="flex items-center gap-3">
-                            <h1 className="text-2xl font-bold tracking-tight">
+                            <h2 className="text-2xl font-semibold tracking-tight text-[#1E293B]">
                                 {po.poNumber}
-                            </h1>
+                            </h2>
                             <Badge
-                                variant="secondary"
-                                className={statusColors[po.status] || ""}
+                                className={cn(
+                                    "text-sm px-3 py-1 font-semibold shadow-sm",
+                                    statusConfig[po.status]?.color || "bg-gray-100"
+                                )}
                             >
-                                {po.status}
+                                <span className="mr-1.5">{statusConfig[po.status]?.icon || "⚪"}</span>
+                                {statusConfig[po.status]?.label || po.status}
                             </Badge>
                         </div>
-                        <p className="text-muted-foreground">
-                            {(po as any).project?.name} • {(po as any).supplier?.name}
-                        </p>
+
+                        {/* Ticket-Style Icon Row */}
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1.5">
+                                <BuildingsIcon className="h-4 w-4" />
+                                <span>{(po as any).project?.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <TruckIcon className="h-4 w-4" />
+                                <span>{(po as any).supplier?.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <CalendarIcon className="h-4 w-4" />
+                                <span>{format(new Date(po.createdAt), "MMM d, yyyy")}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div className="flex gap-2">
@@ -212,9 +244,10 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                 </div>
             </div>
 
-            {/* Summary Cards - Phase 5 Enhanced */}
-            <div className="grid gap-4 md:grid-cols-5">
-                <Card>
+            {/* Summary Cards - Enhanced for Construction Workers */}
+            <div className="grid gap-4 md:grid-cols-4">
+                {/* Total Value Card - Show Original + CO Impact */}
+                <Card className="border-l-4 border-l-primary">
                     <CardHeader className="pb-2">
                         <CardDescription>Total Value</CardDescription>
                     </CardHeader>
@@ -223,27 +256,47 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                             {po.currency}{" "}
                             {Number(po.totalValue ?? 0).toLocaleString()}
                         </div>
+                        {coImpact.totalCostImpact !== 0 && (
+                            <div className="mt-2 text-xs space-y-0.5">
+                                <p className="text-muted-foreground">
+                                    Original: {po.currency} {(Number(po.totalValue) - coImpact.totalCostImpact).toLocaleString()}
+                                </p>
+                                <p className={coImpact.totalCostImpact > 0 ? "text-orange-600 font-medium" : "text-green-600 font-medium"}>
+                                    Approved COs: {coImpact.totalCostImpact >= 0 ? "+" : ""}{po.currency} {coImpact.totalCostImpact.toLocaleString()}
+                                </p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
-                <Card>
+
+                {/* Paid Card - With Progress Bar */}
+                {/* Paid Card - Pizza Tracker Style */}
+                <Card className="border-l-4 border-l-emerald-600">
                     <CardHeader className="pb-2">
                         <CardDescription className="flex items-center gap-1">
-                            <CheckCircle className="h-3 w-3 text-green-500" />
+                            <CheckCircle className="h-3 w-3 text-emerald-600" />
                             Paid
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold font-mono text-green-600">
+                        <div className="text-2xl font-bold font-mono text-emerald-600">
                             {po.currency} {paymentSummary.totalPaid.toLocaleString()}
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                            {Number(po.totalValue) > 0
-                                ? ((paymentSummary.totalPaid / Number(po.totalValue)) * 100).toFixed(0)
-                                : 0}% of total
-                        </p>
+                        {Number(po.totalValue) > 0 && (
+                            <div className="mt-3">
+                                <PizzaTrackerProgress
+                                    value={(paymentSummary.totalPaid / Number(po.totalValue)) * 100}
+                                    currency={po.currency}
+                                    paid={paymentSummary.totalPaid}
+                                    total={Number(po.totalValue)}
+                                />
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
-                <Card className={paymentSummary.totalOverdue > 0 ? "border-red-300" : ""}>
+
+                {/* Pending Card - With Action Link */}
+                <Card className={`border-l-4 ${paymentSummary.totalPending > 0 ? "border-l-amber-500" : "border-l-gray-300"}`}>
                     <CardHeader className="pb-2">
                         <CardDescription className="flex items-center gap-1">
                             <Warning className="h-3 w-3 text-amber-500" />
@@ -255,13 +308,29 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                             {po.currency} {paymentSummary.totalPending.toLocaleString()}
                         </div>
                         {paymentSummary.totalOverdue > 0 && (
-                            <p className="text-xs text-red-500">
-                                ${paymentSummary.totalOverdue.toLocaleString()} overdue
+                            <p className="text-xs text-red-500 mt-1">
+                                {po.currency} {paymentSummary.totalOverdue.toLocaleString()} overdue
+                            </p>
+                        )}
+                        {paymentSummary.totalPending > 0 && (
+                            <a 
+                                href="#financials" 
+                                className="text-xs text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300 mt-2 inline-flex items-center gap-1 font-medium hover:underline"
+                            >
+                                → Review Invoices
+                            </a>
+                        )}
+                        {paymentSummary.totalPending === 0 && (
+                            <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                                <CheckCircle className="h-3 w-3" />
+                                All caught up
                             </p>
                         )}
                     </CardContent>
                 </Card>
-                <Card>
+
+                {/* Change Orders Card - With Impact Summary */}
+                <Card className={`border-l-4 ${coImpact.pendingCOs > 0 ? "border-l-orange-500" : "border-l-gray-300"}`}>
                     <CardHeader className="pb-2">
                         <CardDescription className="flex items-center gap-1">
                             <ArrowsClockwise className="h-3 w-3" />
@@ -272,59 +341,36 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                         <div className="text-2xl font-bold">
                             {coImpact.totalCOs}
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                            {coImpact.pendingCOs > 0
-                                ? `${coImpact.pendingCOs} pending review`
-                                : "All processed"}
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>Version</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            v{latestVersion?.versionNumber || 1}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            {format(new Date(po.updatedAt), "MMM d")}
-                        </p>
+                        {coImpact.totalCOs === 0 ? (
+                            <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                                <CheckCircle className="h-3 w-3" />
+                                No impact on cost or schedule
+                            </p>
+                        ) : (
+                            <div className="mt-1 space-y-0.5">
+                                <p className="text-xs text-muted-foreground">
+                                    {coImpact.pendingCOs > 0
+                                        ? `${coImpact.pendingCOs} pending review`
+                                        : "All processed"}
+                                </p>
+                                {coImpact.totalCostImpact !== 0 && (
+                                    <p className="text-xs font-medium text-orange-600">
+                                        +{po.currency} {Math.abs(coImpact.totalCostImpact).toLocaleString()}
+                                    </p>
+                                )}
+                                {coImpact.totalScheduleImpact > 0 && (
+                                    <p className="text-xs font-medium text-orange-600">
+                                        +{coImpact.totalScheduleImpact} days
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Tabs */}
-            <Tabs defaultValue="overview" className="space-y-4">
-                <TabsList className="flex-wrap">
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="financials" className="gap-1.5">
-                        <Receipt className="h-4 w-4" />
-                        Financials
-                    </TabsTrigger>
-                    <TabsTrigger value="progress" className="gap-1.5">
-                        <ChartLineUpIcon className="h-4 w-4" />
-                        Progress
-                    </TabsTrigger>
-                    <TabsTrigger value="gallery" className="gap-1.5">
-                        <ImagesIcon className="h-4 w-4" />
-                        Gallery
-                    </TabsTrigger>
-                    <TabsTrigger value="conflicts" className="gap-1.5">
-                        <WarningCircleIcon className="h-4 w-4" />
-                        Conflicts
-                    </TabsTrigger>
-                    <TabsTrigger value="boq">BOQ Items</TabsTrigger>
-                    <TabsTrigger value="versions">Version History</TabsTrigger>
-                    <TabsTrigger value="quality" className="gap-1.5">
-                        <AlertTriangle className="h-4 w-4" />
-                        Quality/NCR
-                    </TabsTrigger>
-                    <TabsTrigger value="activity" className="gap-1.5">
-                        <ClockCounterClockwise className="h-4 w-4" />
-                        Activity Log
-                    </TabsTrigger>
-                </TabsList>
+            {/* Tabs - Streamlined Navigation with "More" Dropdown */}
+            <POTabsWrapper defaultTab="overview">
 
                 {/* Overview Tab */}
                 <TabsContent value="overview">
@@ -897,10 +943,10 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                 </TabsContent>
 
                 {/* Activity Log Tab */}
-                <TabsContent value="activity">
+                <TabsContent value="history">
                     <AuditLogTimeline purchaseOrderId={po.id} />
                 </TabsContent>
-            </Tabs >
+            </POTabsWrapper>
             <ConflictResolver
                 conflicts={(po as any).conflicts?.map((c: any) => ({
                     id: c.id,
