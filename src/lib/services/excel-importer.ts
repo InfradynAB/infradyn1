@@ -8,12 +8,12 @@ import type { ExtractedBOQItem, ExtractedMilestone } from "./ai-extraction";
 
 // Common column name variations for auto-detection
 const COLUMN_MAPPINGS: Record<string, string[]> = {
-    itemNumber: ["item", "item no", "item number", "no", "#", "line", "line no"],
-    description: ["description", "desc", "item description", "name", "material", "product"],
-    unit: ["unit", "uom", "unit of measure", "measure"],
-    quantity: ["quantity", "qty", "amount", "count", "no."],
-    unitPrice: ["unit price", "price", "rate", "unit rate", "cost", "unit cost"],
-    totalPrice: ["total", "total price", "amount", "line total", "ext price", "extended price"],
+    itemNumber: ["item", "item no", "item number", "no", "#", "line", "line no", "pos", "sn"],
+    description: ["description", "desc", "item description", "name", "material", "product", "particulars"],
+    unit: ["unit", "uom", "unit of measure", "measure", "units"],
+    quantity: ["quantity", "qty", "amount", "count", "no.", "qnt"],
+    unitPrice: ["unit price", "price", "rate", "unit rate", "cost", "unit cost", "rate / ea"],
+    totalPrice: ["total", "total price", "amount", "line total", "ext price", "extended price", "extended amount", "subtotal", "value"],
     // Milestone columns
     title: ["milestone", "title", "name", "phase", "stage"],
     paymentPercentage: ["payment", "percent", "percentage", "%", "payment %"],

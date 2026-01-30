@@ -66,6 +66,8 @@ interface ROSManagerProps {
     boqItems: BOQItemWithROS[];
     onChange: (items: BOQItemWithROS[]) => void;
     currency?: string;
+    orgId?: string;
+    projectId?: string;
 }
 
 const EMPTY_ITEM: BOQItemWithROS = {
@@ -79,7 +81,7 @@ const EMPTY_ITEM: BOQItemWithROS = {
     rosStatus: "NOT_SET",
 };
 
-export function ROSManager({ boqItems, onChange, currency = "USD" }: ROSManagerProps) {
+export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projectId }: ROSManagerProps) {
     const [globalRosDate, setGlobalRosDate] = useState<string>("");
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -90,6 +92,8 @@ export function ROSManager({ boqItems, onChange, currency = "USD" }: ROSManagerP
     const [isImporting, setIsImporting] = useState(false);
     const [sheetsDialogOpen, setSheetsDialogOpen] = useState(false);
     const [sheetsUrl, setSheetsUrl] = useState("");
+    const [importConfirmOpen, setImportConfirmOpen] = useState(false);
+    const [pendingItems, setPendingItems] = useState<BOQItemWithROS[]>([]);
 
     // Calculate totals
     const boqTotal = boqItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
@@ -112,6 +116,8 @@ export function ROSManager({ boqItems, onChange, currency = "USD" }: ROSManagerP
                     fileName: file.name,
                     contentType: file.type || "application/octet-stream",
                     docType: "boq",
+                    orgId,
+                    projectId,
                 }),
             });
 
@@ -144,10 +150,16 @@ export function ROSManager({ boqItems, onChange, currency = "USD" }: ROSManagerP
                     isCritical: false,
                     rosStatus: "NOT_SET" as const,
                 }));
-                onChange([...boqItems, ...newItems]);
-                toast.success(`Imported ${newItems.length} BOQ items`);
+
+                if (boqItems.length > 0) {
+                    setPendingItems(newItems);
+                    setImportConfirmOpen(true);
+                } else {
+                    onChange(newItems);
+                    toast.success(`Imported ${newItems.length} BOQ items`);
+                }
             } else {
-                toast.error(result.error || "No BOQ items found in file");
+                toast.error(result.error || "No valid BOQ data found in the imported file");
             }
         } catch (error) {
             console.error(error);
@@ -186,12 +198,20 @@ export function ROSManager({ boqItems, onChange, currency = "USD" }: ROSManagerP
                     isCritical: false,
                     rosStatus: "NOT_SET" as const,
                 }));
-                onChange([...boqItems, ...newItems]);
-                toast.success(`Imported ${newItems.length} items from Google Sheets`);
-                setSheetsDialogOpen(false);
-                setSheetsUrl("");
+
+                if (boqItems.length > 0) {
+                    setPendingItems(newItems);
+                    setImportConfirmOpen(true);
+                    setSheetsDialogOpen(false);
+                    setSheetsUrl("");
+                } else {
+                    onChange(newItems);
+                    toast.success(`Imported ${newItems.length} items from Google Sheets`);
+                    setSheetsDialogOpen(false);
+                    setSheetsUrl("");
+                }
             } else {
-                toast.error(result.error || "No BOQ items found in sheet");
+                toast.error(result.error || "No valid BOQ data found in the sheet");
             }
         } catch (error) {
             console.error(error);
@@ -199,6 +219,18 @@ export function ROSManager({ boqItems, onChange, currency = "USD" }: ROSManagerP
         } finally {
             setIsImporting(false);
         }
+    };
+
+    const handleImportConfirm = (mode: "append" | "replace") => {
+        if (mode === "replace") {
+            onChange(pendingItems);
+            toast.success(`Replaced with ${pendingItems.length} imported items`);
+        } else {
+            onChange([...boqItems, ...pendingItems]);
+            toast.success(`Appended ${pendingItems.length} imported items`);
+        }
+        setPendingItems([]);
+        setImportConfirmOpen(false);
     };
 
     const updateItem = (index: number, updates: Partial<BOQItemWithROS>) => {
@@ -312,7 +344,7 @@ export function ROSManager({ boqItems, onChange, currency = "USD" }: ROSManagerP
                 <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".xlsx,.xls,.pdf"
+                    accept=".xlsx,.xls"
                     onChange={handleFileUpload}
                     className="hidden"
                 />
@@ -335,7 +367,7 @@ export function ROSManager({ boqItems, onChange, currency = "USD" }: ROSManagerP
                         ) : (
                             <FileArrowUpIcon className="h-4 w-4" />
                         )}
-                        Excel/PDF
+                        Excel
                     </Button>
                     <Button
                         type="button"
@@ -408,6 +440,49 @@ export function ROSManager({ boqItems, onChange, currency = "USD" }: ROSManagerP
                                 ) : (
                                     "Import"
                                 )}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Import Override Confirmation Dialog */}
+                <Dialog open={importConfirmOpen} onOpenChange={setImportConfirmOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Import BOQ Items</DialogTitle>
+                            <DialogDescription>
+                                You already have {boqItems.length} items in your list. How would you like to handle the {pendingItems.length} new items?
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                            <p className="text-sm text-muted-foreground">
+                                Choosing **Replace** will remove all current items and use the new ones. **Append** will add the new items to the bottom of your current list.
+                            </p>
+                        </div>
+                        <DialogFooter className="flex gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    setImportConfirmOpen(false);
+                                    setPendingItems([]);
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => handleImportConfirm("append")}
+                            >
+                                Append Items
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={() => handleImportConfirm("replace")}
+                            >
+                                Replace Existing
                             </Button>
                         </DialogFooter>
                     </DialogContent>

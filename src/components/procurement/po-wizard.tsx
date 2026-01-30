@@ -871,6 +871,8 @@ export default function POWizard({
                         boqItems={boqItems}
                         onChange={setBOQItems}
                         currency={currency}
+                        orgId={selectedProject?.organizationId}
+                        projectId={watch("projectId")}
                     />
                 )}
 
