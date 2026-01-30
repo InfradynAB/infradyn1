@@ -30,6 +30,14 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        // Get all POs for these organizations
+        const orgPOs = await db.query.purchaseOrder.findMany({
+            where: inArray(purchaseOrder.organizationId, orgIds),
+            columns: { id: true },
+        });
+
+        const poIds = orgPOs.map((po) => po.id);
+
         // Check for draft POs
         const draftPOs = await db.query.purchaseOrder.findMany({
             where: and(
@@ -38,31 +46,37 @@ export async function GET(request: NextRequest) {
             ),
         });
 
-        // Check for pending invoices
-        const pendingInvoices = await db.query.invoice.findMany({
-            where: and(
-                inArray(invoice.organizationId, orgIds),
-                eq(invoice.status, "PENDING")
-            ),
-        });
+        // Check for pending invoices (filter by PO relationship)
+        const pendingInvoices = poIds.length > 0 
+            ? await db.query.invoice.findMany({
+                where: and(
+                    inArray(invoice.purchaseOrderId, poIds),
+                    eq(invoice.status, "PENDING")
+                ),
+            })
+            : [];
 
-        // Check for pending change orders
-        const pendingCOs = await db.query.changeOrder.findMany({
-            where: and(
-                inArray(changeOrder.organizationId, orgIds),
-                eq(changeOrder.status, "PENDING")
-            ),
-        });
+        // Check for pending change orders (filter by PO relationship)
+        const pendingCOs = poIds.length > 0
+            ? await db.query.changeOrder.findMany({
+                where: and(
+                    inArray(changeOrder.purchaseOrderId, poIds),
+                    eq(changeOrder.status, "PENDING")
+                ),
+            })
+            : [];
 
         // Check for overdue invoices
         const now = new Date();
-        const overdueInvoices = await db.query.invoice.findMany({
-            where: and(
-                inArray(invoice.organizationId, orgIds),
-                eq(invoice.status, "APPROVED"),
-                lt(invoice.dueDate, now)
-            ),
-        });
+        const overdueInvoices = poIds.length > 0
+            ? await db.query.invoice.findMany({
+                where: and(
+                    inArray(invoice.purchaseOrderId, poIds),
+                    eq(invoice.status, "APPROVED"),
+                    lt(invoice.dueDate, now)
+                ),
+            })
+            : [];
 
         // Build attention items
         const items: any[] = [];
