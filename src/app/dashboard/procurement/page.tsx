@@ -12,14 +12,6 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { PlusIcon, FileTextIcon, ArrowRightIcon } from "@phosphor-icons/react/dist/ssr";
 import { formatDistanceToNow } from "date-fns";
@@ -28,6 +20,7 @@ import { NCRDashboardWidget } from "@/components/procurement/ncr-dashboard-widge
 import { QuickActions } from "@/components/procurement/quick-actions";
 import { AttentionStrip } from "@/components/procurement/attention-strip";
 import { cn } from "@/lib/utils";
+import { POTableClient } from "@/components/procurement/po-table-client";
 
 // Status badge color mapping with visual indicators
 const statusColors: Record<string, string> = {
@@ -150,85 +143,7 @@ async function POList() {
         return <EmptyState />;
     }
 
-    return (
-        <div className="rounded-lg border">
-            <Table>
-                <TableHeader>
-                    <TableRow className="bg-muted/50">
-                        <TableHead className="font-semibold">PO Number</TableHead>
-                        <TableHead className="font-semibold">Project</TableHead>
-                        <TableHead className="font-semibold">Supplier</TableHead>
-                        <TableHead className="text-right font-semibold">Value</TableHead>
-                        <TableHead className="font-semibold">Status</TableHead>
-                        <TableHead className="font-semibold">Last Activity</TableHead>
-                        <TableHead className="text-right font-semibold">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {purchaseOrders.map((po: any) => (
-                        <TableRow key={po.id} className="group hover:bg-muted/50 transition-colors">
-                            <TableCell className="font-medium">
-                                <Link
-                                    href={`/dashboard/procurement/${po.id}`}
-                                    className="hover:underline text-primary font-semibold flex items-center gap-2"
-                                >
-                                    {po.poNumber}
-                                    <ArrowRightIcon className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </Link>
-                            </TableCell>
-                            <TableCell>
-                                <div className="flex items-center gap-2">
-                                    <div className="h-2 w-2 rounded-full bg-blue-500" />
-                                    <span className="text-foreground">{po.project?.name || "—"}</span>
-                                </div>
-                            </TableCell>
-                            <TableCell>
-                                <span className="text-foreground">{po.supplier?.name || "—"}</span>
-                            </TableCell>
-                            <TableCell className="text-right">
-                                <div className="font-mono font-semibold">
-                                    {po.currency} {Number(po.totalValue ?? 0).toLocaleString()}
-                                </div>
-                            </TableCell>
-                            <TableCell>
-                                <Badge
-                                    variant="secondary"
-                                    className={cn("border", statusColors[po.status] || "")}
-                                >
-                                    <span className="mr-1">{statusIcons[po.status]}</span>
-                                    {statusLabels[po.status] || po.status}
-                                </Badge>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground text-sm">
-                                {formatDistanceToNow(new Date(po.updatedAt), {
-                                    addSuffix: true,
-                                })}
-                            </TableCell>
-                            <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                    {(() => {
-                                        const action = getPrimaryAction(po.status, po.id, po.poNumber);
-                                        return (
-                                            <Button
-                                                asChild
-                                                variant={action.variant}
-                                                size="sm"
-                                            >
-                                                <Link href={action.href}>
-                                                    {action.label}
-                                                </Link>
-                                            </Button>
-                                        );
-                                    })()}
-                                    <POActions poId={po.id} poNumber={po.poNumber} />
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </div>
-    );
+    return <POTableClient purchaseOrders={purchaseOrders} />;
 }
 
 // Main Page

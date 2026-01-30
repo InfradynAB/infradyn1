@@ -112,15 +112,7 @@ export async function getPOAuditLogs(purchaseOrderId: string): Promise<{
 
         // Get logs that mention this PO in entityId or metadata
         const logs = await db
-            .select({
-                id: auditLog.id,
-                action: auditLog.action,
-                entityType: auditLog.entityType,
-                entityId: auditLog.entityId,
-                metadata: auditLog.metadata,
-                createdAt: auditLog.createdAt,
-                userId: auditLog.userId,
-            })
+            .select()
             .from(auditLog)
             .where(
                 sql`${auditLog.entityId} = ${purchaseOrderId} 
