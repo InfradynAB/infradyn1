@@ -77,6 +77,7 @@ import { POQualityTab } from "@/components/procurement/po-quality-tab";
 import { AlertTriangle } from "lucide-react";
 import { PizzaTrackerProgress } from "@/components/ui/pizza-tracker-progress";
 import { POTabsWrapper } from "@/components/procurement/po-tabs-wrapper";
+import { SubmitPOButton } from "@/components/procurement/submit-po-button";
 
 // Status badge colors and icons - Infradyn Design System
 const statusConfig: Record<string, { color: string; icon: string; label: string }> = {
@@ -216,6 +217,9 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    {/* Submit PO Button - Only shows for DRAFT status */}
+                    <SubmitPOButton poId={po.id} poNumber={po.poNumber} status={po.status} />
+                    
                     {downloadUrl && (
                         <Button variant="outline" asChild>
                             <a

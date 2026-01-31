@@ -375,6 +375,53 @@ export async function updatePurchaseOrder(
 }
 
 /**
+ * Submit a Draft Purchase Order (change status from DRAFT to SUBMITTED)
+ */
+export async function submitPurchaseOrder(
+    poId: string
+): Promise<ActionResult<{ poNumber: string }>> {
+    try {
+        const user = await getAuthenticatedUser();
+
+        // Get the PO to verify it exists and is in DRAFT status
+        const po = await db.query.purchaseOrder.findFirst({
+            where: and(
+                eq(purchaseOrder.id, poId),
+                inArray(purchaseOrder.organizationId, await getUserOrganizationIds(user.id))
+            ),
+        });
+
+        if (!po) {
+            return { success: false, error: "Purchase order not found or unauthorized" };
+        }
+
+        if (po.status !== "DRAFT") {
+            return { success: false, error: `Cannot submit PO. Current status is "${po.status}". Only DRAFT POs can be submitted.` };
+        }
+
+        // Update status to SUBMITTED
+        await db
+            .update(purchaseOrder)
+            .set({
+                status: "SUBMITTED",
+                updatedAt: new Date(),
+            })
+            .where(eq(purchaseOrder.id, poId));
+
+        revalidatePath("/dashboard/procurement");
+        revalidatePath(`/dashboard/procurement/${poId}`);
+
+        return { 
+            success: true, 
+            data: { poNumber: po.poNumber } 
+        };
+    } catch (error: any) {
+        console.error("[submitPurchaseOrder] Error:", error);
+        return { success: false, error: "Failed to submit purchase order" };
+    }
+}
+
+/**
  * List Purchase Orders with optional filters
  */
 export async function listPurchaseOrders(filters?: {
