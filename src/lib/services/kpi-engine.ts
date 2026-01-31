@@ -220,6 +220,55 @@ export async function getFinancialKPIs(filters: KPIFilters): Promise<FinancialKP
 }
 
 /**
+ * Get Change Order breakdown by category (for donut/bar charts)
+ */
+export async function getCOBreakdown(filters: KPIFilters): Promise<COBreakdown> {
+    const { organizationId, projectId, supplierId } = filters;
+
+    // Build PO filter conditions
+    const poConditions = [
+        eq(purchaseOrder.organizationId, organizationId),
+        eq(purchaseOrder.isDeleted, false),
+    ];
+    if (projectId) poConditions.push(eq(purchaseOrder.projectId, projectId));
+    if (supplierId) poConditions.push(eq(purchaseOrder.supplierId, supplierId));
+
+    const poIds = await db
+        .select({ id: purchaseOrder.id })
+        .from(purchaseOrder)
+        .where(and(...poConditions));
+
+    const poIdList = poIds.map(p => p.id);
+
+    if (poIdList.length === 0) {
+        return { scope: 0, rate: 0, quantity: 0, schedule: 0, total: 0 };
+    }
+
+    const coBreakdown = await db
+        .select({
+            scope: sql<number>`COALESCE(SUM(CASE WHEN ${changeOrder.coCategory} = 'SCOPE' THEN ${changeOrder.amountDelta}::numeric ELSE 0 END), 0)`,
+            rate: sql<number>`COALESCE(SUM(CASE WHEN ${changeOrder.coCategory} = 'RATE' THEN ${changeOrder.amountDelta}::numeric ELSE 0 END), 0)`,
+            quantity: sql<number>`COALESCE(SUM(CASE WHEN ${changeOrder.coCategory} = 'QUANTITY' THEN ${changeOrder.amountDelta}::numeric ELSE 0 END), 0)`,
+            schedule: sql<number>`COALESCE(SUM(CASE WHEN ${changeOrder.coCategory} = 'SCHEDULE' THEN ${changeOrder.amountDelta}::numeric ELSE 0 END), 0)`,
+            total: sql<number>`COALESCE(SUM(${changeOrder.amountDelta}::numeric), 0)`,
+        })
+        .from(changeOrder)
+        .where(and(
+            inArray(changeOrder.purchaseOrderId, poIdList),
+            eq(changeOrder.isDeleted, false),
+            eq(changeOrder.status, 'APPROVED')
+        ));
+
+    return {
+        scope: Number(coBreakdown[0]?.scope) || 0,
+        rate: Number(coBreakdown[0]?.rate) || 0,
+        quantity: Number(coBreakdown[0]?.quantity) || 0,
+        schedule: Number(coBreakdown[0]?.schedule) || 0,
+        total: Number(coBreakdown[0]?.total) || 0,
+    };
+}
+
+/**
  * Calculate Progress KPIs
  * - Physical Progress = Σ(Milestone % × Milestone Value) / Total PO Value
  * - Financial Progress = Paid / Committed × 100
@@ -356,6 +405,8 @@ export async function getQualityKPIs(filters: KPIFilters): Promise<QualityKPIs> 
             total: sql<number>`COUNT(*)`,
             open: sql<number>`COUNT(*) FILTER (WHERE ${ncr.status} NOT IN ('CLOSED'))`,
             critical: sql<number>`COUNT(*) FILTER (WHERE ${ncr.severity} = 'CRITICAL')`,
+            financialImpact: sql<number>`COALESCE(SUM(${ncr.estimatedCost}::numeric), 0)`,
+            scheduleImpact: sql<number>`COALESCE(SUM(${ncr.scheduleImpactDays}), 0)`,
         })
         .from(ncr)
         .where(and(...conditions));
@@ -382,7 +433,7 @@ export async function getQualityKPIs(filters: KPIFilters): Promise<QualityKPIs> 
         openNCRs,
         closedNCRs: totalNCRs - openNCRs,
         criticalNCRs: Number(ncrStats[0]?.critical) || 0,
-        ncrFinancialImpact: 0, // NCR table doesn't have estimatedCost - to be added in future
+        ncrFinancialImpact: Number(ncrStats[0]?.financialImpact) || 0,
         ncrRate: Math.round((totalNCRs / poTotal) * 100) / 100,
     };
 }
@@ -638,66 +689,4 @@ export async function getSCurveData(filters: KPIFilters): Promise<SCurveDataPoin
         plannedCumulative: planned[i],
         actualCumulative: actual[i],
     }));
-}
-
-/**
- * Get Change Order breakdown by type
- */
-export async function getCOBreakdown(filters: KPIFilters): Promise<COBreakdown> {
-    const { organizationId, projectId, supplierId } = filters;
-
-    const poConditions = [
-        eq(purchaseOrder.organizationId, organizationId),
-        eq(purchaseOrder.isDeleted, false),
-    ];
-    if (projectId) poConditions.push(eq(purchaseOrder.projectId, projectId));
-    if (supplierId) poConditions.push(eq(purchaseOrder.supplierId, supplierId));
-
-    const poIds = await db
-        .select({ id: purchaseOrder.id })
-        .from(purchaseOrder)
-        .where(and(...poConditions));
-
-    const poIdList = poIds.map(p => p.id);
-
-    if (poIdList.length === 0) {
-        return { scope: 0, rate: 0, quantity: 0, schedule: 0, total: 0 };
-    }
-
-    // Group COs by type/reason (simplified - in reality would need a CO type field)
-    const coData = await db
-        .select({
-            reason: changeOrder.reason,
-            total: sql<number>`SUM(${changeOrder.amountDelta}::numeric)`,
-        })
-        .from(changeOrder)
-        .where(and(
-            inArray(changeOrder.purchaseOrderId, poIdList),
-            eq(changeOrder.status, "APPROVED"),
-            eq(changeOrder.isDeleted, false)
-        ))
-        .groupBy(changeOrder.reason);
-
-    // Categorize based on reason keywords
-    let scope = 0, rate = 0, quantity = 0, schedule = 0;
-
-    for (const co of coData) {
-        const reason = (co.reason || "").toLowerCase();
-        const amount = Number(co.total);
-
-        if (reason.includes("scope") || reason.includes("addition") || reason.includes("extra")) {
-            scope += amount;
-        } else if (reason.includes("rate") || reason.includes("price") || reason.includes("cost")) {
-            rate += amount;
-        } else if (reason.includes("quantity") || reason.includes("qty")) {
-            quantity += amount;
-        } else if (reason.includes("schedule") || reason.includes("delay") || reason.includes("time")) {
-            schedule += amount;
-        } else {
-            scope += amount; // Default to scope
-        }
-    }
-
-    const total = scope + rate + quantity + schedule;
-    return { scope, rate, quantity, schedule, total };
 }

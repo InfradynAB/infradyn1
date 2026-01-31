@@ -30,6 +30,9 @@ export const conflictSeverityEnum = pgEnum('conflict_severity', ['LOW', 'MEDIUM'
 export const qaTaskStatusEnum = pgEnum('qa_task_status', ['PENDING', 'IN_PROGRESS', 'PASSED', 'FAILED', 'WAIVED']);
 export const commentParentTypeEnum = pgEnum('comment_parent_type', ['PO', 'SHIPMENT', 'DELIVERY', 'QA_TASK', 'INVOICE']);
 
+// Change Order Category for KPI breakdown
+export const coCategoryEnum = pgEnum('co_category', ['SCOPE', 'RATE', 'QUANTITY', 'SCHEDULE']);
+
 // Multi-provider logistics
 export const logisticsProviderEnum = pgEnum('logistics_provider', [
     'DHL_EXPRESS', 'DHL_FREIGHT', 'MAERSK', 'OTHER'
@@ -622,6 +625,13 @@ export const ncr = pgTable('ncr', {
     creditNoteVerifiedAt: timestamp('credit_note_verified_at'),
     milestonesLockedIds: jsonb('milestones_locked_ids').$type<string[]>(),
 
+    // Financial & Schedule Impact (KPI tracking)
+    estimatedCost: numeric('estimated_cost').default('0'), // Estimated financial impact
+    actualCost: numeric('actual_cost'), // Final cost after resolution
+    scheduleImpactDays: integer('schedule_impact_days').default(0), // Days delayed due to NCR
+    hasFinancialImpact: boolean('has_financial_impact').default(false),
+    hasScheduleImpact: boolean('has_schedule_impact').default(false),
+
     // AI Summarizer
     aiSummary: text('ai_summary'),
     aiSummaryUpdatedAt: timestamp('ai_summary_updated_at'),
@@ -852,6 +862,9 @@ export const changeOrder = pgTable('change_order', {
     changeOrderType: text('change_order_type').default('ADDITION'), // ADDITION, OMISSION
     clientInstructionId: uuid('client_instruction_id').references(() => clientInstruction.id),
     affectedBoqItemIds: jsonb('affected_boq_item_ids').$type<string[]>(), // BOQ items affected
+    
+    // CO Category for KPI breakdown (scope/rate/quantity/schedule)
+    coCategory: text('co_category').default('SCOPE'), // SCOPE, RATE, QUANTITY, SCHEDULE
 });
 
 export const financialLedger = pgTable('financial_ledger', {
