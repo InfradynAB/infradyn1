@@ -8,14 +8,14 @@ import {
     importBOQItems,
 } from "@/lib/actions/boq";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetFooter,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -234,34 +234,34 @@ export function ImportBOQDialog({ purchaseOrderId }: ImportBOQDialogProps) {
         mapping.description && mapping.quantity && mapping.unitPrice;
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
+        <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
                 <Button variant="outline">
                     <UploadSimpleIcon className="mr-2 h-4 w-4" />
                     Import BOQ
                 </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            </SheetTrigger>
+            <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
                 {/* Step 1: Upload */}
                 {step === "upload" && (
                     <>
-                        <DialogHeader>
-                            <DialogTitle>Import BOQ from Excel</DialogTitle>
-                            <DialogDescription>
+                        <SheetHeader>
+                            <SheetTitle>Import BOQ from Excel</SheetTitle>
+                            <SheetDescription>
                                 Upload an Excel file (.xlsx, .xls) containing your Bill of
                                 Quantities.
-                            </DialogDescription>
-                        </DialogHeader>
+                            </SheetDescription>
+                        </SheetHeader>
                         <div className="py-8">
                             <Label
                                 htmlFor="boq-file"
-                                className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                                className="flex flex-col items-center justify-center w-full h-56 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
                             >
-                                <FileXlsIcon className="h-12 w-12 text-muted-foreground mb-3" />
-                                <span className="text-sm text-muted-foreground">
+                                <FileXlsIcon className="h-16 w-16 text-muted-foreground mb-4" />
+                                <span className="text-sm text-muted-foreground font-medium">
                                     Click to upload or drag and drop
                                 </span>
-                                <span className="text-xs text-muted-foreground mt-1">
+                                <span className="text-xs text-muted-foreground mt-2">
                                     Excel files only (.xlsx, .xls)
                                 </span>
                                 <Input
@@ -278,25 +278,25 @@ export function ImportBOQDialog({ purchaseOrderId }: ImportBOQDialogProps) {
                                 </p>
                             )}
                         </div>
-                        <DialogFooter>
+                        <SheetFooter>
                             <Button variant="outline" onClick={handleClose}>
                                 Cancel
                             </Button>
-                        </DialogFooter>
+                        </SheetFooter>
                     </>
                 )}
 
                 {/* Step 2: Column Mapping */}
                 {step === "mapping" && (
                     <>
-                        <DialogHeader>
-                            <DialogTitle>Map Columns</DialogTitle>
-                            <DialogDescription>
+                        <SheetHeader>
+                            <SheetTitle>Map Columns</SheetTitle>
+                            <SheetDescription>
                                 {fileName} • {totalRows} rows found. Map Excel columns to BOQ
                                 fields.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
+                            </SheetDescription>
+                        </SheetHeader>
+                        <div className="grid gap-4 py-6">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Item # (optional)</Label>
@@ -460,32 +460,32 @@ export function ImportBOQDialog({ purchaseOrderId }: ImportBOQDialogProps) {
                                 <p className="text-sm text-destructive">{error}</p>
                             )}
                         </div>
-                        <DialogFooter className="gap-2">
+                        <SheetFooter className="gap-2 sm:gap-2">
                             <Button variant="outline" onClick={() => setStep("upload")}>
                                 Back
                             </Button>
                             <Button onClick={handleParseWithMapping} disabled={!isMappingValid}>
                                 Continue to Preview
                             </Button>
-                        </DialogFooter>
+                        </SheetFooter>
                     </>
                 )}
 
                 {/* Step 3: Preview Parsed Data */}
                 {step === "preview" && (
                     <>
-                        <DialogHeader>
-                            <DialogTitle>Review Import</DialogTitle>
-                            <DialogDescription>
+                        <SheetHeader>
+                            <SheetTitle>Review Import</SheetTitle>
+                            <SheetDescription>
                                 {parsedRows.length} items parsed successfully.
                                 {parseErrors.length > 0 && (
                                     <span className="text-amber-600 ml-2">
                                         {parseErrors.length} warnings
                                     </span>
                                 )}
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="py-4">
+                            </SheetDescription>
+                        </SheetHeader>
+                        <div className="py-6">
                             {parseErrors.length > 0 && (
                                 <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-4">
                                     <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm font-medium mb-1">
@@ -547,20 +547,20 @@ export function ImportBOQDialog({ purchaseOrderId }: ImportBOQDialogProps) {
                                 <p className="text-sm text-destructive mt-4">{error}</p>
                             )}
                         </div>
-                        <DialogFooter className="gap-2">
+                        <SheetFooter className="gap-2 sm:gap-2">
                             <Button variant="outline" onClick={() => setStep("mapping")}>
                                 Back
                             </Button>
                             <Button onClick={handleImport}>
                                 Import {parsedRows.length} Items
                             </Button>
-                        </DialogFooter>
+                        </SheetFooter>
                     </>
                 )}
 
                 {/* Step 4: Importing */}
                 {step === "importing" && (
-                    <div className="py-12 text-center">
+                    <div className="py-16 text-center">
                         <SpinnerGap className="h-12 w-12 animate-spin mx-auto text-primary" />
                         <p className="mt-4 text-muted-foreground">
                             Importing {parsedRows.length} items...
@@ -571,19 +571,19 @@ export function ImportBOQDialog({ purchaseOrderId }: ImportBOQDialogProps) {
                 {/* Step 5: Done */}
                 {step === "done" && (
                     <>
-                        <div className="py-12 text-center">
-                            <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto" />
+                        <div className="py-16 text-center">
+                            <CheckCircleIcon className="h-20 w-20 text-green-500 mx-auto" />
                             <h3 className="text-xl font-semibold mt-4">Import Complete!</h3>
                             <p className="text-muted-foreground mt-2">
                                 Successfully imported {importedCount} BOQ items.
                             </p>
                         </div>
-                        <DialogFooter>
+                        <SheetFooter>
                             <Button onClick={handleClose}>Done</Button>
-                        </DialogFooter>
+                        </SheetFooter>
                     </>
                 )}
-            </DialogContent>
-        </Dialog>
+            </SheetContent>
+        </Sheet>
     );
 }

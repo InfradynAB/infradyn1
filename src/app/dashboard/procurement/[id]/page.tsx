@@ -224,7 +224,7 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                 rel="noopener noreferrer"
                             >
                                 <DownloadSimpleIcon className="mr-2 h-4 w-4" />
-                                Download PDF
+                                Download PO
                             </a>
                         </Button>
                     )}
@@ -561,7 +561,6 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                                 Change Orders
                                             </CardTitle>
                                             <CardDescription>
-                                                Client-driven variations and scope changes
                                             </CardDescription>
                                         </div>
                                         <div className="flex gap-2">

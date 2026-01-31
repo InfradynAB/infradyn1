@@ -552,8 +552,15 @@ export default function POWizard({
                     </Link>
                 </Button>
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">New Purchase Order</h1>
-                    <p className="text-muted-foreground">Complete all steps to create a PO</p>
+                    <h1 className="text-2xl font-bold tracking-tight">
+                        {mode === "edit" ? "Edit Purchase Order" : "New Purchase Order"}
+                    </h1>
+                    <p className="text-muted-foreground">
+                        {mode === "edit" 
+                            ? `Editing ${initialData?.poNumber || "PO"}`
+                            : "Complete all steps to create a PO"
+                        }
+                    </p>
                 </div>
             </div>
 
