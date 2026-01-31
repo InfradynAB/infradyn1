@@ -104,7 +104,7 @@ const qualityLogisticsNav = [
 const managementNav = [
     { title: "Projects", url: "/dashboard/projects", icon: FolderSimple },
     { title: "Suppliers", url: "/dashboard/suppliers", icon: Buildings },
-    { title: "Integrations", url: "/dashboard/settings/integrations", icon: LinkIcon },
+    { title: "Connected Apps", url: "/dashboard/settings/integrations", icon: LinkIcon },
 ];
 
 const accountNav = [
