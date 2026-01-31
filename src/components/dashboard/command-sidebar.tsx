@@ -96,9 +96,9 @@ const financialsNav = [
 ];
 
 const qualityLogisticsNav = [
-    { title: "Materials Tracker", url: "/dashboard/materials", icon: Package },
-    { title: "Quality Alerts", url: "/dashboard/ncr", icon: Warning },
-    { title: "Deliveries", url: "/dashboard/logistics", icon: Truck },
+    { title: "Materials Tracker", url: "/dashboard/procurement", icon: Package },
+    { title: "Quality Alerts", url: "/dashboard/alerts", icon: Warning },
+    { title: "Deliveries", url: "/dashboard/procurement?tab=deliveries", icon: Truck },
 ];
 
 const managementNav = [

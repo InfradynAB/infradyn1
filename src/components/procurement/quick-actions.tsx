@@ -41,14 +41,14 @@ const quickActions: QuickAction[] = [
         title: "View Reports",
         description: "See spending and progress analytics",
         icon: ChartBarIcon,
-        href: "/dashboard/procurement/reports",
+        href: "/dashboard/analytics",
         variant: "outline",
     },
     {
         title: "Manage Suppliers",
         description: "Add or update supplier information",
         icon: UsersIcon,
-        href: "/dashboard/settings/suppliers",
+        href: "/dashboard/suppliers",
         variant: "outline",
     },
 ];

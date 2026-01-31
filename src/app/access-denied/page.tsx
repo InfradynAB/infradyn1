@@ -30,7 +30,7 @@ export default function AccessDeniedPage() {
                         Once invited, you&apos;ll receive an email with a link to join the organization.
                     </p>
                 </CardContent>
-                <CardFooter className="flex flex-col gap-3 pb-10">
+                <CardFooter className="flex flex-col gap-3 pb-6">
                     <SignOutButton variant="outline" fullWidth className="h-12 rounded-xl" />
                     <Link href="/" className="w-full">
                         <Button variant="ghost" className="w-full text-muted-foreground">
@@ -38,6 +38,18 @@ export default function AccessDeniedPage() {
                         </Button>
                     </Link>
                 </CardFooter>
+                {/* New section for users who tried to sign in without invitation */}
+                <div className="mt-6 bg-blue-50 dark:bg-blue-900/30 rounded-lg p-5 text-center border border-blue-200 dark:border-blue-800">
+                    <div className="flex justify-center mb-2">
+                        <EnvelopeSimple className="h-6 w-6 text-blue-500 dark:text-blue-300" />
+                    </div>
+                    <div className="text-base font-semibold text-blue-700 dark:text-blue-200 mb-1">
+                        We&apos;ve received your request
+                    </div>
+                    <div className="text-sm text-blue-700 dark:text-blue-200">
+                        Our support team has been notified and will contact you soon. If you have questions, please reach out to <a href="mailto:support@infradyn.com" className="underline">support@infradyn.com</a>.
+                    </div>
+                </div>
             </Card>
         </div>
     );
