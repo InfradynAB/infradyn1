@@ -12,6 +12,7 @@ import {
     notification,
     user,
     organization,
+    member,
 } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { auth } from "@/auth";
@@ -182,6 +183,22 @@ export async function createInvoice(input: CreateInvoiceInput) {
                 where: eq(organization.id, po.organizationId),
             });
 
+            // Get PM/Admin users for the organization
+            const orgMembers = await db
+                .select({
+                    email: user.email,
+                    name: user.name,
+                    role: member.role,
+                })
+                .from(member)
+                .innerJoin(user, eq(member.userId, user.id))
+                .where(
+                    and(
+                        eq(member.organizationId, po.organizationId),
+                        sql`${member.role} IN ('owner', 'admin', 'OWNER', 'ADMIN')`
+                    )
+                );
+
             const emailData = {
                 supplierName: supplierData?.name || "Supplier",
                 poNumber: po.poNumber,
@@ -201,14 +218,27 @@ export async function createInvoice(input: CreateInvoiceInput) {
                 await sendEmail({ ...supplierEmail, to: supplierData.contactEmail });
             }
 
-            // Send to Organization Contact (as PM)
+            // Send to Organization Contact (fallback)
             if (orgData?.contactEmail) {
                 const pmEmail = await buildInvoiceCreatedEmail({
                     ...emailData,
-                    recipientName: "Procurement Team",
+                    recipientName: orgData.name || "Procurement Team",
                     isSupplier: false,
                 });
                 await sendEmail({ ...pmEmail, to: orgData.contactEmail });
+            }
+
+            // Send to all PM/Admin members in the organization
+            for (const pm of orgMembers) {
+                // Skip if this is the same as the org contact email (avoid duplicate)
+                if (pm.email === orgData?.contactEmail) continue;
+                
+                const pmEmail = await buildInvoiceCreatedEmail({
+                    ...emailData,
+                    recipientName: pm.name || "Team Member",
+                    isSupplier: false,
+                });
+                await sendEmail({ ...pmEmail, to: pm.email });
             }
         } catch (emailError) {
             console.warn("[createInvoice] Email notification failed (non-blocking):", emailError);
@@ -327,6 +357,22 @@ export async function updatePaymentStatus(input: UpdatePaymentInput) {
                 where: eq(organization.id, po.organizationId),
             });
 
+            // Get PM/Admin users for the organization
+            const orgMembers = await db
+                .select({
+                    email: user.email,
+                    name: user.name,
+                    role: member.role,
+                })
+                .from(member)
+                .innerJoin(user, eq(member.userId, user.id))
+                .where(
+                    and(
+                        eq(member.organizationId, po.organizationId),
+                        sql`${member.role} IN ('owner', 'admin', 'OWNER', 'ADMIN')`
+                    )
+                );
+
             const formatCurrency = (val: number) =>
                 new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
@@ -352,14 +398,27 @@ export async function updatePaymentStatus(input: UpdatePaymentInput) {
                 await sendEmail({ ...supplierEmail, to: supplierData.contactEmail });
             }
 
-            // Send to Organization Contact (as PM)
+            // Send to Organization Contact (fallback)
             if (orgData?.contactEmail) {
                 const pmEmail = await buildPaymentUpdateEmail({
                     ...emailData,
-                    recipientName: "Procurement Team",
+                    recipientName: orgData.name || "Procurement Team",
                     isSupplier: false,
                 });
                 await sendEmail({ ...pmEmail, to: orgData.contactEmail });
+            }
+
+            // Send to all PM/Admin members in the organization
+            for (const pm of orgMembers) {
+                // Skip if this is the same as the org contact email (avoid duplicate)
+                if (pm.email === orgData?.contactEmail) continue;
+                
+                const pmEmail = await buildPaymentUpdateEmail({
+                    ...emailData,
+                    recipientName: pm.name || "Team Member",
+                    isSupplier: false,
+                });
+                await sendEmail({ ...pmEmail, to: pm.email });
             }
         } catch (emailError) {
             console.warn("[updatePaymentStatus] Email notification failed (non-blocking):", emailError);
