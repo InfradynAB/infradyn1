@@ -1,4 +1,4 @@
-import { AppSidebar } from "@/components/app-sidebar"
+import { CommandSidebar } from "@/components/dashboard/command-sidebar"
 import { UserMenu } from "@/components/user-menu"
 import {
     Breadcrumb,
@@ -22,11 +22,15 @@ import { noIndexMetadata } from "@/lib/seo.config"
 import type { Metadata } from "next"
 import { getUserOrganizationsWithActive } from "@/lib/utils/org-context"
 import { redirect } from "next/navigation"
+import db from "@/db/drizzle"
+import { project, purchaseOrder, invoice, changeOrder } from "@/db/schema"
+import { eq, and, not, inArray } from "drizzle-orm"
+import { getProgressKPIs } from "@/lib/services/kpi-engine"
 
 // Prevent search engine indexing of dashboard pages
 export const metadata: Metadata = {
     ...noIndexMetadata,
-    title: "Dashboard",
+    title: "Command Center | Infradyn",
 };
 
 export default async function DashboardLayout({
@@ -61,12 +65,106 @@ export default async function DashboardLayout({
         redirect("/access-denied");
     }
 
+    // Fetch projects for the project switcher
+    let projects: Array<{
+        id: string;
+        name: string;
+        code: string;
+        health: "healthy" | "at-risk" | "critical";
+        progress: number;
+    }> = [];
+
+    // Count alerts for badge
+    let alertCount = 0;
+
+    if (activeOrgId) {
+        try {
+            // Fetch active projects
+            const projectsData = await db.query.project.findMany({
+                where: and(
+                    eq(project.organizationId, activeOrgId),
+                    eq(project.isDeleted, false)
+                ),
+                columns: { id: true, name: true, code: true },
+                limit: 10,
+            });
+
+            // Get health status for each project
+            projects = await Promise.all(
+                projectsData.map(async (p) => {
+                    try {
+                        const progressKPIs = await getProgressKPIs({
+                            organizationId: activeOrgId,
+                            projectId: p.id,
+                        });
+                        let health: "healthy" | "at-risk" | "critical" = "healthy";
+                        if (progressKPIs.delayedCount > 0 || progressKPIs.atRiskCount > 2) {
+                            health = "at-risk";
+                        }
+                        if (progressKPIs.delayedCount > 2) {
+                            health = "critical";
+                        }
+                        return {
+                            id: p.id,
+                            name: p.name,
+                            code: p.code || p.id.slice(0, 8).toUpperCase(),
+                            health,
+                            progress: Math.round(progressKPIs.physicalProgress),
+                        };
+                    } catch {
+                        return {
+                            id: p.id,
+                            name: p.name,
+                            code: p.code || p.id.slice(0, 8).toUpperCase(),
+                            health: "healthy" as const,
+                            progress: 0,
+                        };
+                    }
+                })
+            );
+
+            // Count alerts (pending approvals, overdue, etc.)
+            const orgPOs = await db.query.purchaseOrder.findMany({
+                where: and(
+                    eq(purchaseOrder.organizationId, activeOrgId),
+                    eq(purchaseOrder.isDeleted, false)
+                ),
+                columns: { id: true },
+            });
+            const poIds = orgPOs.map((po) => po.id);
+
+            if (poIds.length > 0) {
+                const [pendingInvoices, pendingCOs] = await Promise.all([
+                    db.query.invoice.findMany({
+                        where: and(
+                            inArray(invoice.purchaseOrderId, poIds),
+                            eq(invoice.status, "PENDING_APPROVAL")
+                        ),
+                        columns: { id: true },
+                    }),
+                    db.query.changeOrder.findMany({
+                        where: and(
+                            inArray(changeOrder.purchaseOrderId, poIds),
+                            eq(changeOrder.status, "PENDING")
+                        ),
+                        columns: { id: true },
+                    }),
+                ]);
+                alertCount = pendingInvoices.length + pendingCOs.length;
+            }
+        } catch (error) {
+            console.error("Error fetching sidebar data:", error);
+        }
+    }
+
     return (
         <SidebarProvider>
-            <AppSidebar 
+            <CommandSidebar 
                 user={user} 
                 organizations={organizations}
                 activeOrgId={activeOrgId}
+                projects={projects}
+                alertCount={alertCount}
             />
             <SidebarInset>
                 <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4">
@@ -76,11 +174,11 @@ export default async function DashboardLayout({
                         <Breadcrumb>
                             <BreadcrumbList>
                                 <BreadcrumbItem className="hidden md:block">
-                                    <BreadcrumbLink href="#">Materials Tracker</BreadcrumbLink>
+                                    <BreadcrumbLink href="/dashboard">Infradyn</BreadcrumbLink>
                                 </BreadcrumbItem>
                                 <BreadcrumbSeparator className="hidden md:block" />
                                 <BreadcrumbItem>
-                                    <BreadcrumbPage>Dashboard</BreadcrumbPage>
+                                    <BreadcrumbPage>Command Center</BreadcrumbPage>
                                 </BreadcrumbItem>
                             </BreadcrumbList>
                         </Breadcrumb>
