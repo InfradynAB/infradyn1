@@ -6,7 +6,7 @@ Infradyn is a next-generation SaaS solution designed to handle complex industria
 
 ---
 
-## 🛠 Technology Stack
+##  Technology Stack
 
 - **Frontend**: Next.js 15 (App Router), Tailwind CSS 4, Radix UI.
 - **Backend**: Next.js Server Actions, PostgreSQL (Neon), Drizzle ORM.
@@ -15,7 +15,7 @@ Infradyn is a next-generation SaaS solution designed to handle complex industria
 
 ---
 
-## 📚 Technical Documentation
+##  Technical Documentation
 
 We maintain a comprehensive technical knowledge base for developers and system architects.
 
@@ -45,7 +45,7 @@ Formulaic breakdowns of the financial ledger, currency normalization, and risk a
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 
@@ -81,7 +81,7 @@ Formulaic breakdowns of the financial ledger, currency normalization, and risk a
 
 ---
 
-## 🛡 Security & Compliance
+##  Security & Compliance
 
 Infradyn is built with an "Enterprise-First" mindset:
 - **RBAC**: Strict role-based access control across all modules.
