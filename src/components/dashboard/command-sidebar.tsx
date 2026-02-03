@@ -20,6 +20,8 @@ import {
     FileArrowUp,
     Link as LinkIcon,
     CircleDashed,
+    ShieldCheck,
+    UsersThree,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import {
@@ -107,6 +109,12 @@ const managementNav = [
     { title: "Connected Apps", url: "/dashboard/settings/integrations", icon: LinkIcon },
 ];
 
+// Admin-only navigation
+const adminNav = [
+    { title: "Admin Panel", url: "/dashboard/admin", icon: ShieldCheck },
+    { title: "Team Management", url: "/dashboard/settings/team", icon: UsersThree },
+];
+
 const accountNav = [
     { title: "Profile", url: "/dashboard/profile", icon: User },
     { title: "Settings", url: "/dashboard/settings", icon: Gear },
@@ -163,7 +171,7 @@ export function CommandSidebar({
                                 className={cn(
                                     "transition-all duration-200",
                                     isActive(item.url) &&
-                                        "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                                    "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                                 )}
                             >
                                 <Link href={item.url} className="flex items-center gap-3">
@@ -365,6 +373,10 @@ export function CommandSidebar({
                         {renderNavGroup("Financials", financialsNav)}
                         {renderNavGroup("Quality & Logistics", qualityLogisticsNav)}
                         {renderNavGroup("Management", managementNav)}
+                        {/* Admin-only navigation */}
+                        {(user?.role === "ADMIN" || user?.role === "SUPER_ADMIN") && (
+                            renderNavGroup("Administration", adminNav)
+                        )}
                     </>
                 )}
             </SidebarContent>
@@ -381,7 +393,7 @@ export function CommandSidebar({
                                 className={cn(
                                     "transition-all duration-200",
                                     isActive(item.url) &&
-                                        "bg-sidebar-accent text-sidebar-accent-foreground"
+                                    "bg-sidebar-accent text-sidebar-accent-foreground"
                                 )}
                             >
                                 <Link href={item.url} className="flex items-center gap-3">

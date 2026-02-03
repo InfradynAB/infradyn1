@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { CircleNotchIcon, GoogleLogoIcon, Eye, EyeSlash } from "@phosphor-icons/react";
 import { authClient } from "../../lib/auth-client";
 import Link from "next/link";
+import { getRoleBasedDashboardRoute } from "@/lib/actions/auth-redirect";
 
 // Schema for Email/Password
 const signInSchema = z.object({
@@ -55,6 +56,15 @@ export function SignInForm() {
         },
     });
 
+    async function redirectToRoleBasedDashboard() {
+        try {
+            const route = await getRoleBasedDashboardRoute();
+            router.push(route);
+        } catch {
+            router.push("/dashboard");
+        }
+    }
+
     async function onSubmit(values: z.infer<typeof signInSchema>) {
         setIsLoading(true);
         await authClient.signIn.email(
@@ -63,13 +73,13 @@ export function SignInForm() {
                 password: values.password,
             },
             {
-                onSuccess: (ctx) => {
+                onSuccess: async (ctx) => {
                     if (ctx.data.twoFactorRedirect) {
                         setShowTwoFactor(true);
                         toast.info("Two-factor authentication required.");
                     } else {
-                        router.push("/dashboard");
                         toast.success("Signed in successfully");
+                        await redirectToRoleBasedDashboard();
                     }
                     setIsLoading(false);
                 },
@@ -95,7 +105,7 @@ export function SignInForm() {
         }
 
         toast.success("Two-Factor Authentication verified");
-        router.push("/dashboard");
+        await redirectToRoleBasedDashboard();
         setIsLoading(false);
     }
 
@@ -103,7 +113,7 @@ export function SignInForm() {
         setIsLoading(true);
         await authClient.signIn.social({
             provider: "google",
-            callbackURL: "/dashboard",
+            callbackURL: "/dashboard", // Google OAuth will need middleware to handle role-based redirect
         }, {
             onSuccess: () => {
                 // Redirect happens automatically

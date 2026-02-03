@@ -10,6 +10,7 @@ import { revalidatePath } from "next/cache";
 import { render } from "@react-email/render";
 import InvitationEmail from "@/emails/invitation-email";
 import { setActiveOrganizationId, getActiveOrganizationId, forceSetActiveOrganizationId } from "@/lib/utils/org-context";
+import { canInviteRole, isOrgAdmin, type Role } from "@/lib/rbac";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -33,7 +34,7 @@ export async function getTeamMembers() {
 
     // Use active organization context
     const activeOrgId = await getActiveOrganizationId();
-    
+
     if (activeOrgId) {
         const members = await db.query.member.findMany({
             where: eq(member.organizationId, activeOrgId),
@@ -69,7 +70,7 @@ export async function getPendingInvitations() {
 
     // Use active organization context
     const activeOrgId = await getActiveOrganizationId();
-    
+
     if (activeOrgId) {
         return await db.select().from(invitation).where(
             and(
@@ -187,20 +188,48 @@ export async function inviteMember(formData: FormData) {
         return { success: false, error: "Unauthorized: No session" };
     }
 
+    // Get current user's role for permission check
+    const currentUser = await db.query.user.findFirst({
+        where: eq(user.id, session.user.id),
+        columns: { role: true }
+    });
+
+    if (!currentUser) {
+        return { success: false, error: "Unauthorized: User not found" };
+    }
+
+    const currentUserRole = currentUser.role as Role;
+
     // Use active organization for inviting
     const activeOrgId = await getActiveOrganizationId();
     const orgId = activeOrgId || (await getUserOrganizationIds(session.user.id))[0];
-    
+
     if (!orgId) {
         return { success: false, error: "Unauthorized: You must be a member of an organization to invite others." };
     }
 
     const email = formData.get("email") as string;
-    const role = formData.get("role") as string || "MEMBER";
+    const role = (formData.get("role") as string) || "PM";
     const supplierId = formData.get("supplierId") as string;
 
     if (!email) {
         return { success: false, error: "Email is required" };
+    }
+
+    // ===== DELEGATED ADMIN CHECK =====
+    // Check if current user's role is allowed to invite the target role
+    if (!canInviteRole(currentUserRole, role as Role)) {
+        // Provide a clear error message based on the scenario
+        if (!isOrgAdmin({ role: currentUserRole })) {
+            return {
+                success: false,
+                error: "Permission Denied: Only Admins can invite team members."
+            };
+        }
+        return {
+            success: false,
+            error: `Permission Denied: Your role (${currentUserRole}) cannot invite users with role ${role}.`
+        };
     }
 
     const result = await performInvitation({
@@ -275,20 +304,20 @@ export async function acceptInvitation(token: string) {
             await db.update(invitation)
                 .set({ status: "ACCEPTED" })
                 .where(eq(invitation.id, invite.id));
-            
+
             // Set this org as active so they land on the right dashboard
             const cookieSet = await forceSetActiveOrganizationId(invite.organizationId);
             console.log("[acceptInvitation] Existing member - Cookie set result:", cookieSet, "for org:", invite.organizationId);
-            
+
             return { success: true, role: invite.role, organizationId: invite.organizationId };
         }
 
         // If this is user's first organization, set it as default
         if (isFirstOrg) {
             await db.update(user)
-                .set({ 
+                .set({
                     organizationId: invite.organizationId,
-                    role: invite.role as any 
+                    role: invite.role as any
                 })
                 .where(eq(user.id, session.user.id));
         }
