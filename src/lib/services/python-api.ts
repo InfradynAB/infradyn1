@@ -64,17 +64,29 @@ interface PythonExtractedInvoiceData {
     raw_text?: string;
 }
 
+// Cache the health check result for 30 seconds
+let pythonHealthCache: { available: boolean; timestamp: number } | null = null;
+const HEALTH_CACHE_TTL = 30000; // 30 seconds
+
 /**
- * Check if the Python service is available
+ * Check if the Python service is available (cached for 30s)
  */
 export async function isPythonServiceAvailable(): Promise<boolean> {
+    // Return cached result if still valid
+    if (pythonHealthCache && Date.now() - pythonHealthCache.timestamp < HEALTH_CACHE_TTL) {
+        return pythonHealthCache.available;
+    }
+
     try {
         const response = await fetch(`${PYTHON_SERVICE_URL}/health`, {
             method: "GET",
-            signal: AbortSignal.timeout(3000), // 3 second timeout
+            signal: AbortSignal.timeout(8000), // 8 second timeout
         });
-        return response.ok;
+        const available = response.ok;
+        pythonHealthCache = { available, timestamp: Date.now() };
+        return available;
     } catch {
+        pythonHealthCache = { available: false, timestamp: Date.now() };
         return false;
     }
 }
