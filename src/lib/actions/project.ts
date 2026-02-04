@@ -1,7 +1,7 @@
 "use server";
 
 import db from "../../../db/drizzle";
-import { project, member } from "../../../db/schema";
+import { project, member, user } from "../../../db/schema";
 import { auth } from "../../../auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -16,7 +16,7 @@ import { getActiveOrganizationId } from "@/lib/utils/org-context";
 async function generateProjectCode(organizationId: string): Promise<string> {
     const currentYear = new Date().getFullYear();
     const prefix = `PRJ-${currentYear}-`;
-    
+
     // Find the highest sequence number for this org and year
     const existingProjects = await db.query.project.findMany({
         where: and(
@@ -26,7 +26,7 @@ async function generateProjectCode(organizationId: string): Promise<string> {
         orderBy: [desc(project.code)],
         limit: 1,
     });
-    
+
     let nextSeq = 1;
     if (existingProjects.length > 0 && existingProjects[0].code) {
         const lastCode = existingProjects[0].code;
@@ -35,7 +35,7 @@ async function generateProjectCode(organizationId: string): Promise<string> {
             nextSeq = lastSeq + 1;
         }
     }
-    
+
     // Pad to 3 digits (001, 002, etc.)
     return `${prefix}${nextSeq.toString().padStart(3, "0")}`;
 }
@@ -50,7 +50,17 @@ export async function createProject(formData: FormData) {
         throw new Error("Unauthorized");
     }
 
-    // 2. Parse Input
+    // 2. Check if user is ADMIN - only ADMINs can create projects
+    const currentUser = await db.query.user.findFirst({
+        where: eq(user.id, session.user.id),
+        columns: { role: true }
+    });
+
+    if (!currentUser || (currentUser.role !== "ADMIN" && currentUser.role !== "SUPER_ADMIN")) {
+        return { error: "Permission Denied: Only organization administrators can create projects." };
+    }
+
+    // 3. Parse Input
     const rawData = {
         name: formData.get("name"),
         code: formData.get("code"),
@@ -73,7 +83,7 @@ export async function createProject(formData: FormData) {
 
     const { name, organizationId, budget, location, currency, startDate, endDate, materialCategories: categoriesJson } = validatedFields.data;
 
-    // 3. Verify Membership (Security check)
+    // 4. Verify Membership (Security check)
     // User must be a member of the organization to create a project there
     const membership = await db.query.member.findFirst({
         where: and(
@@ -85,7 +95,6 @@ export async function createProject(formData: FormData) {
     if (!membership) {
         return { error: "You do not have permission to create projects in this organization." };
     }
-    // Ideally check if role is 'admin' or 'pm', but simple membership check for now for MVP
 
     let materialCategories: string[] = [];
     if (categoriesJson) {
@@ -116,7 +125,7 @@ export async function createProject(formData: FormData) {
         // 5. Revalidate
         revalidatePath("/dashboard/projects");
         revalidatePath("/dashboard/org"); // Maybe list updates
-        
+
         return { success: true, projectId: newProject.id, projectCode: generatedCode };
     } catch (error) {
         console.error("Failed to create project:", error);
@@ -135,7 +144,7 @@ export async function getUserProjects() {
 
     // Get active organization ID (from cookie or default)
     const activeOrgId = await getActiveOrganizationId();
-    
+
     if (activeOrgId) {
         // Fetch projects only for the active organization
         const projects = await db.query.project.findMany({

@@ -8,8 +8,27 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { auth } from "@/auth";
+import { headers } from "next/headers";
+import db from "@/db/drizzle";
+import { user } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export default async function ProjectsPage() {
+    // Get session and user role
+    const session = await auth.api.getSession({
+        headers: await headers()
+    });
+
+    let isAdmin = false;
+    if (session?.user) {
+        const currentUser = await db.query.user.findFirst({
+            where: eq(user.id, session.user.id),
+            columns: { role: true }
+        });
+        isAdmin = currentUser?.role === "ADMIN" || currentUser?.role === "SUPER_ADMIN";
+    }
+
     // We need orgs for the "New Project" dialog check
     const orgs = await getUserOrganizations();
 
@@ -18,13 +37,23 @@ export default async function ProjectsPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold">Projects</h1>
-                    <p className="text-muted-foreground">Manage your projects from here.</p>
+                    <p className="text-muted-foreground">
+                        {isAdmin ? "Manage and create projects for your organization." : "View projects you're assigned to."}
+                    </p>
                 </div>
-                {/* Only show create button if user has organizations to create project in */}
-                {orgs.length > 0 && <CreateProjectDialog organizations={orgs} />}
+                {/* Only ADMINs can create projects */}
+                {isAdmin && orgs.length > 0 && <CreateProjectDialog organizations={orgs} />}
             </div>
 
-            {orgs.length === 0 && (
+            {!isAdmin && (
+                <div className="border rounded-lg p-4 bg-muted/30 border-dashed">
+                    <p className="text-sm text-muted-foreground">
+                        💡 Only organization administrators can create new projects. Contact your admin if you need a new project set up.
+                    </p>
+                </div>
+            )}
+
+            {isAdmin && orgs.length === 0 && (
                 <div className="border rounded-lg p-8 text-center text-muted-foreground bg-muted/50 border-dashed mb-6">
                     <p>You need to be a member of an organization to create a project.</p>
                 </div>
