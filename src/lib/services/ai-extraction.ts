@@ -370,11 +370,42 @@ Rules:
 
 /**
  * Full extraction pipeline: Textract/Mammoth → GPT
+ * 
+ * HYBRID MODE: Tries Python service first for better accuracy,
+ * falls back to local TypeScript implementation if Python is unavailable.
  */
 export async function extractPOFromS3(
     fileUrl: string
 ): Promise<ExtractionResult> {
     try {
+        // Import Python API client dynamically to avoid issues if not configured
+        const {
+            isPythonServiceAvailable,
+            extractPOWithPython,
+            convertPythonPOToTypeScript
+        } = await import("./python-api");
+
+        // Try Python service first (better accuracy with pdfplumber/pandas)
+        const pythonAvailable = await isPythonServiceAvailable();
+
+        if (pythonAvailable) {
+            console.log("[extractPOFromS3] Using Python service for extraction");
+            const pythonResult = await extractPOWithPython(fileUrl);
+
+            if (pythonResult.success && pythonResult.data) {
+                const converted = convertPythonPOToTypeScript(pythonResult.data);
+                return {
+                    success: true,
+                    data: converted as ExtractedPOData,
+                };
+            }
+
+            console.warn("[extractPOFromS3] Python extraction failed, falling back to local:", pythonResult.error);
+        } else {
+            console.log("[extractPOFromS3] Python service unavailable, using local extraction");
+        }
+
+        // Fallback: Local TypeScript implementation
         // Parse S3 URL to get bucket and key
         // Expected format: https://bucket.s3.region.amazonaws.com/key
         const urlPattern = /https:\/\/([^.]+)\.s3\.([^.]+)\.amazonaws\.com\/(.+)/;
