@@ -319,6 +319,23 @@ export function CommandSidebar({
                                     Switch Project
                                 </div>
                                 <DropdownMenuSeparator />
+                                {/* All Projects Option */}
+                                <DropdownMenuItem
+                                    onClick={() => onProjectChange?.("")}
+                                    className={cn(
+                                        "cursor-pointer flex items-center gap-2",
+                                        !activeProjectId && "bg-accent"
+                                    )}
+                                >
+                                    <div className="h-2 w-2 rounded-full bg-blue-500" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium">All Projects</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            View data across all projects
+                                        </p>
+                                    </div>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
                                 {projects.length === 0 ? (
                                     <DropdownMenuItem disabled>
                                         No projects available
@@ -352,7 +369,7 @@ export function CommandSidebar({
                                 <DropdownMenuItem asChild>
                                     <Link href="/dashboard/projects" className="cursor-pointer">
                                         <FolderSimple className="mr-2 h-4 w-4" />
-                                        View All Projects
+                                        Manage Projects
                                     </Link>
                                 </DropdownMenuItem>
                             </DropdownMenuContent>

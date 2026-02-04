@@ -24,6 +24,7 @@ import {
     type UpdatePOVersionInput,
 } from "@/lib/schemas/procurement";
 import { getActiveOrganizationId } from "@/lib/utils/org-context";
+import { getActiveProjectId } from "@/lib/utils/project-context";
 
 // ============================================================================
 // TYPES
@@ -411,9 +412,9 @@ export async function submitPurchaseOrder(
         revalidatePath("/dashboard/procurement");
         revalidatePath(`/dashboard/procurement/${poId}`);
 
-        return { 
-            success: true, 
-            data: { poNumber: po.poNumber } 
+        return {
+            success: true,
+            data: { poNumber: po.poNumber }
         };
     } catch (error: any) {
         console.error("[submitPurchaseOrder] Error:", error);
@@ -423,6 +424,7 @@ export async function submitPurchaseOrder(
 
 /**
  * List Purchase Orders with optional filters
+ * Automatically filters by active project from context if no projectId filter provided
  */
 export async function listPurchaseOrders(filters?: {
     projectId?: string;
@@ -438,9 +440,19 @@ export async function listPurchaseOrders(filters?: {
             eq(purchaseOrder.isDeleted, false)
         ];
 
+        // If explicit projectId filter provided, use it
+        // Otherwise, check for active project from context
         if (filters?.projectId) {
             conditions.push(eq(purchaseOrder.projectId, filters.projectId));
+        } else {
+            // Check for active project from context
+            const activeProjectId = await getActiveProjectId();
+            if (activeProjectId) {
+                conditions.push(eq(purchaseOrder.projectId, activeProjectId));
+            }
+            // If activeProjectId is null, show all projects (no filter)
         }
+
         if (filters?.status) {
             conditions.push(eq(purchaseOrder.status, filters.status));
         }

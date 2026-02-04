@@ -1,4 +1,4 @@
-import { CommandSidebar } from "@/components/dashboard/command-sidebar"
+import { SidebarWrapper } from "@/components/dashboard/sidebar-wrapper"
 import { UserMenu } from "@/components/user-menu"
 import {
     Breadcrumb,
@@ -21,6 +21,7 @@ import { headers } from "next/headers"
 import { noIndexMetadata } from "@/lib/seo.config"
 import type { Metadata } from "next"
 import { getUserOrganizationsWithActive } from "@/lib/utils/org-context"
+import { getActiveProjectId } from "@/lib/utils/project-context"
 import { redirect } from "next/navigation"
 import db from "@/db/drizzle"
 import { project, purchaseOrder, invoice, changeOrder } from "@/db/schema"
@@ -76,6 +77,9 @@ export default async function DashboardLayout({
 
     // Count alerts for badge
     let alertCount = 0;
+
+    // Get active project from cookie
+    const activeProjectId = await getActiveProjectId();
 
     if (activeOrgId) {
         try {
@@ -159,11 +163,12 @@ export default async function DashboardLayout({
 
     return (
         <SidebarProvider>
-            <CommandSidebar 
-                user={user} 
+            <SidebarWrapper
+                user={user}
                 organizations={organizations}
                 activeOrgId={activeOrgId}
                 projects={projects}
+                activeProjectId={activeProjectId}
                 alertCount={alertCount}
             />
             <SidebarInset>
