@@ -180,16 +180,105 @@ class AIExtractionService:
     # =========================================================================
     
     async def _extract_pdf(self, file_url: str) -> Optional[str]:
-        """Extract text from PDF using pdfplumber (fast, no OCR)"""
+        """
+        Extract text from PDF.
+        Strategy:
+        1. Try pdfplumber first (fast, works well for native text PDFs)
+        2. If text is too short (<500 chars), fall back to Textract (better for scanned docs)
+        """
         try:
             content = await self._download_file(file_url)
-            return self._extract_pdf_from_bytes(content)
+            
+            # Try pdfplumber first
+            text = self._extract_pdf_from_bytes(content)
+            
+            # If pdfplumber got reasonable text, use it
+            if text and len(text.strip()) > 500:
+                print(f"[PDF Extract] pdfplumber succeeded: {len(text)} chars")
+                return text
+            
+            # Fallback to Textract for scanned/image PDFs
+            print(f"[PDF Extract] pdfplumber got {len(text) if text else 0} chars, falling back to Textract")
+            return await self._extract_pdf_with_textract(file_url)
+            
         except Exception as e:
             print(f"PDF extraction error: {e}")
             return None
     
+    async def _extract_pdf_with_textract(self, file_url: str) -> Optional[str]:
+        """Extract text from PDF using AWS Textract async API"""
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(file_url)
+            
+            # Get bucket and key
+            hostname_parts = parsed.hostname.split(".")
+            bucket = hostname_parts[0]
+            s3_key = parsed.path.lstrip("/")
+            
+            print(f"[Textract] Starting async extraction: {bucket}/{s3_key}")
+            
+            # Start async job
+            start_response = self.textract.start_document_text_detection(
+                DocumentLocation={
+                    "S3Object": {
+                        "Bucket": bucket,
+                        "Name": s3_key
+                    }
+                }
+            )
+            
+            job_id = start_response["JobId"]
+            print(f"[Textract] Job started: {job_id}")
+            
+            # Poll for completion (max 2 minutes)
+            max_attempts = 60
+            for attempt in range(max_attempts):
+                await asyncio.sleep(2)  # Wait 2 seconds between polls
+                
+                get_response = self.textract.get_document_text_detection(JobId=job_id)
+                status = get_response["JobStatus"]
+                
+                if status == "SUCCEEDED":
+                    # Collect all text blocks
+                    all_blocks = get_response.get("Blocks", [])
+                    
+                    # Handle pagination
+                    next_token = get_response.get("NextToken")
+                    while next_token:
+                        page_response = self.textract.get_document_text_detection(
+                            JobId=job_id, NextToken=next_token
+                        )
+                        all_blocks.extend(page_response.get("Blocks", []))
+                        next_token = page_response.get("NextToken")
+                    
+                    # Extract lines of text
+                    lines = [
+                        block["Text"]
+                        for block in all_blocks
+                        if block["BlockType"] == "LINE"
+                    ]
+                    
+                    text = "\n".join(lines)
+                    print(f"[Textract] Extracted {len(text)} chars from {len(all_blocks)} blocks")
+                    return text
+                    
+                elif status == "FAILED":
+                    print("[Textract] Job failed")
+                    return None
+                    
+                if attempt % 10 == 0:
+                    print(f"[Textract] Still processing... ({attempt * 2}s elapsed)")
+            
+            print("[Textract] Job timed out")
+            return None
+            
+        except Exception as e:
+            print(f"[Textract] Error: {e}")
+            return None
+    
     def _extract_pdf_from_bytes(self, content: bytes) -> Optional[str]:
-        """Extract text from PDF bytes"""
+        """Extract text from PDF bytes using pdfplumber"""
         try:
             with pdfplumber.open(io.BytesIO(content)) as pdf:
                 text_parts = []

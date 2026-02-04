@@ -588,9 +588,13 @@ The sum of all paymentPercentage values should equal or be close to 100%.`;
 
 /**
  * Generic entry point for milestone-only extraction (PDF, Excel, or Word)
+ * 
+ * HYBRID MODE: Tries Python service first for better accuracy,
+ * falls back to local TypeScript implementation if Python is unavailable.
  */
 export async function extractMilestonesFromS3(fileUrl: string): Promise<{ success: boolean; milestones: ExtractedMilestone[]; error?: string }> {
     try {
+        // Try Python service first for PDF files
         const key = extractS3KeyFromUrl(fileUrl);
         console.log("[extractMilestonesFromS3] Processing file:", key);
 
@@ -599,7 +603,35 @@ export async function extractMilestonesFromS3(fileUrl: string): Promise<{ succes
         const extension = key.split('.').pop()?.toLowerCase();
         console.log("[extractMilestonesFromS3] File extension:", extension);
 
-        // Excel files
+        // For PDF files, try Python first
+        if (extension === 'pdf') {
+            try {
+                const {
+                    isPythonServiceAvailable,
+                    extractMilestonesWithPython,
+                    convertPythonMilestonesToTypeScript
+                } = await import("./python-api");
+
+                const pythonAvailable = await isPythonServiceAvailable();
+
+                if (pythonAvailable) {
+                    console.log("[extractMilestonesFromS3] Using Python service for extraction");
+                    const pythonResult = await extractMilestonesWithPython(fileUrl);
+
+                    if (pythonResult.success && pythonResult.data?.milestones) {
+                        const converted = convertPythonMilestonesToTypeScript(pythonResult.data.milestones);
+                        if (converted.length > 0) {
+                            return { success: true, milestones: converted };
+                        }
+                    }
+                    console.warn("[extractMilestonesFromS3] Python extraction failed, falling back to local");
+                }
+            } catch (e) {
+                console.warn("[extractMilestonesFromS3] Python import failed, using TypeScript");
+            }
+        }
+
+        // Excel files - use local TypeScript
         if (extension === 'xlsx' || extension === 'xls' || extension === 'csv') {
             console.log("[extractMilestonesFromS3] Processing as Excel file");
             const buffer = await getFileBuffer(key);
@@ -627,7 +659,7 @@ export async function extractMilestonesFromS3(fileUrl: string): Promise<{ succes
             return { success: true, milestones };
         }
 
-        // PDF/Image - use Textract + GPT
+        // PDF/Image - fallback to Textract + GPT
         console.log("[extractMilestonesFromS3] Processing as PDF/Image with Textract");
         const urlPattern = /https:\/\/([^.]+)\.s3\.([^.]+)\.amazonaws\.com\/(.+)/;
         const match = fileUrl.match(urlPattern);
@@ -754,6 +786,9 @@ Return ONLY valid JSON, no markdown formatting.`;
 
 /**
  * Full invoice extraction pipeline: Textract/Mammoth → GPT
+ * 
+ * HYBRID MODE: Tries Python service first for better accuracy,
+ * falls back to local TypeScript implementation if Python is unavailable.
  */
 export async function extractInvoiceFromS3(
     fileUrl: string
@@ -767,6 +802,33 @@ export async function extractInvoiceFromS3(
         const bucket = process.env.AWS_S3_BUCKET || "infradyn-storage";
         const fileExtension = s3Key.split('.').pop()?.toLowerCase();
 
+        // For PDF files, try Python first
+        if (fileExtension === 'pdf') {
+            try {
+                const {
+                    isPythonServiceAvailable,
+                    extractInvoiceWithPython,
+                    convertPythonInvoiceToTypeScript
+                } = await import("./python-api");
+
+                const pythonAvailable = await isPythonServiceAvailable();
+
+                if (pythonAvailable) {
+                    console.log("[extractInvoiceFromS3] Using Python service for extraction");
+                    const pythonResult = await extractInvoiceWithPython(fileUrl);
+
+                    if (pythonResult.success && pythonResult.data) {
+                        const converted = convertPythonInvoiceToTypeScript(pythonResult.data);
+                        return { success: true, data: converted as ExtractedInvoiceData };
+                    }
+                    console.warn("[extractInvoiceFromS3] Python extraction failed, falling back to local");
+                }
+            } catch (e) {
+                console.warn("[extractInvoiceFromS3] Python import failed, using TypeScript");
+            }
+        }
+
+        // Fallback: Local TypeScript implementation
         let rawText: string | undefined;
 
         // Handle different file types
