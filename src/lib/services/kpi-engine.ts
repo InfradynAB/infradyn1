@@ -109,8 +109,43 @@ interface KPIFilters {
 
 /**
  * Get all dashboard KPIs for an organization/project
+ * 
+ * HYBRID MODE: Tries Python service first for better performance,
+ * falls back to local TypeScript implementation if Python is unavailable.
  */
 export async function getDashboardKPIs(filters: KPIFilters): Promise<DashboardKPIs> {
+    // Try Python service first
+    try {
+        const { isPythonServiceAvailable, fetchDashboardKPIs } = await import("./python-api");
+        const available = await isPythonServiceAvailable();
+
+        if (available) {
+            console.log("[KPI Engine] Using Python service");
+            const pythonFilters = {
+                organizationId: filters.organizationId,
+                projectId: filters.projectId,
+                dateFrom: filters.dateFrom?.toISOString().split('T')[0],
+                dateTo: filters.dateTo?.toISOString().split('T')[0],
+            };
+
+            const result = await fetchDashboardKPIs(pythonFilters);
+
+            if (result.success && result.data) {
+                console.log("[KPI Engine] Python service succeeded");
+                return {
+                    ...result.data,
+                    timestamp: new Date(result.data.timestamp)
+                };
+            }
+
+            console.warn("[KPI Engine] Python service failed, falling back to TypeScript");
+        }
+    } catch (error) {
+        console.warn("[KPI Engine] Python service error, using TypeScript fallback:", error);
+    }
+
+    // Fallback to local TypeScript implementation
+    console.log("[KPI Engine] Using TypeScript fallback");
     const [financial, progress, quality, suppliers, payments, logistics] = await Promise.all([
         getFinancialKPIs(filters),
         getProgressKPIs(filters),
@@ -369,7 +404,7 @@ export async function getProgressKPIs(filters: KPIFilters): Promise<ProgressKPIs
     const physicalProgress = totalPOValue > 0 ? (weightedProgress / totalPOValue) * 100 : 0;
 
     // Count active vs total POs
-    const activePOs = pos.filter(p => 
+    const activePOs = pos.filter(p =>
         !["DRAFT", "CANCELLED", "COMPLETED", "CLOSED"].includes(p.status || "")
     ).length;
 

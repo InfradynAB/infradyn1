@@ -269,3 +269,74 @@ export function convertPythonMilestonesToTypeScript(milestones: ExtractedMilesto
         paymentPercentage: m.payment_percentage,
     }));
 }
+
+// ============================================================================
+// KPI ENGINE CLIENT
+// ============================================================================
+
+interface KPIFilters {
+    organizationId: string;
+    projectId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+}
+
+/**
+ * Fetch all dashboard KPIs from Python service
+ */
+export async function fetchDashboardKPIs(filters: KPIFilters) {
+    try {
+        const response = await fetch(`${PYTHON_SERVICE_URL}/api/kpi/dashboard`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                organization_id: filters.organizationId,
+                project_id: filters.projectId,
+                date_from: filters.dateFrom,
+                date_to: filters.dateTo,
+            }),
+        });
+
+        if (!response.ok) {
+            return { success: false, error: `Python service error: ${response.status}` };
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error("[Python API] KPI fetch error:", error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Failed to connect to Python service",
+        };
+    }
+}
+
+/**
+ * Fetch S-Curve data for planned vs actual spend chart
+ */
+export async function fetchSCurveData(filters: KPIFilters) {
+    try {
+        const response = await fetch(`${PYTHON_SERVICE_URL}/api/kpi/scurve`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                organization_id: filters.organizationId,
+                project_id: filters.projectId,
+                date_from: filters.dateFrom,
+                date_to: filters.dateTo,
+            }),
+        });
+
+        if (!response.ok) {
+            return { success: false, error: `Python service error: ${response.status}` };
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error("[Python API] S-Curve fetch error:", error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Failed to connect to Python service",
+        };
+    }
+}
