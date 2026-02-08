@@ -2,10 +2,11 @@
 KPI Router
 API endpoints for KPI calculations
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from datetime import date
+from functools import lru_cache
 
 from app.services.kpi_service import KPIService
 
@@ -21,12 +22,14 @@ class KPIRequest(BaseModel):
     date_to: Optional[date] = None
 
 
-# Initialize KPI service
-kpi_service = KPIService()
+# Lazy-load KPI service (only create when needed)
+@lru_cache()
+def get_kpi_service() -> KPIService:
+    return KPIService()
 
 
 @router.post("/dashboard")
-async def get_dashboard_kpis(request: KPIRequest):
+async def get_dashboard_kpis(request: KPIRequest, kpi_service: KPIService = Depends(get_kpi_service)):
     """
     Get all dashboard KPIs in one optimized call
     """
@@ -48,7 +51,7 @@ async def get_dashboard_kpis(request: KPIRequest):
 
 
 @router.post("/financial")
-async def get_financial_kpis(request: KPIRequest):
+async def get_financial_kpis(request: KPIRequest, kpi_service: KPIService = Depends(get_kpi_service)):
     """Get Financial KPIs"""
     try:
         kpis = await kpi_service.get_financial_kpis(
@@ -63,7 +66,7 @@ async def get_financial_kpis(request: KPIRequest):
 
 
 @router.post("/progress")
-async def get_progress_kpis(request: KPIRequest):
+async def get_progress_kpis(request: KPIRequest, kpi_service: KPIService = Depends(get_kpi_service)):
     """Get Progress KPIs"""
     try:
         kpis = await kpi_service.get_progress_kpis(
@@ -78,7 +81,7 @@ async def get_progress_kpis(request: KPIRequest):
 
 
 @router.post("/quality")
-async def get_quality_kpis(request: KPIRequest):
+async def get_quality_kpis(request: KPIRequest, kpi_service: KPIService = Depends(get_kpi_service)):
     """Get Quality KPIs"""
     try:
         kpis = await kpi_service.get_quality_kpis(
@@ -93,7 +96,7 @@ async def get_quality_kpis(request: KPIRequest):
 
 
 @router.post("/suppliers")
-async def get_supplier_kpis(request: KPIRequest):
+async def get_supplier_kpis(request: KPIRequest, kpi_service: KPIService = Depends(get_kpi_service)):
     """Get Supplier KPIs"""
     try:
         kpis = await kpi_service.get_supplier_kpis(
@@ -108,7 +111,7 @@ async def get_supplier_kpis(request: KPIRequest):
 
 
 @router.post("/payments")
-async def get_payment_kpis(request: KPIRequest):
+async def get_payment_kpis(request: KPIRequest, kpi_service: KPIService = Depends(get_kpi_service)):
     """Get Payment KPIs"""
     try:
         kpis = await kpi_service.get_payment_kpis(
@@ -123,7 +126,7 @@ async def get_payment_kpis(request: KPIRequest):
 
 
 @router.post("/logistics")
-async def get_logistics_kpis(request: KPIRequest):
+async def get_logistics_kpis(request: KPIRequest, kpi_service: KPIService = Depends(get_kpi_service)):
     """Get Logistics KPIs"""
     try:
         kpis = await kpi_service.get_logistics_kpis(
@@ -138,7 +141,7 @@ async def get_logistics_kpis(request: KPIRequest):
 
 
 @router.post("/scurve")
-async def get_scurve_data(request: KPIRequest):
+async def get_scurve_data(request: KPIRequest, kpi_service: KPIService = Depends(get_kpi_service)):
     """Get S-Curve data for charts"""
     try:
         data = await kpi_service.get_scurve_data(
