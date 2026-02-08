@@ -4,6 +4,7 @@ import db from "@/db/drizzle";
 import { invitation } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { XCircle, Buildings, ShieldCheck } from "@phosphor-icons/react/dist/ssr";
 import { InviteClient } from "@/components/invite/invite-client";
 import { auth } from "@/auth";
@@ -25,6 +26,14 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
             organization: true
         }
     });
+
+    // If invitation was already accepted, redirect to dashboard (prevents flash of "expired" message)
+    if (invite && invite.status === "ACCEPTED") {
+        const redirectUrl = invite.role === "SUPPLIER" 
+            ? "/dashboard/supplier" 
+            : "/dashboard";
+        redirect(redirectUrl);
+    }
 
     // Explicit check for undefined organization to satisfy Typescript if inference fails
     const isInvalid = !invite || invite.status !== "PENDING" || new Date() > invite.expiresAt || !invite.organization;
