@@ -32,8 +32,13 @@ class KPIService:
         # Create async SQLAlchemy engine
         database_url = settings.database_url
         
-        # Convert postgresql:// to postgresql+asyncpg://
-        if database_url.startswith("postgresql://"):
+        if not database_url:
+            raise ValueError("DATABASE_URL environment variable is not set")
+        
+        # Convert postgres:// or postgresql:// to postgresql+asyncpg://
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif database_url.startswith("postgresql://"):
             database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
         
         # asyncpg doesn't support sslmode in URL, strip it and use ssl parameter
