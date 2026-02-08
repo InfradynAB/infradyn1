@@ -495,6 +495,29 @@ export default async function SupplierDashboardPage() {
                     </Card>
                 </div>
             </div>
+
+            {/* ── ANALYTICS SECTION LINK ── */}
+            <Card className="border-dashed">
+                <CardContent className="flex items-center justify-between py-6">
+                    <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                            <ChartBar className="h-6 w-6 text-primary" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold">Detailed Analytics</h3>
+                            <p className="text-sm text-muted-foreground">
+                                View PO status, delivery timelines, invoice cycles, and compliance metrics
+                            </p>
+                        </div>
+                    </div>
+                    <Link href="/dashboard/supplier/analytics">
+                        <Button className="gap-2">
+                            View Analytics
+                            <ArrowRight className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                </CardContent>
+            </Card>
         </div>
     );
 }

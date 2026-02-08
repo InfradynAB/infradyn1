@@ -74,6 +74,11 @@ const supplierItems = [
         icon: HouseIcon,
     },
     {
+        title: "Analytics",
+        url: "/dashboard/supplier/analytics",
+        icon: ChartLineUp,
+    },
+    {
         title: "My POs",
         url: "/dashboard/supplier/pos", // Or just link to dashboard if it lists them
         icon: FileTextIcon,
