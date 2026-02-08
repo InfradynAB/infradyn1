@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import {
     createNCR,
     getNCRsByPO,
+    getNCRsByOrg,
     getNCRDashboard,
 } from "@/lib/actions/ncr-engine";
 
@@ -25,9 +26,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(result);
         }
 
-        // Otherwise get dashboard data for organization
+        // Otherwise get all NCRs for organization
         if (organizationId) {
-            const result = await getNCRDashboard(organizationId);
+            const result = await getNCRsByOrg(organizationId);
             return NextResponse.json(result);
         }
 

@@ -431,6 +431,32 @@ async function unlockMilestonesOnClose(milestoneIds: string[], ncrId: string) {
 // ============================================================================
 
 /**
+ * Get all NCRs for an organization
+ */
+export async function getNCRsByOrg(organizationId: string) {
+    try {
+        const ncrs = await db.query.ncr.findMany({
+            where: eq(ncr.organizationId, organizationId),
+            orderBy: [desc(ncr.createdAt)],
+            with: {
+                supplier: true,
+                reporter: true,
+                purchaseOrder: {
+                    with: {
+                        project: true,
+                    },
+                },
+            },
+        });
+
+        return { success: true, data: ncrs };
+    } catch (error) {
+        console.error("[GET_NCRS_BY_ORG]", error);
+        return { success: false, error: error instanceof Error ? error.message : "Failed to fetch NCRs", data: [] };
+    }
+}
+
+/**
  * Get NCRs for a purchase order
  */
 export async function getNCRsByPO(purchaseOrderId: string) {

@@ -24,8 +24,8 @@ import { getUserOrganizationsWithActive } from "@/lib/utils/org-context"
 import { getActiveProjectId } from "@/lib/utils/project-context"
 import { redirect } from "next/navigation"
 import db from "@/db/drizzle"
-import { project, purchaseOrder, invoice, changeOrder } from "@/db/schema"
-import { eq, and, not, inArray } from "drizzle-orm"
+import { project, purchaseOrder, invoice, changeOrder, ncr } from "@/db/schema"
+import { eq, and, not, inArray, or } from "drizzle-orm"
 import { getProgressKPIs } from "@/lib/services/kpi-engine"
 
 // Prevent search engine indexing of dashboard pages
@@ -138,7 +138,7 @@ export default async function DashboardLayout({
             const poIds = orgPOs.map((po) => po.id);
 
             if (poIds.length > 0) {
-                const [pendingInvoices, pendingCOs] = await Promise.all([
+                const [pendingInvoices, pendingCOs, openNCRs] = await Promise.all([
                     db.query.invoice.findMany({
                         where: and(
                             inArray(invoice.purchaseOrderId, poIds),
@@ -153,8 +153,17 @@ export default async function DashboardLayout({
                         ),
                         columns: { id: true },
                     }),
+                    db.query.ncr.findMany({
+                        where: and(
+                            eq(ncr.organizationId, activeOrgId),
+                            eq(ncr.isDeleted, false),
+                            not(eq(ncr.status, "CLOSED")),
+                            or(eq(ncr.severity, "CRITICAL"), eq(ncr.severity, "MAJOR"))
+                        ),
+                        columns: { id: true },
+                    }),
                 ]);
-                alertCount = pendingInvoices.length + pendingCOs.length;
+                alertCount = pendingInvoices.length + pendingCOs.length + openNCRs.length;
             }
         } catch (error) {
             console.error("Error fetching sidebar data:", error);
