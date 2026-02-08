@@ -31,7 +31,7 @@ import { getProgressKPIs } from "@/lib/services/kpi-engine"
 // Prevent search engine indexing of dashboard pages
 export const metadata: Metadata = {
     ...noIndexMetadata,
-    title: "Command Center | Infradyn",
+    title: "Home | Infradyn",
 };
 
 export default async function DashboardLayout({
@@ -183,7 +183,7 @@ export default async function DashboardLayout({
                                 </BreadcrumbItem>
                                 <BreadcrumbSeparator className="hidden md:block" />
                                 <BreadcrumbItem>
-                                    <BreadcrumbPage>Command Center</BreadcrumbPage>
+                                    <BreadcrumbPage>Home</BreadcrumbPage>
                                 </BreadcrumbItem>
                             </BreadcrumbList>
                         </Breadcrumb>

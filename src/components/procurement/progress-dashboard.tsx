@@ -130,7 +130,7 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
         <div className="space-y-6">
             {/* Financial Summary Row */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="border-l-4 border-l-blue-500">
+                <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <div className="flex items-center gap-2">
                             <CardTitle className="text-sm font-medium">Total Committed to Suppliers</CardTitle>
@@ -154,7 +154,7 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                     </CardContent>
                 </Card>
 
-                <Card className="border-l-4 border-l-green-500">
+                <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <div className="flex items-center gap-2">
                             <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
@@ -182,7 +182,7 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                     </CardContent>
                 </Card>
 
-                <Card className="border-l-4 border-l-amber-500">
+                <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <div className="flex items-center gap-2">
                             <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
@@ -213,10 +213,7 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                     </CardContent>
                 </Card>
 
-                <Card className={cn(
-                    "border-l-4",
-                    payments.totalOverdue > 0 ? "border-l-red-500 border-red-200 bg-red-50/50 dark:bg-red-950/10" : "border-l-gray-300"
-                )}>
+                <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <div className="flex items-center gap-2">
                             <CardTitle className="text-sm font-medium">Overdue</CardTitle>

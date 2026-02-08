@@ -138,7 +138,7 @@ export function CommandCenterClient({ userName }: CommandCenterClientProps) {
                         {getGreeting()}, {userName?.split(" ")[0] || "there"}!
                     </h1>
                     <p className="text-muted-foreground mt-1">
-                        Here&apos;s your project command center overview
+                        Here&apos;s your project overview
                     </p>
                 </div>
 

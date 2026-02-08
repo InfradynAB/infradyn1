@@ -16,7 +16,9 @@ import {
     Warning,
     XCircle,
     Funnel,
+    ClockCounterClockwise,
 } from "@phosphor-icons/react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 interface AlertData {
@@ -88,16 +90,29 @@ export function AlertsPageClient() {
                     </p>
                 </div>
 
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRefresh}
-                    disabled={refreshing}
-                    className="gap-2"
-                >
-                    <ArrowsClockwise className={cn("h-4 w-4", refreshing && "animate-spin")} />
-                    Refresh
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className="gap-2"
+                    >
+                        <Link href="/dashboard/alerts/logs">
+                            <ClockCounterClockwise className="h-4 w-4" />
+                            View Logs
+                        </Link>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRefresh}
+                        disabled={refreshing}
+                        className="gap-2"
+                    >
+                        <ArrowsClockwise className={cn("h-4 w-4", refreshing && "animate-spin")} />
+                        Refresh
+                    </Button>
+                </div>
             </div>
 
             {/* Summary Cards */}

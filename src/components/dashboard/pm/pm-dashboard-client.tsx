@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import {
     Select,
@@ -60,6 +61,7 @@ import {
     ChartBar,
     Rows,
     Faders,
+    ArrowLeft,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -379,6 +381,9 @@ export function PMDashboardClient() {
             <div className="sticky top-0 z-30 bg-background/85 backdrop-blur-2xl border-b border-border/60 -mx-4 px-4 lg:-mx-6 lg:px-6">
                 <div className="flex items-center justify-between py-3.5">
                     <div className="flex items-center gap-3.5">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" asChild>
+                            <Link href="/dashboard/analytics"><ArrowLeft className="h-4 w-4" /></Link>
+                        </Button>
                         <div className="w-10 h-10 rounded-2xl bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-600/30">
                             <Wrench className="w-5 h-5 text-white" weight="bold" />
                         </div>

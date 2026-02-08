@@ -86,7 +86,7 @@ const healthColors: Record<HealthStatus, { bg: string; dot: string; text: string
 
 // Navigation structure organized by workflow
 const dailyOpsNav = [
-    { title: "Command Center", url: "/dashboard", icon: SquaresFour },
+    { title: "Home", url: "/dashboard", icon: SquaresFour },
     { title: "Alerts", url: "/dashboard/alerts", icon: Bell, badge: true },
     { title: "Analytics", url: "/dashboard/analytics", icon: ChartLineUp },
 ];
@@ -214,7 +214,7 @@ export function CommandSidebar({
                                             Infradyn
                                         </span>
                                         <span className="text-[10px] text-sidebar-foreground/60 tracking-widest uppercase">
-                                            {isSupplier ? "Supplier Portal" : "Command Center"}
+                                            {isSupplier ? "Supplier Portal" : "Home"}
                                         </span>
                                     </div>
                                 )}

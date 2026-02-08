@@ -49,6 +49,19 @@ export const shipmentEventTypeEnum = pgEnum('shipment_event_type', [
     'ETA_UPDATE', 'LOCATION_SCAN', 'OTHER'
 ]);
 
+// Alert Management Enums
+export const alertTypeEnum = pgEnum('alert_type', [
+    'OVERDUE_DELIVERY', 'NCR_OPEN', 'INVOICE_PENDING', 'DOCUMENT_EXPIRING',
+    'MILESTONE_DUE', 'BUDGET_EXCEEDED', 'SUPPLIER_COMPLIANCE', 'QA_FAILED',
+    'PO_APPROVAL_PENDING', 'SHIPMENT_DELAYED', 'PAYMENT_OVERDUE', 'OTHER'
+]);
+
+export const alertSeverityEnum = pgEnum('alert_severity', ['INFO', 'WARNING', 'CRITICAL']);
+
+export const alertActionEnum = pgEnum('alert_action', [
+    'ACKNOWLEDGED', 'RESOLVED', 'ESCALATED', 'DISMISSED', 'SNOOZED'
+]);
+
 
 // --- SHARED COLUMNS ---
 const baseColumns = {
@@ -1007,6 +1020,43 @@ export const supplierAccuracy = pgTable('supplier_accuracy', {
     lastCalculatedAt: timestamp('last_calculated_at').defaultNow(),
 });
 
+// --- ALERT LOGS ---
+
+export const alertLog = pgTable('alert_log', {
+    ...baseColumns,
+    organizationId: uuid('organization_id').references(() => organization.id).notNull(),
+    
+    // Alert details (snapshot at time of action)
+    alertType: alertTypeEnum('alert_type').notNull(),
+    alertSeverity: alertSeverityEnum('alert_severity').notNull(),
+    alertTitle: text('alert_title').notNull(),
+    alertDescription: text('alert_description'),
+    
+    // Reference to the source entity (e.g., PO, NCR, Invoice, etc.)
+    entityType: text('entity_type'), // 'PO', 'NCR', 'INVOICE', 'SHIPMENT', etc.
+    entityId: uuid('entity_id'),
+    entityReference: text('entity_reference'), // Human-readable reference like PO number
+    
+    // Who responded
+    respondedBy: text('responded_by').references(() => user.id).notNull(),
+    
+    // Action taken
+    action: alertActionEnum('action').notNull(),
+    actionNotes: text('action_notes'), // Optional notes from the user
+    
+    // Timing
+    alertGeneratedAt: timestamp('alert_generated_at'), // When the alert first appeared
+    respondedAt: timestamp('responded_at').defaultNow().notNull(),
+    
+    // Additional context
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+}, (table) => [
+    index('alert_log_org_idx').on(table.organizationId),
+    index('alert_log_type_idx').on(table.alertType),
+    index('alert_log_user_idx').on(table.respondedBy),
+    index('alert_log_entity_idx').on(table.entityType, table.entityId),
+]);
+
 // --- RELATIONS ---
 
 
@@ -1016,6 +1066,12 @@ export const organizationRelations = relations(organization, ({ many }) => ({
     // better to rely on members for mapping users to orgs if many-to-many or one-to-many via explicit table
     members: many(member),
     suppliers: many(supplier),
+    alertLogs: many(alertLog),
+}));
+
+export const alertLogRelations = relations(alertLog, ({ one }) => ({
+    organization: one(organization, { fields: [alertLog.organizationId], references: [organization.id] }),
+    responder: one(user, { fields: [alertLog.respondedBy], references: [user.id] }),
 }));
 
 export const memberRelations = relations(member, ({ one }) => ({

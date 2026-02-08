@@ -53,8 +53,10 @@ export function ReadinessScore({ score, size = 120, strokeWidth = 8 }: Readiness
                 />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-2xl font-bold">{score}%</span>
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Readiness</span>
+                <span className={size <= 80 ? "text-sm font-bold" : "text-2xl font-bold"}>{score}%</span>
+                {size > 80 && (
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Readiness</span>
+                )}
             </div>
         </div>
     );

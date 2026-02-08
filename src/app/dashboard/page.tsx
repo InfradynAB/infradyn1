@@ -4,8 +4,8 @@ import { auth } from "@/auth";
 import { CommandCenterClient } from "@/components/dashboard/command-center";
 
 export const metadata = {
-    title: "Command Center | Infradyn",
-    description: "Your project command center - overview of all active projects, alerts, and activities",
+    title: "Home | Infradyn",
+    description: "Your project overview - all active projects, alerts, and activities",
 };
 
 export default async function DashboardPage() {
