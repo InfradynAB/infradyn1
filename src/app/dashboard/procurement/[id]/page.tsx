@@ -220,6 +220,13 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                     {/* Submit PO Button - Only shows for DRAFT status */}
                     <SubmitPOButton poId={po.id} poNumber={po.poNumber} status={po.status} />
                     
+                    <Button variant="outline" asChild>
+                        <Link href={`/dashboard/procurement/${po.id}/analytics`}>
+                            <ChartLineUpIcon className="mr-2 h-4 w-4" />
+                            Analytics
+                        </Link>
+                    </Button>
+
                     {downloadUrl && (
                         <Button variant="outline" asChild>
                             <a
@@ -251,7 +258,7 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
             {/* Summary Cards - Enhanced for Construction Workers */}
             <div className="grid gap-4 md:grid-cols-4">
                 {/* Total Value Card - Show Original + CO Impact */}
-                <Card className="border-l-4 border-l-primary">
+                <Card>
                     <CardHeader className="pb-2">
                         <CardDescription>Total Value</CardDescription>
                     </CardHeader>
@@ -275,7 +282,7 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
 
                 {/* Paid Card - With Progress Bar */}
                 {/* Paid Card - Pizza Tracker Style */}
-                <Card className="border-l-4 border-l-emerald-600">
+                <Card>
                     <CardHeader className="pb-2">
                         <CardDescription className="flex items-center gap-1">
                             <CheckCircle className="h-3 w-3 text-emerald-600" />
@@ -300,7 +307,7 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                 </Card>
 
                 {/* Pending Card - With Action Link */}
-                <Card className={`border-l-4 ${paymentSummary.totalPending > 0 ? "border-l-amber-500" : "border-l-gray-300"}`}>
+                <Card>
                     <CardHeader className="pb-2">
                         <CardDescription className="flex items-center gap-1">
                             <Warning className="h-3 w-3 text-amber-500" />
@@ -334,7 +341,7 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                 </Card>
 
                 {/* Change Orders Card - With Impact Summary */}
-                <Card className={`border-l-4 ${coImpact.pendingCOs > 0 ? "border-l-orange-500" : "border-l-gray-300"}`}>
+                <Card>
                     <CardHeader className="pb-2">
                         <CardDescription className="flex items-center gap-1">
                             <ArrowsClockwise className="h-3 w-3" />

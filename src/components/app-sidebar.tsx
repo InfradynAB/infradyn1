@@ -1,4 +1,4 @@
-import { CalendarIcon, HouseIcon, TrayIcon, MagnifyingGlassIcon, GearIcon, BuildingsIcon, GitForkIcon, TruckIcon, FolderSimpleIcon, Hexagon, FileTextIcon, PlugsConnectedIcon, UserCircleIcon, ChartLineUp } from "@phosphor-icons/react/dist/ssr"
+import { CalendarIcon, HouseIcon, TrayIcon, MagnifyingGlassIcon, GearIcon, BuildingsIcon, GitForkIcon, TruckIcon, FolderSimpleIcon, Hexagon, FileTextIcon, PlugsConnectedIcon, UserCircleIcon, ChartLineUp, UsersThreeIcon, ShieldCheckIcon, MapTrifoldIcon, CurrencyDollarIcon, SquaresFourIcon, ShieldStarIcon, BellIcon, ListBulletsIcon, ClockCounterClockwiseIcon, CaretRightIcon } from "@phosphor-icons/react/dist/ssr"
 
 import {
     Sidebar,
@@ -10,10 +10,15 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    SidebarMenuSub,
+    SidebarMenuSubButton,
+    SidebarMenuSubItem,
     SidebarRail,
     SidebarFooter,
 } from "@/components/ui/sidebar"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { OrgSwitcher } from "./org-switcher"
+import type { Icon } from "@phosphor-icons/react"
 
 interface Organization {
     id: string;
@@ -23,17 +28,69 @@ interface Organization {
     role: string;
 }
 
+interface SubItem {
+    title: string;
+    url: string;
+    icon: Icon;
+}
+
+interface MenuItem {
+    title: string;
+    url: string;
+    icon: Icon;
+    roles?: string[];
+    subItems?: SubItem[];
+}
+
 // Menu items.
-const items = [
+const items: MenuItem[] = [
     {
         title: "Dashboard",
         url: "/dashboard",
         icon: HouseIcon,
     },
     {
+        title: "Admin Dashboard",
+        url: "/dashboard/admin",
+        icon: ShieldStarIcon,
+        roles: ["ADMIN", "SUPER_ADMIN"], // Only visible to Admins
+    },
+    {
+        title: "Executive Dashboard",
+        url: "/dashboard/executive",
+        icon: ChartLineUp,
+        roles: ["ADMIN", "SUPER_ADMIN"], // Only visible to Admins
+    },
+    {
         title: "Analytics",
         url: "/dashboard/analytics",
         icon: ChartLineUp,
+    },
+    {
+        title: "My PM Dashboard",
+        url: "/dashboard/pm",
+        icon: SquaresFourIcon,
+        roles: ["PM", "PROJECT_MANAGER"], // Only visible to PMs
+    },
+    {
+        title: "Supplier Scorecards",
+        url: "/dashboard/analytics/suppliers",
+        icon: UsersThreeIcon,
+    },
+    {
+        title: "Quality & NCR",
+        url: "/dashboard/analytics/quality",
+        icon: ShieldCheckIcon,
+    },
+    {
+        title: "Logistics",
+        url: "/dashboard/analytics/logistics",
+        icon: MapTrifoldIcon,
+    },
+    {
+        title: "Finance",
+        url: "/dashboard/analytics/finance",
+        icon: CurrencyDollarIcon,
     },
     {
         title: "Projects",
@@ -49,6 +106,15 @@ const items = [
         title: "Suppliers",
         url: "/dashboard/suppliers",
         icon: TruckIcon,
+    },
+    {
+        title: "Alerts",
+        url: "/dashboard/alerts",
+        icon: BellIcon,
+        subItems: [
+            { title: "All Alerts", url: "/dashboard/alerts", icon: ListBulletsIcon },
+            { title: "Logs", url: "/dashboard/alerts/logs", icon: ClockCounterClockwiseIcon },
+        ],
     },
     {
         title: "Integrations",
@@ -67,11 +133,16 @@ const items = [
     },
 ]
 
-const supplierItems = [
+const supplierItems: MenuItem[] = [
     {
         title: "Dashboard",
         url: "/dashboard/supplier",
         icon: HouseIcon,
+    },
+    {
+        title: "Analytics",
+        url: "/dashboard/supplier/analytics",
+        icon: ChartLineUp,
     },
     {
         title: "My POs",
@@ -95,7 +166,15 @@ export function AppSidebar({
     activeOrgId?: string | null;
 }) {
     const isSupplier = user?.role === "SUPPLIER";
-    const menuItems = isSupplier ? supplierItems : items;
+    const userRole = user?.role || "";
+    
+    // Filter items based on role - items with no roles array are visible to all
+    const filteredItems = items.filter(item => {
+        if (!('roles' in item) || !item.roles) return true;
+        return item.roles.includes(userRole);
+    });
+    
+    const menuItems = isSupplier ? supplierItems : filteredItems;
 
     return (
         <Sidebar collapsible="icon">
@@ -131,14 +210,42 @@ export function AppSidebar({
                     <SidebarGroupContent>
                         <SidebarMenu>
                             {menuItems.map((item) => (
-                                <SidebarMenuItem key={item.title}>
-                                    <SidebarMenuButton asChild tooltip={item.title}>
-                                        <a href={item.url}>
-                                            <item.icon />
-                                            <span>{item.title}</span>
-                                        </a>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
+                                'subItems' in item && item.subItems ? (
+                                    <Collapsible key={item.title} asChild defaultOpen className="group/collapsible">
+                                        <SidebarMenuItem>
+                                            <CollapsibleTrigger asChild>
+                                                <SidebarMenuButton tooltip={item.title}>
+                                                    <item.icon />
+                                                    <span>{item.title}</span>
+                                                    <CaretRightIcon className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                                                </SidebarMenuButton>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent>
+                                                <SidebarMenuSub>
+                                                    {item.subItems.map((subItem) => (
+                                                        <SidebarMenuSubItem key={subItem.title}>
+                                                            <SidebarMenuSubButton asChild>
+                                                                <a href={subItem.url}>
+                                                                    <subItem.icon className="size-4" />
+                                                                    <span>{subItem.title}</span>
+                                                                </a>
+                                                            </SidebarMenuSubButton>
+                                                        </SidebarMenuSubItem>
+                                                    ))}
+                                                </SidebarMenuSub>
+                                            </CollapsibleContent>
+                                        </SidebarMenuItem>
+                                    </Collapsible>
+                                ) : (
+                                    <SidebarMenuItem key={item.title}>
+                                        <SidebarMenuButton asChild tooltip={item.title}>
+                                            <a href={item.url}>
+                                                <item.icon />
+                                                <span>{item.title}</span>
+                                            </a>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                )
                             ))}
                         </SidebarMenu>
                     </SidebarGroupContent>

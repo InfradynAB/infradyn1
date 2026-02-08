@@ -9,19 +9,15 @@ import { purchaseOrder, supplier, milestone, organization } from "@/db/schema";
 import { eq, and, gte, asc } from "drizzle-orm";
 import {
     FileText,
-    CheckCircle,
     WarningCircle,
     ArrowRight,
     ShieldCheck,
     Clock,
     CurrencyDollar,
     ChartLineUp,
-    Buildings,
     CalendarCheck,
     Package,
     Briefcase,
-    UploadSimple,
-    ChartBar,
 } from "@phosphor-icons/react/dist/ssr";
 import { ReadinessScore } from "@/components/supplier/readiness-score";
 import { SupplierStatsCard } from "@/components/supplier/supplier-stats-card";
@@ -193,79 +189,72 @@ export default async function SupplierDashboardPage() {
 
     return (
         <div className="space-y-8 pb-10">
-            {/* Premium Hero Section */}
-            <div className="relative overflow-hidden rounded-3xl bg-slate-950 p-8 md:p-10 text-white shadow-2xl">
+            {/* Compact Hero Section */}
+            <div className="relative overflow-hidden rounded-2xl bg-slate-950 p-6 text-white shadow-xl">
                 <div className="relative z-10">
-                    {/* Organization Badge */}
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-white/90 text-xs font-semibold backdrop-blur-md border border-white/10">
-                            <Buildings className="h-3.5 w-3.5" weight="fill" />
-                            {supplierData.organization?.name || "Organization"}
-                        </div>
-                        {supplierData.isVerified && (
-                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/20 text-green-400 text-xs font-semibold border border-green-500/20">
-                                <ShieldCheck className="h-3.5 w-3.5" weight="fill" />
-                                Verified
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            {/* Compliance Score - Inline */}
+                            <div className="hidden sm:block">
+                                <ReadinessScore score={Number(supplierData.readinessScore) || 0} size={64} strokeWidth={6} />
                             </div>
-                        )}
-                    </div>
-
-                    {/* Welcome Section */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div className="max-w-xl">
-                            <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
-                                Welcome back, <span className="text-blue-400">{supplierData.name}</span>
-                            </h1>
-                            <p className="text-slate-400 text-base mb-6">
-                                Track your purchase orders, manage compliance, and monitor project milestones.
-                            </p>
-                            <div className="flex flex-wrap gap-3">
-                                <Link href="/dashboard/supplier/onboarding">
-                                    <Button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-5 h-auto rounded-xl">
-                                        {(supplierData.isVerified || Number(supplierData.readinessScore) >= 100) ? "Update Profile" : "Complete Onboarding"}
-                                        <ArrowRight className="ml-2 h-4 w-4" />
-                                    </Button>
-                                </Link>
-                                {pos.length > 0 && (
-                                    <ProgressUpdateSheetWrapper
-                                        purchaseOrders={pos.map(po => ({
-                                            id: po.id,
-                                            poNumber: po.poNumber,
-                                            organizationId: po.organizationId,
-                                            projectId: po.projectId,
-                                            milestones: po.milestones.map(m => ({
-                                                id: m.id,
-                                                title: m.title,
-                                                paymentPercentage: m.paymentPercentage,
-                                            })),
-                                        }))}
-                                    />
-                                )}
-                                <Link href="/dashboard/supplier/pos">
-                                    <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-semibold px-5 py-5 h-auto rounded-xl backdrop-blur-md">
-                                        View All Orders
-                                    </Button>
-                                </Link>
-                                <Link href="#performance">
-                                    <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-semibold px-5 py-5 h-auto rounded-xl backdrop-blur-md gap-2">
-                                        <ChartBar className="h-4 w-4" />
-                                        My Performance
-                                    </Button>
-                                </Link>
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs text-slate-400">{supplierData.organization?.name || "Organization"}</span>
+                                    {supplierData.isVerified && (
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-500/20 text-green-400">
+                                            <ShieldCheck className="h-3 w-3" weight="fill" />
+                                            Verified
+                                        </span>
+                                    )}
+                                </div>
+                                <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+                                    Welcome back, <span className="text-blue-400">{supplierData.name}</span>
+                                </h1>
+                                <p className="text-slate-400 text-sm mt-1">
+                                    Track orders, manage compliance, monitor milestones
+                                </p>
                             </div>
                         </div>
 
-                        {/* Readiness Score */}
-                        <div className="hidden md:flex flex-col items-center gap-3 bg-white/5 p-6 rounded-2xl backdrop-blur-md border border-white/10">
-                            <ReadinessScore score={Number(supplierData.readinessScore) || 0} size={120} strokeWidth={8} />
-                            <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">Compliance Score</p>
+                        {/* Action Buttons - Equal Prominence */}
+                        <div className="flex flex-wrap gap-2">
+                            <Link href="/dashboard/supplier/onboarding">
+                                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-medium h-9 px-4 rounded-lg">
+                                    {(supplierData.isVerified || Number(supplierData.readinessScore) >= 100) ? "Update Profile" : "Complete Onboarding"}
+                                </Button>
+                            </Link>
+                            {pos.length > 0 && (
+                                <ProgressUpdateSheetWrapper
+                                    purchaseOrders={pos.map(po => ({
+                                        id: po.id,
+                                        poNumber: po.poNumber,
+                                        organizationId: po.organizationId,
+                                        projectId: po.projectId,
+                                        milestones: po.milestones.map(m => ({
+                                            id: m.id,
+                                            title: m.title,
+                                            paymentPercentage: m.paymentPercentage,
+                                        })),
+                                    }))}
+                                />
+                            )}
+                            <Link href="/dashboard/supplier/analytics">
+                                <Button size="sm" variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-medium h-9 px-4 rounded-lg gap-1.5">
+                                    <ChartLineUp className="h-4 w-4" />
+                                    Analytics
+                                </Button>
+                            </Link>
+                            <Link href="/dashboard/supplier/pos">
+                                <Button size="sm" variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-medium h-9 px-4 rounded-lg">
+                                    All Orders
+                                </Button>
+                            </Link>
                         </div>
                     </div>
                 </div>
-
-                {/* Decorative Elements */}
-                <div className="absolute -top-24 -right-24 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl" />
-                <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl" />
+                {/* Subtle gradient */}
+                <div className="absolute -top-16 -right-16 w-48 h-48 bg-blue-500/15 rounded-full blur-2xl" />
             </div>
 
             {/* Stats Grid */}
@@ -300,13 +289,8 @@ export default async function SupplierDashboardPage() {
 
             {/* Performance Metrics Section */}
             {performance && (
-                <div id="performance" className="scroll-mt-8">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-                            <ChartBar className="h-5 w-5 text-muted-foreground" />
-                            My Performance
-                        </h2>
-                    </div>
+                <div>
+                    <h2 className="text-lg font-semibold tracking-tight mb-3">My Performance</h2>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <Card className="border">
                             <CardContent className="pt-6">
@@ -482,13 +466,13 @@ export default async function SupplierDashboardPage() {
                             <Link href="/dashboard/supplier/onboarding" className="block">
                                 <Button variant="outline" className="w-full justify-start gap-2 h-10">
                                     <ShieldCheck className="h-4 w-4" />
-                                    Update Compliance Docs
+                                    Update Compliance
                                 </Button>
                             </Link>
-                            <Link href="/dashboard/supplier/pos" className="block">
+                            <Link href="/dashboard/supplier/analytics" className="block">
                                 <Button variant="outline" className="w-full justify-start gap-2 h-10">
-                                    <FileText className="h-4 w-4" />
-                                    View All Orders
+                                    <ChartLineUp className="h-4 w-4" />
+                                    View Analytics
                                 </Button>
                             </Link>
                         </CardContent>

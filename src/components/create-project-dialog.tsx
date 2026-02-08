@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
     Dialog,
     DialogContent,
@@ -152,11 +153,11 @@ export function CreateProjectDialog({ organizations }: CreateProjectDialogProps)
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label htmlFor="startDate">Start Date</Label>
-                                <Input id="startDate" name="startDate" type="date" min={new Date().toISOString().split('T')[0]} />
+                                <DatePicker id="startDate" name="startDate" placeholder="yyyy/mm/dd" />
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="endDate">End Date</Label>
-                                <Input id="endDate" name="endDate" type="date" />
+                                <DatePicker id="endDate" name="endDate" placeholder="yyyy/mm/dd" />
                             </div>
                         </div>
                     </div>

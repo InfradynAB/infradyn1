@@ -23,6 +23,7 @@ Pillow>=10.2.0
 # Database
 psycopg2-binary>=2.9.9
 sqlalchemy>=2.0.25
+asyncpg>=0.29.0  # Async PostgreSQL driver for KPI engine
 
 # Data Processing
 pandas>=2.2.0

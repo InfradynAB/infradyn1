@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.config import get_settings
-from app.routers import extraction, health
+from app.routers import extraction, health, kpi
 
 
 @asynccontextmanager
@@ -45,6 +45,7 @@ app.add_middleware(
 # Include routers
 app.include_router(health.router, tags=["Health"])
 app.include_router(extraction.router, prefix="/api/extraction", tags=["AI Extraction"])
+app.include_router(kpi.router, prefix="/api/kpi", tags=["KPI Engine"])
 
 
 @app.get("/")

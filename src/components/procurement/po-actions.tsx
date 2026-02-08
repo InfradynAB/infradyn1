@@ -8,6 +8,7 @@ import {
     TrashIcon,
     DotsThreeVerticalIcon,
     WarningCircleIcon,
+    ChartLineUpIcon,
 } from "@phosphor-icons/react";
 import {
     DropdownMenu,
@@ -67,6 +68,12 @@ export function POActions({ poId, poNumber }: POActionsProps) {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                        <Link href={`/dashboard/procurement/${poId}/analytics`} className="flex items-center">
+                            <ChartLineUpIcon className="mr-2 h-4 w-4" />
+                            Analytics
+                        </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                         <Link href={`/dashboard/procurement/${poId}/edit`} className="flex items-center">
                             <PencilSimpleIcon className="mr-2 h-4 w-4" />
