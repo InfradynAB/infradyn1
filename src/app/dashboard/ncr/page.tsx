@@ -1,8 +1,8 @@
-import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getActiveOrganization } from "@/lib/auth-utils";
+import { getActiveOrganization } from "@/lib/actions/organization";
 import { NCRListPageClient } from "./ncr-list-client";
+import { auth } from "@/auth";
 
 export const metadata = {
     title: "NCR Management | InfraDyn",
