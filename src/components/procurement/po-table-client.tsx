@@ -12,7 +12,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRightIcon } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRightIcon, ChartLineUpIcon } from "@phosphor-icons/react/dist/ssr";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { POActions } from "@/components/procurement/po-actions";
@@ -137,6 +137,16 @@ export function POTableClient({ purchaseOrders }: POTableClientProps) {
                             </TableCell>
                             <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex items-center justify-end gap-2">
+                                    <Button
+                                        asChild
+                                        variant="ghost"
+                                        size="sm"
+                                        title="View Analytics"
+                                    >
+                                        <Link href={`/dashboard/procurement/${po.id}/analytics`}>
+                                            <ChartLineUpIcon className="h-4 w-4" />
+                                        </Link>
+                                    </Button>
                                     {(() => {
                                         const action = getPrimaryAction(po.status, po.id, po.poNumber);
                                         return (
