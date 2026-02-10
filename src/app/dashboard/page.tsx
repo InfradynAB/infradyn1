@@ -17,6 +17,11 @@ export default async function DashboardPage() {
         redirect("/sign-in");
     }
 
+    // Redirect suppliers to their dedicated dashboard
+    if (session.user.role === "SUPPLIER") {
+        redirect("/dashboard/supplier");
+    }
+
     return (
         <CommandCenterClient userName={session.user.name || undefined} />
     );
