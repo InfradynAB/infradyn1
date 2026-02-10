@@ -135,6 +135,64 @@ class AIExtractionService:
         except Exception as e:
             return {"success": False, "error": str(e)}
     
+    async def extract_shipment(self, file_url: str) -> Dict[str, Any]:
+        """
+        Extract structured shipment/packing list data from a file URL.
+        Optimized for large multi-page documents with parallel page extraction.
+        """
+        try:
+            ext = self._get_extension(file_url)
+            
+            if ext == ".pdf":
+                raw_text = await self._extract_pdf_parallel(file_url)
+            elif ext in [".xlsx", ".xls"]:
+                raw_text = await self._extract_excel(file_url)
+            elif ext in [".docx", ".doc"]:
+                raw_text = await self._extract_word(file_url)
+            elif ext in [".png", ".jpg", ".jpeg"]:
+                raw_text = await self._extract_image(file_url)
+            else:
+                return {"success": False, "error": f"Unsupported file type: {ext}"}
+            
+            if not raw_text:
+                return {"success": False, "error": "Could not extract text from document"}
+            
+            parsed_data = await self._parse_shipment_with_gpt(raw_text)
+            parsed_data["raw_text"] = raw_text[:5000]
+            
+            return {"success": True, "data": parsed_data}
+            
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    async def extract_shipment_from_bytes(self, content: bytes, filename: str) -> Dict[str, Any]:
+        """
+        Extract shipment data from raw file bytes (for direct uploads).
+        Uses parallel page extraction for PDFs.
+        """
+        try:
+            ext = Path(filename).suffix.lower()
+            
+            if ext == ".pdf":
+                raw_text = self._extract_pdf_pages_from_bytes(content)
+            elif ext in [".xlsx", ".xls"]:
+                raw_text = self._extract_excel_from_bytes(content)
+            elif ext in [".docx", ".doc"]:
+                raw_text = self._extract_word_from_bytes(content)
+            else:
+                return {"success": False, "error": f"Unsupported file type: {ext}"}
+            
+            if not raw_text:
+                return {"success": False, "error": "Could not extract text from document"}
+            
+            parsed_data = await self._parse_shipment_with_gpt(raw_text)
+            parsed_data["raw_text"] = raw_text[:5000]
+            
+            return {"success": True, "data": parsed_data}
+            
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
     async def extract_from_bytes(
         self, 
         content: bytes, 
@@ -166,6 +224,8 @@ class AIExtractionService:
             elif document_type == "milestone":
                 milestones = await self._parse_milestones_with_gpt(raw_text)
                 parsed_data = {"milestones": milestones}
+            elif document_type == "shipment":
+                parsed_data = await self._parse_shipment_with_gpt(raw_text)
             else:
                 return {"success": False, "error": f"Unknown document type: {document_type}"}
             
@@ -289,6 +349,53 @@ class AIExtractionService:
                 return "\n\n".join(text_parts)
         except Exception as e:
             print(f"PDF bytes extraction error: {e}")
+            return None
+    
+    def _extract_pdf_pages_from_bytes(self, content: bytes) -> Optional[str]:
+        """
+        Extract text from PDF bytes page-by-page.
+        Optimized for large shipment documents (15-20+ pages).
+        Returns combined text from all pages with page markers.
+        """
+        try:
+            with pdfplumber.open(io.BytesIO(content)) as pdf:
+                total_pages = len(pdf.pages)
+                print(f"[PDF Pages] Extracting {total_pages} pages")
+                
+                text_parts = []
+                for idx, page in enumerate(pdf.pages):
+                    page_text = page.extract_text()
+                    if page_text:
+                        text_parts.append(f"--- Page {idx + 1}/{total_pages} ---\n{page_text}")
+                
+                combined = "\n\n".join(text_parts)
+                print(f"[PDF Pages] Extracted {len(combined)} chars from {total_pages} pages")
+                return combined
+        except Exception as e:
+            print(f"PDF pages extraction error: {e}")
+            return None
+    
+    async def _extract_pdf_parallel(self, file_url: str) -> Optional[str]:
+        """
+        Extract text from a PDF with parallel page processing.
+        Strategy:
+        1. Download PDF bytes
+        2. Extract text page-by-page with page markers
+        3. If pdfplumber yields < 500 chars, fall back to Textract
+        """
+        try:
+            content = await self._download_file(file_url)
+            text = self._extract_pdf_pages_from_bytes(content)
+            
+            if text and len(text.strip()) > 500:
+                print(f"[PDF Parallel] pdfplumber succeeded: {len(text)} chars")
+                return text
+            
+            print(f"[PDF Parallel] pdfplumber got {len(text) if text else 0} chars, falling back to Textract")
+            return await self._extract_pdf_with_textract(file_url)
+            
+        except Exception as e:
+            print(f"PDF parallel extraction error: {e}")
             return None
     
     async def _extract_word(self, file_url: str) -> Optional[str]:
@@ -537,6 +644,106 @@ Document text:
         except Exception as e:
             print(f"GPT milestone parsing error: {e}")
             return []
+    
+    async def _parse_shipment_with_gpt(self, raw_text: str) -> Dict[str, Any]:
+        """
+        Parse raw text from a packing list / commercial invoice into structured
+        shipment data using GPT-4. Handles multilingual docs (Swedish, English, etc.).
+        """
+        # Use up to 30k chars for large shipment docs
+        truncated_text = raw_text[:30000]
+        
+        prompt = f"""You are analyzing a shipping/packing list document (may be in any language including Swedish, German, Finnish, English).
+Extract ALL structured data and return a JSON object.
+
+IMPORTANT RULES:
+- Translate field values to English where appropriate (e.g. place names stay original)
+- Extract EVERY article/item group with its packages
+- Numbers use European format in the document (comma = decimal, period = thousands). Convert to standard format.
+- Use null for any field you cannot find
+
+Return this exact JSON structure:
+{{
+    "order_number": "string or null (Order nr / Beställningsnummer)",
+    "project": "string or null (Project code)",
+    "invoice_number": "string or null (Faktura / Invoice number)",
+    "invoice_date": "YYYY-MM-DD or null",
+    "supplier_name": "string or null (Leverantör / Supplier)",
+    "customer_name": "string or null (Kund / Customer)",
+    "delivery_conditions": "string or null (e.g. DAP, CIF, FOB)",
+    "delivery_address": "string or null",
+    "origin": "string or null (dispatch location / supplier address)",
+    "destination": "string or null (delivery location)",
+    "currency": "3-letter code or null",
+    "total_excl_vat": number or null,
+    "total_incl_vat": number or null,
+    "vat_percentage": number or null,
+    "total_gross_weight_kg": number or null,
+    "total_net_weight_kg": number or null,
+    "items": [
+        {{
+            "article_number": "string (article/item number like 10, 20, 30)",
+            "description": "string (product description)",
+            "quantity": number,
+            "unit": "string (M2, M, ST, KG, etc.)",
+            "unit_price": number or null,
+            "total_price": number or null,
+            "weight_kg": number or null (total weight for this item group)",
+            "hs_code": "string or null (Tariffkod / HS/tariff code)",
+            "country_of_origin": "string or null",
+            "delivery_note": "string or null (Följesedel / delivery note number)",
+            "packages": [
+                {{
+                    "package_no": "string",
+                    "length_m": number or null,
+                    "quantity": number,
+                    "total_area_m2": number or null,
+                    "gross_weight_kg": number or null
+                }}
+            ]
+        }}
+    ],
+    "confidence": number between 0 and 1
+}}
+
+Document text:
+{truncated_text}
+"""
+        
+        try:
+            response = self.openai.chat.completions.create(
+                model="gpt-4-turbo-preview",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a logistics document extraction specialist. "
+                            "You handle multilingual documents (Swedish, German, Finnish, English). "
+                            "Always respond with valid JSON only. No explanations or markdown. "
+                            "Extract as many items and packages as possible from the document."
+                        )
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,
+                max_tokens=4000,  # Stay within model's 4096 completion token limit
+            )
+            
+            content = response.choices[0].message.content
+            content = re.sub(r'^```json\s*', '', content)
+            content = re.sub(r'\s*```$', '', content)
+            
+            return json.loads(content)
+            
+        except Exception as e:
+            print(f"GPT shipment parsing error: {e}")
+            return {
+                "order_number": None,
+                "supplier_name": None,
+                "customer_name": None,
+                "items": [],
+                "confidence": 0.0
+            }
     
     async def _extract_milestones_from_excel(self, file_url: str) -> List[Dict[str, Any]]:
         """

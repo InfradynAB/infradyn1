@@ -262,12 +262,6 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
                             <ShipmentSubmitForm
                                 purchaseOrderId={po.id}
                                 supplierId={supplierData.id}
-                                boqItems={po.boqItems.map(item => ({
-                                    id: item.id,
-                                    description: item.description || '',
-                                    quantity: String(item.quantity),
-                                    unit: item.unit || 'units',
-                                }))}
                             />
                         </div>
                     </CardHeader>

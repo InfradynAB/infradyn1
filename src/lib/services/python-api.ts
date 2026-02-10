@@ -64,6 +64,54 @@ interface PythonExtractedInvoiceData {
     raw_text?: string;
 }
 
+// ============================================================================
+// SHIPMENT EXTRACTION TYPES
+// ============================================================================
+
+export interface PythonExtractedShipmentPackage {
+    package_no: string;
+    length_m: number | null;
+    quantity: number;
+    total_area_m2: number | null;
+    gross_weight_kg: number | null;
+}
+
+export interface PythonExtractedShipmentItem {
+    article_number: string;
+    description: string;
+    quantity: number;
+    unit: string;
+    unit_price: number | null;
+    total_price: number | null;
+    weight_kg: number | null;
+    hs_code: string | null;
+    country_of_origin: string | null;
+    delivery_note: string | null;
+    packages: PythonExtractedShipmentPackage[];
+}
+
+export interface PythonExtractedShipmentData {
+    order_number: string | null;
+    project: string | null;
+    invoice_number: string | null;
+    invoice_date: string | null;
+    supplier_name: string | null;
+    customer_name: string | null;
+    delivery_conditions: string | null;
+    delivery_address: string | null;
+    origin: string | null;
+    destination: string | null;
+    currency: string | null;
+    total_excl_vat: number | null;
+    total_incl_vat: number | null;
+    vat_percentage: number | null;
+    total_gross_weight_kg: number | null;
+    total_net_weight_kg: number | null;
+    items: PythonExtractedShipmentItem[];
+    confidence: number;
+    raw_text?: string;
+}
+
 // Cache the health check result for 30 seconds
 let pythonHealthCache: { available: boolean; timestamp: number } | null = null;
 const HEALTH_CACHE_TTL = 30000; // 30 seconds
@@ -268,6 +316,91 @@ export function convertPythonMilestonesToTypeScript(milestones: ExtractedMilesto
         expectedDate: m.expected_date || undefined,
         paymentPercentage: m.payment_percentage,
     }));
+}
+
+/**
+ * Extract shipment/packing list data by uploading file to Python service
+ */
+export async function extractShipmentWithPython(
+    formData: FormData
+): Promise<PythonServiceResponse<PythonExtractedShipmentData>> {
+    try {
+        console.log("[Python API] Extracting shipment document...");
+
+        const response = await fetch(
+            `${PYTHON_SERVICE_URL}/api/extraction/upload?document_type=shipment`,
+            {
+                method: "POST",
+                body: formData,
+            }
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("[Python API] Shipment extraction error:", errorText);
+            return { success: false, error: `Python service error: ${response.status}` };
+        }
+
+        const result = await response.json();
+        console.log("[Python API] Shipment extraction result:", {
+            success: result.success,
+            itemCount: result.data?.items?.length ?? 0,
+            confidence: result.data?.confidence,
+        });
+
+        return result;
+    } catch (error) {
+        console.error("[Python API] Shipment extraction connection error:", error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Failed to connect to Python service",
+        };
+    }
+}
+
+/**
+ * Convert Python shipment response to TypeScript camelCase format
+ */
+export function convertPythonShipmentToTypeScript(data: PythonExtractedShipmentData) {
+    return {
+        orderNumber: data.order_number,
+        project: data.project,
+        invoiceNumber: data.invoice_number,
+        invoiceDate: data.invoice_date,
+        supplierName: data.supplier_name,
+        customerName: data.customer_name,
+        deliveryConditions: data.delivery_conditions,
+        deliveryAddress: data.delivery_address,
+        origin: data.origin,
+        destination: data.destination,
+        currency: data.currency,
+        totalExclVat: data.total_excl_vat,
+        totalInclVat: data.total_incl_vat,
+        vatPercentage: data.vat_percentage,
+        totalGrossWeightKg: data.total_gross_weight_kg,
+        totalNetWeightKg: data.total_net_weight_kg,
+        items: data.items.map(item => ({
+            articleNumber: item.article_number,
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            unitPrice: item.unit_price,
+            totalPrice: item.total_price,
+            weightKg: item.weight_kg,
+            hsCode: item.hs_code,
+            countryOfOrigin: item.country_of_origin,
+            deliveryNote: item.delivery_note,
+            packages: item.packages.map(pkg => ({
+                packageNo: pkg.package_no,
+                lengthM: pkg.length_m,
+                quantity: pkg.quantity,
+                totalAreaM2: pkg.total_area_m2,
+                grossWeightKg: pkg.gross_weight_kg,
+            })),
+        })),
+        confidence: data.confidence,
+        rawText: data.raw_text,
+    };
 }
 
 // ============================================================================

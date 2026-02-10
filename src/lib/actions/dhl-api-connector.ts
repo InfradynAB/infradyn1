@@ -66,6 +66,12 @@ async function makeDHLRequest(
                 errorMessage = "DHL API authentication failed - please check your DHL_API_KEY";
             } else if (response.status === 403) {
                 errorMessage = "DHL API permission denied - your key may not have tracking access";
+            } else if (response.status === 404) {
+                // Tracking number not found — this is expected for new or pre-shipped waybills
+                return {
+                    success: true,
+                    data: { shipments: [] },
+                };
             } else if (response.status === 429) {
                 errorMessage = "DHL API rate limit exceeded - please try again later";
             }

@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
                     if (!verification.valid) {
                         return NextResponse.json(
-                            { success: false, error: verification.error || "Invalid DHL waybill number - not found in DHL system" },
+                            { success: false, error: verification.error || "This tracking number wasn't found in DHL's system. It might not be registered yet — you can still create the shipment without DHL verification." },
                             { status: 400 }
                         );
                     }

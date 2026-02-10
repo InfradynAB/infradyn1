@@ -34,6 +34,34 @@ export interface CreateShipmentInput {
     unit?: string;
     packingListDocId?: string;
     cmrDocId?: string;
+    // Extracted shipment items from packing list
+    items?: ShipmentItem[];
+}
+
+// ============================================================================
+// Shipment Item Types (from packing list extraction)
+// ============================================================================
+
+export interface ShipmentPackage {
+    packageNo: string;
+    lengthM: number | null;
+    quantity: number;
+    totalAreaM2: number | null;
+    grossWeightKg: number | null;
+}
+
+export interface ShipmentItem {
+    articleNumber: string;
+    description: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number | null;
+    totalPrice: number | null;
+    weightKg: number | null;
+    hsCode: string | null;
+    countryOfOrigin: string | null;
+    deliveryNote: string | null;
+    packages: ShipmentPackage[];
 }
 
 export interface ShipmentUpdateInput {

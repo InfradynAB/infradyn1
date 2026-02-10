@@ -23,6 +23,7 @@ class DocumentType(str, Enum):
     PURCHASE_ORDER = "purchase_order"
     INVOICE = "invoice"
     MILESTONE = "milestone"
+    SHIPMENT = "shipment"
 
 
 class ExtractedMilestone(BaseModel):
@@ -70,6 +71,50 @@ class ExtractedInvoiceData(BaseModel):
     confidence: float = 0.0
 
 
+class ExtractedShipmentPackage(BaseModel):
+    package_no: str
+    length_m: Optional[float] = None
+    quantity: int = 0
+    total_area_m2: Optional[float] = None
+    gross_weight_kg: Optional[float] = None
+
+
+class ExtractedShipmentItem(BaseModel):
+    article_number: str
+    description: str
+    quantity: float = 0
+    unit: str = ""
+    unit_price: Optional[float] = None
+    total_price: Optional[float] = None
+    weight_kg: Optional[float] = None
+    hs_code: Optional[str] = None
+    country_of_origin: Optional[str] = None
+    delivery_note: Optional[str] = None
+    packages: List[ExtractedShipmentPackage] = []
+
+
+class ExtractedShipmentData(BaseModel):
+    order_number: Optional[str] = None
+    project: Optional[str] = None
+    invoice_number: Optional[str] = None
+    invoice_date: Optional[str] = None
+    supplier_name: Optional[str] = None
+    customer_name: Optional[str] = None
+    delivery_conditions: Optional[str] = None
+    delivery_address: Optional[str] = None
+    origin: Optional[str] = None
+    destination: Optional[str] = None
+    currency: Optional[str] = None
+    total_excl_vat: Optional[float] = None
+    total_incl_vat: Optional[float] = None
+    vat_percentage: Optional[float] = None
+    total_gross_weight_kg: Optional[float] = None
+    total_net_weight_kg: Optional[float] = None
+    items: List[ExtractedShipmentItem] = []
+    confidence: float = 0.0
+    raw_text: Optional[str] = None
+
+
 class ExtractionRequest(BaseModel):
     file_url: str
     document_type: DocumentType = DocumentType.PURCHASE_ORDER
@@ -102,6 +147,8 @@ async def extract_document(request: ExtractionRequest):
             result = await extraction_service.extract_invoice(request.file_url)
         elif request.document_type == DocumentType.MILESTONE:
             result = await extraction_service.extract_milestones(request.file_url)
+        elif request.document_type == DocumentType.SHIPMENT:
+            result = await extraction_service.extract_shipment(request.file_url)
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported document type: {request.document_type}")
         
@@ -125,15 +172,18 @@ async def extract_uploaded_file(
     Accepts: PDF, DOCX, XLSX, PNG, JPG
     """
     try:
-        # Read file content
         content = await file.read()
         filename = file.filename or "document"
         
-        result = await extraction_service.extract_from_bytes(
-            content,
-            filename,
-            document_type.value
-        )
+        # Use specialized shipment extractor for better results on large docs
+        if document_type == DocumentType.SHIPMENT:
+            result = await extraction_service.extract_shipment_from_bytes(
+                content, filename
+            )
+        else:
+            result = await extraction_service.extract_from_bytes(
+                content, filename, document_type.value
+            )
         
         return result
         

@@ -163,7 +163,7 @@ function PlacesAutocompleteWithMap({
     }, [showMap, selectedLocation]);
 
     return (
-        <div ref={wrapperRef} className="space-y-2">
+        <div ref={wrapperRef} className="relative space-y-2">
             {/* Hidden input for form submission */}
             <input type="hidden" name={name} value={value} />
 
