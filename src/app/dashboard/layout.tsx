@@ -22,9 +22,10 @@ import { noIndexMetadata } from "@/lib/seo.config"
 import type { Metadata } from "next"
 import { getUserOrganizationsWithActive } from "@/lib/utils/org-context"
 import { getActiveProjectId } from "@/lib/utils/project-context"
+import { getSupplierProjects, getSupplierActiveProjectId } from "@/lib/utils/supplier-project-context"
 import { redirect } from "next/navigation"
 import db from "@/db/drizzle"
-import { project, purchaseOrder, invoice, changeOrder, ncr } from "@/db/schema"
+import { project, purchaseOrder, invoice, changeOrder, ncr, supplier } from "@/db/schema"
 import { eq, and, not, inArray, or } from "drizzle-orm"
 import { getProgressKPIs } from "@/lib/services/kpi-engine"
 
@@ -170,6 +171,27 @@ export default async function DashboardLayout({
         }
     }
 
+    // ------ Supplier-specific: fetch projects for the project switcher ------
+    let supplierProjects: Array<{ id: string; name: string; code: string | null }> = [];
+    let activeSupplierProjectId: string | null = null;
+
+    if (user.role === "SUPPLIER") {
+        try {
+            // Find the supplier record for this user
+            const supplierData = await db.query.supplier.findFirst({
+                where: eq(supplier.userId, user.id),
+                columns: { id: true },
+            });
+
+            if (supplierData) {
+                supplierProjects = await getSupplierProjects(supplierData.id, activeOrgId);
+                activeSupplierProjectId = await getSupplierActiveProjectId();
+            }
+        } catch (error) {
+            console.error("Error fetching supplier projects:", error);
+        }
+    }
+
     return (
         <SidebarProvider>
             <SidebarWrapper
@@ -179,6 +201,8 @@ export default async function DashboardLayout({
                 projects={projects}
                 activeProjectId={activeProjectId}
                 alertCount={alertCount}
+                supplierProjects={supplierProjects}
+                activeSupplierProjectId={activeSupplierProjectId}
             />
             <SidebarInset>
                 <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4">

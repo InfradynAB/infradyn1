@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
     SquaresFour,
@@ -46,6 +47,7 @@ import {
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { SupplierProjectSwitcher } from "@/components/supplier/supplier-project-switcher";
 
 // Project health status types
 type HealthStatus = "healthy" | "at-risk" | "critical";
@@ -66,6 +68,12 @@ interface Organization {
     role: string;
 }
 
+interface SupplierProject {
+    id: string;
+    name: string;
+    code: string | null;
+}
+
 interface CommandSidebarProps {
     user?: { role: string; name?: string } | null;
     organizations?: Organization[];
@@ -75,6 +83,8 @@ interface CommandSidebarProps {
     alertCount?: number;
     onProjectChange?: (projectId: string) => void;
     onOrgChange?: (orgId: string) => void;
+    supplierProjects?: SupplierProject[];
+    activeSupplierProjectId?: string | null;
 }
 
 // Health status colors
@@ -136,6 +146,8 @@ export function CommandSidebar({
     alertCount = 0,
     onProjectChange,
     onOrgChange,
+    supplierProjects = [],
+    activeSupplierProjectId,
 }: CommandSidebarProps) {
     const pathname = usePathname();
     const { state } = useSidebar();
@@ -205,8 +217,14 @@ export function CommandSidebar({
                                 href={isSupplier ? "/dashboard/supplier" : "/dashboard"}
                                 className="flex items-center gap-3"
                             >
-                                <div className="flex aspect-square size-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-sm">
-                                    <Package className="size-5" strokeWidth={2.5} />
+                                <div className="flex aspect-square size-9 items-center justify-center rounded-lg bg-background overflow-hidden shadow-sm">
+                                    <Image
+                                        src="/logos/logo.png"
+                                        alt="Infradyn"
+                                        width={32}
+                                        height={32}
+                                        className="object-contain"
+                                    />
                                 </div>
                                 {!isCollapsed && (
                                     <div className="flex flex-col gap-0.5 leading-none">
@@ -224,7 +242,7 @@ export function CommandSidebar({
                 </SidebarMenu>
 
                 {/* Organization Switcher */}
-                {!isSupplier && !isCollapsed && organizations.length > 0 && (
+                {!isCollapsed && organizations.length > 0 && (
                     <div className="mt-3 px-2">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -252,6 +270,16 @@ export function CommandSidebar({
                                 ))}
                             </DropdownMenuContent>
                         </DropdownMenu>
+                    </div>
+                )}
+
+                {/* Supplier Project Switcher */}
+                {isSupplier && !isCollapsed && supplierProjects.length > 0 && (
+                    <div className="mt-3 px-2">
+                        <SupplierProjectSwitcher
+                            projects={supplierProjects}
+                            activeProjectId={activeSupplierProjectId ?? null}
+                        />
                     </div>
                 )}
 

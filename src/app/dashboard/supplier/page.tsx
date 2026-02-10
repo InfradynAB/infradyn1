@@ -7,6 +7,7 @@ import Link from "next/link";
 import db from "@/db/drizzle";
 import { purchaseOrder, supplier, milestone, organization } from "@/db/schema";
 import { eq, and, gte, asc } from "drizzle-orm";
+import { getSupplierActiveProjectId } from "@/lib/utils/supplier-project-context";
 import {
     FileText,
     WarningCircle,
@@ -138,10 +139,17 @@ export default async function SupplierDashboardPage() {
     }
 
 
+    // Get the active supplier project filter
+    const activeSupplierProjectId = await getSupplierActiveProjectId();
 
-    // Fetch all assigned POs with their projects and milestones
+    // Fetch assigned POs - filtered by project if one is selected
     const pos = await db.query.purchaseOrder.findMany({
-        where: eq(purchaseOrder.supplierId, supplierData.id),
+        where: activeSupplierProjectId
+            ? and(
+                eq(purchaseOrder.supplierId, supplierData.id),
+                eq(purchaseOrder.projectId, activeSupplierProjectId)
+            )
+            : eq(purchaseOrder.supplierId, supplierData.id),
         with: {
             project: true,
             milestones: true,

@@ -2,6 +2,7 @@
 
 import { CommandSidebar } from "./command-sidebar";
 import { switchProject } from "@/lib/actions/project-switch";
+import { switchSupplierProject } from "@/lib/actions/supplier-project";
 import { setActiveOrganizationId } from "@/lib/utils/org-context";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -25,6 +26,12 @@ interface SidebarWrapperProps {
     }>;
     activeProjectId?: string | null;
     alertCount?: number;
+    supplierProjects?: Array<{
+        id: string;
+        name: string;
+        code: string | null;
+    }>;
+    activeSupplierProjectId?: string | null;
 }
 
 export function SidebarWrapper({
@@ -34,12 +41,19 @@ export function SidebarWrapper({
     projects = [],
     activeProjectId,
     alertCount = 0,
+    supplierProjects = [],
+    activeSupplierProjectId,
 }: SidebarWrapperProps) {
     const router = useRouter();
 
     async function handleOrgChange(orgId: string) {
         const success = await setActiveOrganizationId(orgId);
         if (success) {
+            // Reset supplier project selection when org changes
+            // (projects list will change for the new org)
+            if (user?.role === "SUPPLIER") {
+                await switchSupplierProject(null);
+            }
             router.refresh();
             toast.success("Organization switched");
         } else {
@@ -68,6 +82,8 @@ export function SidebarWrapper({
             alertCount={alertCount}
             onOrgChange={handleOrgChange}
             onProjectChange={handleProjectChange}
+            supplierProjects={supplierProjects}
+            activeSupplierProjectId={activeSupplierProjectId}
         />
     );
 }

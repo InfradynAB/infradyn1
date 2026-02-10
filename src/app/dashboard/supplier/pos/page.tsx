@@ -3,7 +3,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import db from "@/db/drizzle";
 import { purchaseOrder, supplier } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
+import { getSupplierActiveProjectId } from "@/lib/utils/supplier-project-context";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,8 +45,16 @@ export default async function SupplierPOsPage() {
         </div>;
     }
 
+    // Get the active supplier project filter
+    const activeSupplierProjectId = await getSupplierActiveProjectId();
+
     const pos = await db.query.purchaseOrder.findMany({
-        where: eq(purchaseOrder.supplierId, supplierData.id),
+        where: activeSupplierProjectId
+            ? and(
+                eq(purchaseOrder.supplierId, supplierData.id),
+                eq(purchaseOrder.projectId, activeSupplierProjectId)
+            )
+            : eq(purchaseOrder.supplierId, supplierData.id),
         with: {
             project: true,
         },
