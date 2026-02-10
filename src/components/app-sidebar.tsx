@@ -1,4 +1,5 @@
 import { CalendarIcon, HouseIcon, TrayIcon, MagnifyingGlassIcon, GearIcon, BuildingsIcon, GitForkIcon, TruckIcon, FolderSimpleIcon, Hexagon, FileTextIcon, PlugsConnectedIcon, UserCircleIcon, ChartLineUp, UsersThreeIcon, ShieldCheckIcon, MapTrifoldIcon, CurrencyDollarIcon, SquaresFourIcon, ShieldStarIcon, BellIcon, ListBulletsIcon, ClockCounterClockwiseIcon, CaretRightIcon } from "@phosphor-icons/react/dist/ssr"
+import Image from "next/image"
 
 import {
     Sidebar,
@@ -156,24 +157,24 @@ const supplierItems: MenuItem[] = [
     },
 ]
 
-export function AppSidebar({ 
-    user, 
-    organizations = [], 
-    activeOrgId = null 
-}: { 
+export function AppSidebar({
+    user,
+    organizations = [],
+    activeOrgId = null
+}: {
     user?: { role: string } | null;
     organizations?: Organization[];
     activeOrgId?: string | null;
 }) {
     const isSupplier = user?.role === "SUPPLIER";
     const userRole = user?.role || "";
-    
+
     // Filter items based on role - items with no roles array are visible to all
     const filteredItems = items.filter(item => {
         if (!('roles' in item) || !item.roles) return true;
         return item.roles.includes(userRole);
     });
-    
+
     const menuItems = isSupplier ? supplierItems : filteredItems;
 
     return (
@@ -183,8 +184,14 @@ export function AppSidebar({
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
                             <a href={isSupplier ? "/dashboard/supplier" : "/dashboard"}>
-                                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                                    <Hexagon weight="fill" className="size-4" />
+                                <div className="flex aspect-square size-10 items-center justify-center rounded-lg overflow-hidden bg-background">
+                                    <Image
+                                        src="/logos/logo.png"
+                                        alt="Infradyn Logo"
+                                        width={40}
+                                        height={40}
+                                        className="object-contain"
+                                    />
                                 </div>
                                 <div className="flex flex-col gap-0.5 leading-none">
                                     <span className="font-semibold tracking-tight">Infradyn</span>
@@ -197,9 +204,9 @@ export function AppSidebar({
                 {/* Organization Switcher - always show for non-suppliers */}
                 {!isSupplier && (
                     <div className="px-2 pb-2">
-                        <OrgSwitcher 
-                            organizations={organizations} 
-                            activeOrgId={activeOrgId} 
+                        <OrgSwitcher
+                            organizations={organizations}
+                            activeOrgId={activeOrgId}
                         />
                     </div>
                 )}
