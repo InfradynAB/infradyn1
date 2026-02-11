@@ -23,6 +23,9 @@ import {
     CircleDashed,
     ShieldCheck,
     UsersThree,
+    Gauge,
+    ShieldWarning,
+    Target,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import {
@@ -35,10 +38,14 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    SidebarMenuSub,
+    SidebarMenuSubButton,
+    SidebarMenuSubItem,
     SidebarRail,
     SidebarFooter,
     useSidebar,
 } from "@/components/ui/sidebar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -131,8 +138,29 @@ const accountNav = [
 ];
 
 // Supplier-specific navigation
-const supplierNav = [
+interface SupplierNavItem {
+    title: string;
+    url: string;
+    icon: React.ElementType;
+    subItems?: { title: string; url: string; icon: React.ElementType }[];
+}
+
+const supplierNav: SupplierNavItem[] = [
     { title: "Dashboard", url: "/dashboard/supplier", icon: SquaresFour },
+    {
+        title: "Analytics",
+        url: "/dashboard/supplier/analytics",
+        icon: ChartLineUp,
+        subItems: [
+            { title: "Overview", url: "/dashboard/supplier/analytics", icon: Gauge },
+            { title: "PO Status", url: "/dashboard/supplier/analytics/orders", icon: FileText },
+            { title: "Deliveries", url: "/dashboard/supplier/analytics/deliveries", icon: Truck },
+            { title: "Invoices", url: "/dashboard/supplier/analytics/invoices", icon: Receipt },
+            { title: "NCRs", url: "/dashboard/supplier/analytics/ncrs", icon: ShieldWarning },
+            { title: "Milestones", url: "/dashboard/supplier/analytics/milestones", icon: Target },
+            { title: "Compliance", url: "/dashboard/supplier/analytics/compliance", icon: ShieldCheck },
+        ],
+    },
     { title: "My POs", url: "/dashboard/supplier/pos", icon: FileText },
     { title: "Compliance", url: "/dashboard/supplier/onboarding", icon: Truck },
 ];
@@ -409,8 +437,74 @@ export function CommandSidebar({
             {/* Main Navigation Content */}
             <SidebarContent className="px-2 py-2">
                 {isSupplier ? (
-                    // Supplier Navigation
-                    renderNavGroup("Portal", supplierNav)
+                    // Supplier Navigation with collapsible sub-items
+                    <SidebarGroup>
+                        <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+                            Portal
+                        </SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {supplierNav.map((item) =>
+                                    item.subItems ? (
+                                        <Collapsible key={item.title} asChild defaultOpen={pathname.startsWith(item.url.split("?")[0])} className="group/collapsible">
+                                            <SidebarMenuItem>
+                                                <CollapsibleTrigger asChild>
+                                                    <SidebarMenuButton
+                                                        tooltip={item.title}
+                                                        isActive={isActive(item.url)}
+                                                        className={cn(
+                                                            "transition-all duration-200",
+                                                            isActive(item.url) &&
+                                                            "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                                                        )}
+                                                    >
+                                                        <item.icon className="h-4 w-4" />
+                                                        <span>{item.title}</span>
+                                                        <CaretRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                                                    </SidebarMenuButton>
+                                                </CollapsibleTrigger>
+                                                <CollapsibleContent>
+                                                    <SidebarMenuSub>
+                                                        {item.subItems.map((sub) => (
+                                                            <SidebarMenuSubItem key={sub.title}>
+                                                                <SidebarMenuSubButton
+                                                                    asChild
+                                                                    isActive={pathname === sub.url}
+                                                                >
+                                                                    <Link href={sub.url} className="flex items-center gap-2">
+                                                                        <sub.icon className="h-3.5 w-3.5" />
+                                                                        <span>{sub.title}</span>
+                                                                    </Link>
+                                                                </SidebarMenuSubButton>
+                                                            </SidebarMenuSubItem>
+                                                        ))}
+                                                    </SidebarMenuSub>
+                                                </CollapsibleContent>
+                                            </SidebarMenuItem>
+                                        </Collapsible>
+                                    ) : (
+                                        <SidebarMenuItem key={item.title}>
+                                            <SidebarMenuButton
+                                                asChild
+                                                tooltip={item.title}
+                                                isActive={isActive(item.url)}
+                                                className={cn(
+                                                    "transition-all duration-200",
+                                                    isActive(item.url) &&
+                                                    "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                                                )}
+                                            >
+                                                <Link href={item.url} className="flex items-center gap-3">
+                                                    <item.icon className="h-4 w-4" />
+                                                    <span>{item.title}</span>
+                                                </Link>
+                                            </SidebarMenuButton>
+                                        </SidebarMenuItem>
+                                    )
+                                )}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
                 ) : (
                     // Full Navigation organized by workflow
                     <>

@@ -249,9 +249,10 @@ function mockMilestones(): MilestoneItem[] {
 // ============================================
 // MAIN COMPONENT
 // ============================================
-export function SupplierDashboardClient() {
+export function SupplierDashboardClient({ initialTab }: { initialTab?: string }) {
     const [loading, setLoading] = useState(true);
-    const [activeSection, setActiveSection] = useState<SectionId>("overview");
+    const validTab = SECTIONS.find(s => s.id === initialTab)?.id;
+    const [activeSection, setActiveSection] = useState<SectionId>(validTab || "overview");
 
     // Data state
     const [kpis] = useState<SupplierKPIs>(mockKPIs());
@@ -317,6 +318,15 @@ export function SupplierDashboardClient() {
         const t = setTimeout(() => setLoading(false), 600);
         return () => clearTimeout(t);
     }, []);
+
+    // Scroll to initial tab section after loading
+    useEffect(() => {
+        if (!loading && validTab && sectionRefs.current[validTab]) {
+            setTimeout(() => {
+                sectionRefs.current[validTab]?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 100);
+        }
+    }, [loading, validTab]);
 
     // ── Filtered data ──
     const filteredPOs = useMemo(() => {

@@ -1,4 +1,4 @@
-import { CalendarIcon, HouseIcon, TrayIcon, MagnifyingGlassIcon, GearIcon, BuildingsIcon, GitForkIcon, TruckIcon, FolderSimpleIcon, Hexagon, FileTextIcon, PlugsConnectedIcon, UserCircleIcon, ChartLineUp, UsersThreeIcon, ShieldCheckIcon, MapTrifoldIcon, CurrencyDollarIcon, SquaresFourIcon, ShieldStarIcon, BellIcon, ListBulletsIcon, ClockCounterClockwiseIcon, CaretRightIcon } from "@phosphor-icons/react/dist/ssr"
+import { CalendarIcon, HouseIcon, TrayIcon, MagnifyingGlassIcon, GearIcon, BuildingsIcon, GitForkIcon, TruckIcon, FolderSimpleIcon, Hexagon, FileTextIcon, PlugsConnectedIcon, UserCircleIcon, ChartLineUp, UsersThreeIcon, ShieldCheckIcon, MapTrifoldIcon, CurrencyDollarIcon, SquaresFourIcon, ShieldStarIcon, BellIcon, ListBulletsIcon, ClockCounterClockwiseIcon, CaretRightIcon, Gauge, Receipt, ShieldWarning, Target } from "@phosphor-icons/react/dist/ssr"
 import Image from "next/image"
 
 import {
@@ -144,10 +144,19 @@ const supplierItems: MenuItem[] = [
         title: "Analytics",
         url: "/dashboard/supplier/analytics",
         icon: ChartLineUp,
+        subItems: [
+            { title: "Overview", url: "/dashboard/supplier/analytics?tab=overview", icon: Gauge },
+            { title: "PO Status", url: "/dashboard/supplier/analytics?tab=orders", icon: FileTextIcon },
+            { title: "Deliveries", url: "/dashboard/supplier/analytics?tab=deliveries", icon: TruckIcon },
+            { title: "Invoices", url: "/dashboard/supplier/analytics?tab=invoices", icon: Receipt },
+            { title: "NCRs", url: "/dashboard/supplier/analytics?tab=ncrs", icon: ShieldWarning },
+            { title: "Milestones", url: "/dashboard/supplier/analytics?tab=milestones", icon: Target },
+            { title: "Compliance", url: "/dashboard/supplier/analytics?tab=compliance", icon: ShieldCheckIcon },
+        ],
     },
     {
         title: "My POs",
-        url: "/dashboard/supplier/pos", // Or just link to dashboard if it lists them
+        url: "/dashboard/supplier/pos",
         icon: FileTextIcon,
     },
     {
