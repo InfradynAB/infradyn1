@@ -228,6 +228,9 @@ export function CommandSidebar({
             "border-sidebar-border/80 bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
         );
 
+    const shouldShowAlertBadge = (item: SidebarNavItem) =>
+        !!item.badge && alertCount > 0 && !isCollapsed && !pathname.startsWith("/dashboard/alerts");
+
     // Render a navigation group
     const renderNavGroup = (
         label: string,
@@ -317,7 +320,7 @@ export function CommandSidebar({
                                     <Link href={item.url} className="flex items-center gap-3">
                                         <item.icon className="h-4 w-4" />
                                         <span>{item.title}</span>
-                                        {item.badge && alertCount > 0 && !isCollapsed && (
+                                        {shouldShowAlertBadge(item) && (
                                             <Badge
                                                 variant="destructive"
                                                 className="ml-auto h-5 min-w-5 px-1.5 text-[10px] font-bold"
