@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import {
     Select,
@@ -145,6 +145,7 @@ const pct = (v: number | undefined | null, d = 1) => `${(Number(v) || 0).toFixed
 // ============================================
 export function PMDashboardClient() {
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -190,6 +191,16 @@ export function PMDashboardClient() {
         const candidate = match[1] as SectionId;
         return SECTIONS.some((section) => section.id === candidate) ? candidate : null;
     }, [pathname]);
+
+    useEffect(() => {
+        const status = searchParams.get("status");
+        const supplier = searchParams.get("supplier");
+        const query = searchParams.get("q");
+
+        if (status) setStatusFilter(status);
+        if (supplier) setSupplierFilter(supplier);
+        if (query) setSearchQuery(query);
+    }, [searchParams]);
 
     // Fetch real suppliers and projects from API
     useEffect(() => {
@@ -583,6 +594,7 @@ export function PMDashboardClient() {
                                 sideStat={`${materials.reduce((sum, item) => sum + item.delivered, 0).toLocaleString()}/${materials.reduce((sum, item) => sum + item.ordered, 0).toLocaleString()}`}
                                 sideLabel="delivered / ordered"
                                 subText={`${materials.length} tracked materials`}
+                                subHref="/dashboard/pm/materials"
                             />
                             <GlowKPI
                                 label="On-Time Delivery"
@@ -595,6 +607,7 @@ export function PMDashboardClient() {
                                 sideStat={`${deliveries.filter(d => d.status === "delivered" || d.status === "on-track").length}/${deliveries.length}`}
                                 sideLabel="on time"
                                 subText={`${deliveries.filter(d => d.status === "delayed").length} delayed`}
+                                subHref="/dashboard/pm/deliveries?status=delayed"
                             />
                             <GlowKPI
                                 label="Open NCRs"
@@ -607,6 +620,7 @@ export function PMDashboardClient() {
                                 sideStat={`${data.kpis.quality.criticalNCRs}/${data.kpis.quality.totalNCRs}`}
                                 sideLabel="critical / total"
                                 subText={`${data.kpis.quality.closedNCRs} closed`}
+                                subHref="/dashboard/pm/quality"
                             />
                             <GlowKPI
                                 label="Milestones"
@@ -619,6 +633,7 @@ export function PMDashboardClient() {
                                 sideStat={`${milestones.filter(m => m.status === "overdue").length}`}
                                 sideLabel="overdue"
                                 subText={`${data.kpis.progress.activePOs} active POs`}
+                                subHref="/dashboard/pm/milestones"
                             />
                         </div>
 
@@ -980,13 +995,14 @@ function GlowCard({ children, noPad, className }: { children: React.ReactNode; n
 }
 
 function GlowKPI({
-    label, value, icon: Icon, iconBg, iconColor, trend, trendDir, sideStat, sideLabel, subText,
+    label, value, icon: Icon, iconBg, iconColor, trend, trendDir, sideStat, sideLabel, subText, subHref,
 }: {
     label: string; value: string; icon: React.ElementType; iconBg: string; iconColor: string;
     trend: string; trendDir: "up" | "down" | "alert" | "neutral";
     sideStat?: string;
     sideLabel?: string;
     subText?: string;
+    subHref?: string;
 }) {
     return (
         <div className={cn(
@@ -1019,7 +1035,15 @@ function GlowKPI({
                     </div>
                 )}
             </div>
-            {subText && <p className="text-[11px] text-muted-foreground mt-2">{subText}</p>}
+            {subText && (
+                subHref ? (
+                    <Link href={subHref} className="text-[11px] text-muted-foreground mt-2 inline-block hover:text-foreground underline-offset-2 hover:underline">
+                        {subText}
+                    </Link>
+                ) : (
+                    <p className="text-[11px] text-muted-foreground mt-2">{subText}</p>
+                )
+            )}
         </div>
     );
 }
