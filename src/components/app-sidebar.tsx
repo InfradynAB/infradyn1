@@ -69,7 +69,7 @@ const items: MenuItem[] = [
     },
     {
         title: "My PM Dashboard",
-        url: "/dashboard/pm",
+        url: "/dashboard/pm/overview",
         icon: SquaresFourIcon,
         roles: ["PM", "PROJECT_MANAGER"], // Only visible to PMs
     },

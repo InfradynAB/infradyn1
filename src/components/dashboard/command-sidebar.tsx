@@ -26,6 +26,8 @@ import {
     Gauge,
     ShieldWarning,
     Target,
+    CurrencyDollar,
+    CalendarCheck,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import {
@@ -101,8 +103,16 @@ const healthColors: Record<HealthStatus, { bg: string; dot: string; text: string
     critical: { bg: "bg-red-500/10", dot: "bg-red-500", text: "text-red-500" },
 };
 
+interface SidebarNavItem {
+    title: string;
+    url: string;
+    icon: React.ElementType;
+    badge?: boolean;
+    subItems?: { title: string; url: string; icon: React.ElementType }[];
+}
+
 // Navigation structure organized by workflow
-const dailyOpsNav = [
+const dailyOpsNav: SidebarNavItem[] = [
     { title: "Home", url: "/dashboard", icon: SquaresFour },
     { title: "Alerts", url: "/dashboard/alerts", icon: Bell, badge: true },
     { title: "Analytics", url: "/dashboard/analytics", icon: ChartLineUp },
@@ -165,6 +175,17 @@ const supplierNav: SupplierNavItem[] = [
     { title: "Compliance", url: "/dashboard/supplier/onboarding", icon: Truck },
 ];
 
+const pmAnalyticsSubItems: { title: string; url: string; icon: React.ElementType }[] = [
+    { title: "Overview", url: "/dashboard/pm/overview", icon: Gauge },
+    { title: "Deliveries", url: "/dashboard/pm/deliveries", icon: Truck },
+    { title: "Materials", url: "/dashboard/pm/materials", icon: Package },
+    { title: "Quality", url: "/dashboard/pm/quality", icon: ShieldWarning },
+    { title: "Milestones", url: "/dashboard/pm/milestones", icon: Target },
+    { title: "Suppliers", url: "/dashboard/pm/suppliers", icon: UsersThree },
+    { title: "Cost & Budget", url: "/dashboard/pm/financials", icon: CurrencyDollar },
+    { title: "Inspections", url: "/dashboard/pm/inspections", icon: CalendarCheck },
+];
+
 export function CommandSidebar({
     user,
     organizations = [],
@@ -181,9 +202,17 @@ export function CommandSidebar({
     const { state } = useSidebar();
     const isCollapsed = state === "collapsed";
     const isSupplier = user?.role === "SUPPLIER";
+    const isPM = user?.role === "PM" || user?.role === "PROJECT_MANAGER";
 
     const activeOrg = organizations.find((o) => o.id === activeOrgId);
     const activeProject = projects.find((p) => p.id === activeProjectId);
+    const dailyOpsItems: SidebarNavItem[] = isPM
+        ? dailyOpsNav.map((item) =>
+            item.title === "Analytics"
+                ? { ...item, url: "/dashboard/pm/overview", subItems: pmAnalyticsSubItems }
+                : item
+        )
+        : dailyOpsNav;
 
     // Helper to check if link is active
     const isActive = (url: string) => {
@@ -202,7 +231,7 @@ export function CommandSidebar({
     // Render a navigation group
     const renderNavGroup = (
         label: string,
-        items: typeof dailyOpsNav
+        items: SidebarNavItem[]
     ) => (
         <SidebarGroup className="px-1.5 py-1">
             <SidebarGroupLabel className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/45">
@@ -210,29 +239,97 @@ export function CommandSidebar({
             </SidebarGroupLabel>
             <SidebarGroupContent>
                 <SidebarMenu className="gap-1.5">
-                    {items.map((item) => (
-                        <SidebarMenuItem key={item.title}>
-                            <SidebarMenuButton
-                                asChild
-                                tooltip={item.title}
-                                isActive={isActive(item.url)}
-                                className={navButtonClass(isActive(item.url))}
-                            >
-                                <Link href={item.url} className="flex items-center gap-3">
-                                    <item.icon className="h-4 w-4" />
-                                    <span>{item.title}</span>
-                                    {item.badge && alertCount > 0 && !isCollapsed && (
-                                        <Badge
-                                            variant="destructive"
-                                            className="ml-auto h-5 min-w-5 px-1.5 text-[10px] font-bold"
+                    {items.map((item) =>
+                        item.subItems ? (
+                            isCollapsed ? (
+                                <SidebarMenuItem key={item.title}>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <SidebarMenuButton
+                                                tooltip={item.title}
+                                                isActive={isActive(item.url)}
+                                                className={navButtonClass(isActive(item.url))}
+                                            >
+                                                <item.icon className="h-4 w-4" />
+                                                <span>{item.title}</span>
+                                            </SidebarMenuButton>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent
+                                            side="right"
+                                            align="start"
+                                            sideOffset={10}
+                                            className="w-52 rounded-xl border-sidebar-border/80 bg-sidebar text-sidebar-foreground"
                                         >
-                                            {alertCount > 99 ? "99+" : alertCount}
-                                        </Badge>
-                                    )}
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    ))}
+                                            {item.subItems.map((sub) => (
+                                                <DropdownMenuItem asChild key={sub.title}>
+                                                    <Link href={sub.url} className="cursor-pointer gap-2 text-sm">
+                                                        <sub.icon className="h-3.5 w-3.5" />
+                                                        <span>{sub.title}</span>
+                                                    </Link>
+                                                </DropdownMenuItem>
+                                            ))}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </SidebarMenuItem>
+                            ) : (
+                                <Collapsible key={item.title} asChild defaultOpen={pathname.startsWith(item.url.split("?")[0])} className="group/collapsible">
+                                    <SidebarMenuItem>
+                                        <CollapsibleTrigger asChild>
+                                            <SidebarMenuButton
+                                                tooltip={item.title}
+                                                isActive={isActive(item.url)}
+                                                className={navButtonClass(isActive(item.url))}
+                                            >
+                                                <item.icon className="h-4 w-4" />
+                                                <span>{item.title}</span>
+                                                <CaretRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                                            </SidebarMenuButton>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent>
+                                            <SidebarMenuSub className="mx-4 mt-1 border-sidebar-border/70 px-2 py-1">
+                                                {item.subItems.map((sub) => (
+                                                    <SidebarMenuSubItem key={sub.title}>
+                                                        <SidebarMenuSubButton
+                                                            asChild
+                                                            isActive={pathname === sub.url}
+                                                            className="h-8 rounded-lg text-xs"
+                                                        >
+                                                            <Link href={sub.url} className="flex items-center gap-2">
+                                                                <sub.icon className="h-3.5 w-3.5" />
+                                                                <span>{sub.title}</span>
+                                                            </Link>
+                                                        </SidebarMenuSubButton>
+                                                    </SidebarMenuSubItem>
+                                                ))}
+                                            </SidebarMenuSub>
+                                        </CollapsibleContent>
+                                    </SidebarMenuItem>
+                                </Collapsible>
+                            )
+                        ) : (
+                            <SidebarMenuItem key={item.title}>
+                                <SidebarMenuButton
+                                    asChild
+                                    tooltip={item.title}
+                                    isActive={isActive(item.url)}
+                                    className={navButtonClass(isActive(item.url))}
+                                >
+                                    <Link href={item.url} className="flex items-center gap-3">
+                                        <item.icon className="h-4 w-4" />
+                                        <span>{item.title}</span>
+                                        {item.badge && alertCount > 0 && !isCollapsed && (
+                                            <Badge
+                                                variant="destructive"
+                                                className="ml-auto h-5 min-w-5 px-1.5 text-[10px] font-bold"
+                                            >
+                                                {alertCount > 99 ? "99+" : alertCount}
+                                            </Badge>
+                                        )}
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        )
+                    )}
                 </SidebarMenu>
             </SidebarGroupContent>
         </SidebarGroup>
@@ -541,7 +638,7 @@ export function CommandSidebar({
                 ) : (
                     // Full Navigation organized by workflow
                     <>
-                        {renderNavGroup("Daily Operations", dailyOpsNav)}
+                        {renderNavGroup("Daily Operations", dailyOpsItems)}
                         {renderNavGroup("Financials", financialsNav)}
                         {renderNavGroup("Quality & Logistics", qualityLogisticsNav)}
                         {renderNavGroup("Management", managementNav)}

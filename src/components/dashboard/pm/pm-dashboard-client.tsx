@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import {
     Select,
@@ -144,6 +145,7 @@ const pct = (v: number | undefined | null, d = 1) => `${(Number(v) || 0).toFixed
 // MAIN COMPONENT
 // ============================================
 export function PMDashboardClient() {
+    const pathname = usePathname();
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -182,6 +184,13 @@ export function PMDashboardClient() {
 
     // Real projects from database
     const [projectList, setProjectList] = useState<Array<{ id: string; name: string }>>([]);
+
+    const routeSection = useMemo<SectionId | null>(() => {
+        const match = pathname.match(/^\/dashboard\/pm\/([^/?#]+)/);
+        if (!match) return null;
+        const candidate = match[1] as SectionId;
+        return SECTIONS.some((section) => section.id === candidate) ? candidate : null;
+    }, [pathname]);
 
     // Fetch real suppliers and projects from API
     useEffect(() => {
@@ -276,13 +285,18 @@ export function PMDashboardClient() {
 
     // ── Scroll spy ──
     useEffect(() => {
+        if (routeSection) {
+            setActiveSection(routeSection);
+            return;
+        }
+
         const observer = new IntersectionObserver(
             (entries) => { for (const e of entries) if (e.isIntersecting) setActiveSection(e.target.id as SectionId); },
             { rootMargin: "-20% 0px -60% 0px", threshold: 0 }
         );
         Object.values(sectionRefs.current).forEach((r) => { if (r) observer.observe(r); });
         return () => observer.disconnect();
-    }, [loading]);
+    }, [loading, routeSection]);
 
     const scrollTo = (id: SectionId) => sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -456,11 +470,11 @@ export function PMDashboardClient() {
                 <div className="flex items-center gap-1.5 pb-3 overflow-x-auto scrollbar-none">
                     {SECTIONS.map((s) => {
                         const Icon = s.icon;
-                        const active = activeSection === s.id;
+                        const active = (routeSection ?? activeSection) === s.id;
                         return (
-                            <button
+                            <Link
                                 key={s.id}
-                                onClick={() => scrollTo(s.id)}
+                                href={`/dashboard/pm/${s.id}`}
                                 className={cn(
                                     "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 whitespace-nowrap",
                                     active
@@ -473,7 +487,7 @@ export function PMDashboardClient() {
                                 {s.id === "deliveries" && overdueDeliveries > 0 && (
                                     <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">{overdueDeliveries}</span>
                                 )}
-                            </button>
+                            </Link>
                         );
                     })}
                 </div>
@@ -558,7 +572,7 @@ export function PMDashboardClient() {
                 <div className="space-y-12 pt-8 pb-24">
 
                     {/* ═══════════ SECTION 1: OVERVIEW ═══════════ */}
-                    <section id="overview" ref={(el) => { sectionRefs.current.overview = el; }} className="scroll-mt-32 space-y-6">
+                    <section id="overview" ref={(el) => { sectionRefs.current.overview = el; }} className={cn("scroll-mt-32 space-y-6", routeSection && routeSection !== "overview" && "hidden")}>
 
                         {/* KPI Row 1: Core PM metrics */}
                         <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
@@ -591,7 +605,7 @@ export function PMDashboardClient() {
                     </section>
 
                     {/* ═══════════ SECTION 2: DELIVERIES ═══════════ */}
-                    <section id="deliveries" ref={(el) => { sectionRefs.current.deliveries = el; }} className="scroll-mt-32 space-y-5">
+                    <section id="deliveries" ref={(el) => { sectionRefs.current.deliveries = el; }} className={cn("scroll-mt-32 space-y-5", routeSection && routeSection !== "deliveries" && "hidden")}>
                         <SectionHeader icon={Truck} iconBg="bg-blue-100 dark:bg-blue-500/20" iconColor="text-blue-600 dark:text-blue-400" title="Delivery Tracking" subtitle={`${filteredDeliveries.length} shipments · ${filteredDeliveries.filter(d => d.status === "in-transit").length} in transit · ${filteredDeliveries.filter(d => d.status === "delayed").length} delayed`}
                             badge={overdueDeliveries > 0 ? { label: `${overdueDeliveries} Delayed`, variant: "destructive" as const } : undefined}
                             rightContent={<ViewToggle section="deliveries" current={viewModes.deliveries} onChange={toggleView} />}
@@ -641,7 +655,7 @@ export function PMDashboardClient() {
                     </section>
 
                     {/* ═══════════ SECTION 3: MATERIALS ═══════════ */}
-                    <section id="materials" ref={(el) => { sectionRefs.current.materials = el; }} className="scroll-mt-32 space-y-5">
+                    <section id="materials" ref={(el) => { sectionRefs.current.materials = el; }} className={cn("scroll-mt-32 space-y-5", routeSection && routeSection !== "materials" && "hidden")}>
                         <SectionHeader icon={Package} iconBg="bg-teal-100 dark:bg-teal-500/20" iconColor="text-teal-600 dark:text-teal-400" title="Material Availability" subtitle={`${filteredMaterials.length} materials · Ordered, delivered, and installed quantities`}
                             rightContent={<ViewToggle section="materials" current={viewModes.materials} onChange={toggleView} />}
                         />
@@ -688,7 +702,7 @@ export function PMDashboardClient() {
                     </section>
 
                     {/* ═══════════ SECTION 4: QUALITY ═══════════ */}
-                    <section id="quality" ref={(el) => { sectionRefs.current.quality = el; }} className="scroll-mt-32 space-y-5">
+                    <section id="quality" ref={(el) => { sectionRefs.current.quality = el; }} className={cn("scroll-mt-32 space-y-5", routeSection && routeSection !== "quality" && "hidden")}>
                         <SectionHeader icon={ShieldWarning} iconBg="bg-amber-100 dark:bg-amber-500/20" iconColor="text-amber-600 dark:text-amber-400" title="Quality & NCR Management" subtitle="Non-conformance reports, trends, and risk matrix"
                             badge={data.kpis.quality.criticalNCRs > 0 ? { label: `${data.kpis.quality.criticalNCRs} Critical`, variant: "destructive" as const } : undefined}
                         />
@@ -709,7 +723,7 @@ export function PMDashboardClient() {
                     </section>
 
                     {/* ═══════════ SECTION 5: MILESTONES ═══════════ */}
-                    <section id="milestones" ref={(el) => { sectionRefs.current.milestones = el; }} className="scroll-mt-32 space-y-5">
+                    <section id="milestones" ref={(el) => { sectionRefs.current.milestones = el; }} className={cn("scroll-mt-32 space-y-5", routeSection && routeSection !== "milestones" && "hidden")}>
                         <SectionHeader icon={Target} iconBg="bg-violet-100 dark:bg-violet-500/20" iconColor="text-violet-600 dark:text-violet-400" title="Milestones & Change Orders" subtitle={`${filteredMilestones.length} milestones · ${filteredChangeOrders.length} change orders`}
                             rightContent={<ViewToggle section="milestones" current={viewModes.milestones} onChange={toggleView} />}
                         />
@@ -791,7 +805,7 @@ export function PMDashboardClient() {
                     </section>
 
                     {/* ═══════════ SECTION 6: SUPPLIERS ═══════════ */}
-                    <section id="suppliers" ref={(el) => { sectionRefs.current.suppliers = el; }} className="scroll-mt-32 space-y-5">
+                    <section id="suppliers" ref={(el) => { sectionRefs.current.suppliers = el; }} className={cn("scroll-mt-32 space-y-5", routeSection && routeSection !== "suppliers" && "hidden")}>
                         <SectionHeader icon={UsersFour} iconBg="bg-indigo-100 dark:bg-indigo-500/20" iconColor="text-indigo-600 dark:text-indigo-400" title="Supplier Reliability" subtitle={`${filteredSuppliers.length} suppliers across your projects`}
                             rightContent={<ViewToggle section="suppliers" current={viewModes.suppliers} onChange={toggleView} />}
                         />
@@ -833,7 +847,7 @@ export function PMDashboardClient() {
                     </section>
 
                     {/* ═══════════ SECTION 7: FINANCIALS ═══════════ */}
-                    <section id="financials" ref={(el) => { sectionRefs.current.financials = el; }} className="scroll-mt-32 space-y-5">
+                    <section id="financials" ref={(el) => { sectionRefs.current.financials = el; }} className={cn("scroll-mt-32 space-y-5", routeSection && routeSection !== "financials" && "hidden")}>
                         <SectionHeader icon={CurrencyDollar} iconBg="bg-emerald-100 dark:bg-emerald-500/20" iconColor="text-emerald-600 dark:text-emerald-400" title="Cost & Budget" subtitle="Budget utilization, cost waterfall, and payment analytics" />
                         <GlowCard>
                             <BudgetUtilizationBar
@@ -855,7 +869,7 @@ export function PMDashboardClient() {
                     </section>
 
                     {/* ═══════════ SECTION 8: INSPECTIONS ═══════════ */}
-                    <section id="inspections" ref={(el) => { sectionRefs.current.inspections = el; }} className="scroll-mt-32 space-y-5">
+                    <section id="inspections" ref={(el) => { sectionRefs.current.inspections = el; }} className={cn("scroll-mt-32 space-y-5", routeSection && routeSection !== "inspections" && "hidden")}>
                         <SectionHeader icon={CalendarCheck} iconBg="bg-slate-200 dark:bg-slate-500/20" iconColor="text-slate-600 dark:text-slate-400" title="QA Inspections" subtitle={`${filteredInspections.length} inspections · Schedule, pass rates, and upcoming reviews`}
                             rightContent={<ViewToggle section="inspections" current={viewModes.inspections} onChange={toggleView} />}
                         />
@@ -897,11 +911,13 @@ export function PMDashboardClient() {
                         )}
                     </section>
 
+                    {!routeSection && (
                     <div className="flex justify-center pt-6">
                         <Button variant="ghost" size="sm" className="text-xs text-muted-foreground gap-2 rounded-xl hover:bg-muted" onClick={() => scrollTo("overview")}>
                             <ArrowUp className="w-4 h-4" /> Back to top
                         </Button>
                     </div>
+                    )}
                 </div>
             ) : null}
         </div>

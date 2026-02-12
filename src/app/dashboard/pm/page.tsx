@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { PMDashboardClient } from "@/components/dashboard/pm/pm-dashboard-client";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
     title: "Project Manager Dashboard | Infradyn",
@@ -7,9 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function PMDashboardPage() {
-    return (
-        <div className="container mx-auto py-6 px-4 max-w-7xl">
-            <PMDashboardClient />
-        </div>
-    );
+    redirect("/dashboard/pm/overview");
 }
