@@ -105,16 +105,16 @@ This allows weekly demos and prevents bottlenecks.
 ## Phase 6 — AI Intelligence
 
 ### Feature 12 — Dual-Path Data Normalization
-- **Goal:** Normalize SRP and IRP records.
-- **Includes:** Align percentages/dates/units, prepare comparisons.
+- **Goal:** Normalize SRP and IRP records using high-performance parallel processing.
+- **Includes:** Align percentages/dates/units via Python FastAPI service, prepare comparisons with numpy-backed computation.
 - **Independent**
-- **Test:** SRP + IRP imported → normalized.
+- **Test:** SRP + IRP imported → processed by Python service → normalized.
 
 ### Feature 13 — Dual-Path Comparison Engine
-- **Goal:** Detect SRP vs IRP mismatches.
-- **Includes:** Quantity, progress, evidence, and date checks.
+- **Goal:** Detect SRP vs IRP mismatches at scale.
+- **Includes:** Quantity, progress, evidence, and date checks powered by parallel execution blocks.
 - **Independent**
-- **Test:** System flags alignment status.
+- **Test:** System flags alignment status via Python-backed analysis.
 
 ### Feature 14 — Conflict Detection Engine
 - **Goal:** Generate categorized conflict records.
@@ -232,3 +232,19 @@ This allows weekly demos and prevents bottlenecks.
 
 ### Feature 35 — Production Deployment
 - **Goal:** Execute cutover plan.
+
+---
+
+## Phase 13 — System Reliability & Maintenance
+
+### Feature 36 — Sentry Monitoring & Observability
+- **Goal:** Ensure 99.9% uptime and rapid debugging.
+- **Includes:** Full-stack error tracking (Client/Server/Edge), performance profiling, source map integration, custom error boundaries.
+- **Independent**
+- **Test:** Trigger error → view in Sentry Dashboard with clean stack trace.
+
+### Feature 37 — Parallel Extraction Scaling
+- **Goal:** Process high volumes of site documents without blocking UI.
+- **Includes:** Decoupled FastAPI extraction service, circuit-breaking health checks, async document queues.
+- **Independent**
+- **Test:** Upload 10+ documents simultaneously → UI remains responsive.

@@ -27,7 +27,7 @@ This document specifies the functional and non-functional requirements, high-lev
 
 ## 3. Agreed Technology Strategy (Final)
 
-- **AI / Heavy Engine:** Python (FastAPI + async workers). All OCR, NLP, ML, scoring, forecasting live here.
+- **AI / Heavy Engine (Parallel Extraction):** Python (FastAPI + async workers). Decoupled microservice architecture for high-throughput OCR, NLP, ML, and predictive aggregation.
 - **Portal & Orchestration:** TypeScript + Next.js (App Router). UI, supplier portal, PWA, auth, lightweight orchestration.
 - **Database:** PostgreSQL (Neon).
 - **Storage:** S3-compatible buckets.
@@ -36,7 +36,7 @@ This document specifies the functional and non-functional requirements, high-lev
 - **Queues / Cache:** Redis (or Upstash).
 - **CI/CD / Hosting:** Vercel (frontends), selected host for Python workers (ECS/Render/Railway).
 - **Email:** Resend (or provider choice).
-- **Monitoring:** Sentry, CloudWatch.
+- **Observability & Reliability:** Sentry (Full-stack exception tracking, performance profiling), AWS CloudWatch (Infrastructure metrics), and circuit-breaking heartbeats for inter-service connectivity.
 
 ## 4. Modular Architecture (Independent, Testable Modules)
 

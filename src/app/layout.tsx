@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/themes/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { defaultMetadata } from "@/lib/seo.config";
+import { SentryErrorBoundary } from "@/lib/sentry/error-boundary";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,10 +34,13 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <SentryErrorBoundary>
+            {children}
+          </SentryErrorBoundary>
           <Toaster />
         </ThemeProvider>
       </body>
     </html>
   );
 }
+

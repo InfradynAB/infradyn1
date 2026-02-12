@@ -4,12 +4,22 @@ Phase 8 is the "Intelligence Layer," aggregating data from all previous phases t
 
 ## 1. Data Aggregation Service
 
-To ensure sub-second dashboard performance, Infradyn uses an aggregation strategy.
+To ensure sub-second dashboard performance, Infradyn uses an aggregation strategy backed by a **Parallel Python Service**.
 
-### Aggregator (`src/lib/services/kpi-engine.ts`):
-Scheduled jobs pre-calculate complex metrics and store them in indexed tables or materialized views (depending on DB load).
+### Aggregator (`python-services/app/routers/kpi.py`):
+Complex metrics are offloaded to a dedicated Python microservice using `pandas` and `numpy` for high-performance computation. This prevents the main Next.js thread from blocking during heavy analytical queries.
 
 **Key Metrics Aggregated:**
+...
+## 5. Operational Health & Observability
+
+Phase 8 introduces proactive monitoring to ensure the "Intelligence Layer" remains reliable.
+
+### Real-time Monitoring (Sentry):
+Every analytic calculation and report generation task is tracked via **Sentry**. High latency in KPI calculations or failures in the report engine trigger immediate alerts.
+
+### Predictive Health:
+The system monitors the status of the Python microservice via a circuit-breaking heartbeat. If the extraction service becomes unresponsive, the UI gracefully degrades to a "Limited Intelligence" mode, preserving core functionality while notifying administrators.
 - **Project Burn Rate**: Monthly spend vs total budget.
 - **Supplier Accuracy**: `%` variance between declared and received quantities.
 - **NCR Density**: Number of quality issues per 1M USD of order value.
