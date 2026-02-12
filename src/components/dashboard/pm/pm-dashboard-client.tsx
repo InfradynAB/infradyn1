@@ -62,7 +62,6 @@ import {
     ChartBar,
     Rows,
     Faders,
-    ArrowLeft,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -395,10 +394,7 @@ export function PMDashboardClient() {
             <div className="sticky top-0 z-30 bg-background/85 backdrop-blur-2xl border-b border-border/60 -mx-4 px-4 lg:-mx-6 lg:px-6">
                 <div className="flex items-center justify-between py-3.5">
                     <div className="flex items-center gap-3.5">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" asChild>
-                            <Link href="/dashboard/analytics"><ArrowLeft className="h-4 w-4" /></Link>
-                        </Button>
-                        <div className="w-10 h-10 rounded-2xl bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-600/30">
+                        <div className="w-10 h-10 rounded-2xl bg-black dark:bg-black flex items-center justify-center shadow-lg shadow-black/20">
                             <Wrench className="w-5 h-5 text-white" weight="bold" />
                         </div>
                         <div>
@@ -434,7 +430,7 @@ export function PMDashboardClient() {
                             size="sm"
                             className={cn(
                                 "h-9 rounded-xl text-xs gap-1.5 px-3",
-                                showAdvancedFilters ? "bg-indigo-600 text-white hover:bg-indigo-700" : "bg-card"
+                                showAdvancedFilters ? "bg-black text-white hover:bg-black/90" : "bg-card"
                             )}
                             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                         >
@@ -443,7 +439,7 @@ export function PMDashboardClient() {
                             {activeFilterCount > 0 && (
                                 <span className={cn(
                                     "w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center",
-                                    showAdvancedFilters ? "bg-white/20" : "bg-indigo-600 text-white"
+                                    showAdvancedFilters ? "bg-white/20" : "bg-black text-white"
                                 )}>{activeFilterCount}</span>
                             )}
                         </Button>
@@ -478,7 +474,7 @@ export function PMDashboardClient() {
                                 className={cn(
                                     "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 whitespace-nowrap",
                                     active
-                                        ? "bg-indigo-600 dark:bg-indigo-500 text-white shadow-lg shadow-indigo-600/25 scale-[1.02]"
+                                        ? "bg-black dark:bg-black text-white shadow-lg shadow-black/20 scale-[1.02]"
                                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                                 )}
                             >
@@ -575,12 +571,55 @@ export function PMDashboardClient() {
                     <section id="overview" ref={(el) => { sectionRefs.current.overview = el; }} className={cn("scroll-mt-32 space-y-6", routeSection && routeSection !== "overview" && "hidden")}>
 
                         {/* KPI Row 1: Core PM metrics */}
-                        <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
-                            <GlowKPI label="Material Availability" value={pct(calcMaterialAvailability(materials))} icon={Package} iconBg="bg-blue-100 dark:bg-blue-500/20" iconColor="text-blue-600 dark:text-blue-400" trend={calcMaterialAvailability(materials) >= 80 ? "Good" : "Low"} trendDir={calcMaterialAvailability(materials) >= 80 ? "up" : "alert"} />
-                            <GlowKPI label="On-Time Delivery" value={pct(data.kpis.logistics.onTimeRate)} icon={Truck} iconBg="bg-emerald-100 dark:bg-emerald-500/20" iconColor="text-emerald-600 dark:text-emerald-400" trend={data.kpis.logistics.onTimeRate >= 85 ? "Healthy" : "At Risk"} trendDir={data.kpis.logistics.onTimeRate >= 85 ? "up" : "alert"} />
-                            <GlowKPI label="Open NCRs" value={`${data.kpis.quality.openNCRs}`} icon={ShieldWarning} iconBg="bg-amber-100 dark:bg-amber-500/20" iconColor="text-amber-600 dark:text-amber-400" trend={`${data.kpis.quality.criticalNCRs} critical`} trendDir={data.kpis.quality.criticalNCRs > 0 ? "alert" : "up"} />
-                            <GlowKPI label="Milestones" value={`${data.kpis.progress.milestonesCompleted}/${data.kpis.progress.milestonesTotal}`} icon={Target} iconBg="bg-violet-100 dark:bg-violet-500/20" iconColor="text-violet-600 dark:text-violet-400" trend={pct((data.kpis.progress.milestonesCompleted / Math.max(data.kpis.progress.milestonesTotal, 1)) * 100)} trendDir="neutral" />
-                            <GlowKPI label="Cost Exposure" value={fmt(data.kpis.financial.forecastToComplete)} icon={CurrencyDollar} iconBg="bg-rose-100 dark:bg-rose-500/20" iconColor="text-rose-600 dark:text-rose-400" trend={data.kpis.financial.changeOrderImpact > 0 ? `+${fmt(data.kpis.financial.changeOrderImpact)} COs` : "No COs"} trendDir={data.kpis.financial.changeOrderImpact > 0 ? "alert" : "up"} />
+                        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+                            <GlowKPI
+                                label="Material Availability"
+                                value={pct(calcMaterialAvailability(materials))}
+                                icon={Package}
+                                iconBg="bg-blue-100 dark:bg-blue-500/20"
+                                iconColor="text-blue-600 dark:text-blue-400"
+                                trend={calcMaterialAvailability(materials) >= 80 ? "Good" : "Low"}
+                                trendDir={calcMaterialAvailability(materials) >= 80 ? "up" : "alert"}
+                                sideStat={`${materials.reduce((sum, item) => sum + item.delivered, 0).toLocaleString()}/${materials.reduce((sum, item) => sum + item.ordered, 0).toLocaleString()}`}
+                                sideLabel="delivered / ordered"
+                                subText={`${materials.length} tracked materials`}
+                            />
+                            <GlowKPI
+                                label="On-Time Delivery"
+                                value={pct(data.kpis.logistics.onTimeRate)}
+                                icon={Truck}
+                                iconBg="bg-emerald-100 dark:bg-emerald-500/20"
+                                iconColor="text-emerald-600 dark:text-emerald-400"
+                                trend={data.kpis.logistics.onTimeRate >= 85 ? "Healthy" : "At Risk"}
+                                trendDir={data.kpis.logistics.onTimeRate >= 85 ? "up" : "alert"}
+                                sideStat={`${deliveries.filter(d => d.status === "delivered" || d.status === "on-track").length}/${deliveries.length}`}
+                                sideLabel="on time"
+                                subText={`${deliveries.filter(d => d.status === "delayed").length} delayed`}
+                            />
+                            <GlowKPI
+                                label="Open NCRs"
+                                value={`${data.kpis.quality.openNCRs}`}
+                                icon={ShieldWarning}
+                                iconBg="bg-amber-100 dark:bg-amber-500/20"
+                                iconColor="text-amber-600 dark:text-amber-400"
+                                trend={`${data.kpis.quality.criticalNCRs} critical`}
+                                trendDir={data.kpis.quality.criticalNCRs > 0 ? "alert" : "up"}
+                                sideStat={`${data.kpis.quality.criticalNCRs}/${data.kpis.quality.totalNCRs}`}
+                                sideLabel="critical / total"
+                                subText={`${data.kpis.quality.closedNCRs} closed`}
+                            />
+                            <GlowKPI
+                                label="Milestones"
+                                value={`${data.kpis.progress.milestonesCompleted}/${data.kpis.progress.milestonesTotal}`}
+                                icon={Target}
+                                iconBg="bg-violet-100 dark:bg-violet-500/20"
+                                iconColor="text-violet-600 dark:text-violet-400"
+                                trend={pct((data.kpis.progress.milestonesCompleted / Math.max(data.kpis.progress.milestonesTotal, 1)) * 100)}
+                                trendDir="neutral"
+                                sideStat={`${milestones.filter(m => m.status === "overdue").length}`}
+                                sideLabel="overdue"
+                                subText={`${data.kpis.progress.activePOs} active POs`}
+                            />
                         </div>
 
                         {/* Health + Traffic Light */}
@@ -941,23 +980,24 @@ function GlowCard({ children, noPad, className }: { children: React.ReactNode; n
 }
 
 function GlowKPI({
-    label, value, icon: Icon, iconBg, iconColor, trend, trendDir,
+    label, value, icon: Icon, iconBg, iconColor, trend, trendDir, sideStat, sideLabel, subText,
 }: {
     label: string; value: string; icon: React.ElementType; iconBg: string; iconColor: string;
     trend: string; trendDir: "up" | "down" | "alert" | "neutral";
+    sideStat?: string;
+    sideLabel?: string;
+    subText?: string;
 }) {
     return (
         <div className={cn(
-            "rounded-2xl border border-border/60 bg-card p-5",
-            "shadow-sm hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-300 group",
+            "rounded-2xl border border-border/60 bg-card p-4",
+            "shadow-sm transition-all duration-200",
         )}>
-            <div className="flex items-start justify-between mb-3.5">
-                <div className={cn("w-11 h-11 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110", iconBg)}>
-                    <Icon className={cn("w-5.5 h-5.5", iconColor)} weight="duotone" />
-                </div>
+            <div className="flex items-start justify-between gap-3 mb-3">
+                <p className="text-sm font-semibold text-foreground/90">{label}</p>
                 {trend && (
                     <span className={cn(
-                        "inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg",
+                        "inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap",
                         trendDir === "up" && "text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-500/15",
                         trendDir === "down" && "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-500/15",
                         trendDir === "alert" && "text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/15",
@@ -970,8 +1010,16 @@ function GlowKPI({
                     </span>
                 )}
             </div>
-            <p className="text-2xl font-bold font-mono tracking-tighter tabular-nums leading-none">{value}</p>
-            <p className="text-xs text-muted-foreground mt-1.5 font-medium">{label}</p>
+            <div className="flex items-end justify-between gap-3">
+                <p className="text-[2.2rem] font-bold font-mono tracking-tight tabular-nums leading-none">{value}</p>
+                {sideStat && (
+                    <div className="text-right pb-0.5">
+                        <p className="text-sm font-semibold font-mono tabular-nums leading-none">{sideStat}</p>
+                        {sideLabel && <p className="text-[10px] text-muted-foreground mt-1">{sideLabel}</p>}
+                    </div>
+                )}
+            </div>
+            {subText && <p className="text-[11px] text-muted-foreground mt-2">{subText}</p>}
         </div>
     );
 }
@@ -1154,12 +1202,14 @@ function StatusPill({ status }: { status: string }) {
 function DashboardSkeleton() {
     return (
         <div className="space-y-8 pt-8">
-            <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
-                {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="rounded-2xl border border-border/60 bg-card p-5">
-                        <Skeleton className="h-11 w-11 rounded-2xl mb-3.5" />
-                        <Skeleton className="h-7 w-28 mb-2" />
-                        <Skeleton className="h-3.5 w-20" />
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+                {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="rounded-2xl border border-border/60 bg-card p-4">
+                        <div className="flex items-start justify-between mb-3">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-5 w-14 rounded-md" />
+                        </div>
+                        <Skeleton className="h-9 w-28" />
                     </div>
                 ))}
             </div>
