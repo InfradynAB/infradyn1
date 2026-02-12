@@ -191,28 +191,32 @@ export function CommandSidebar({
         return pathname.startsWith(url.split("?")[0]);
     };
 
+    const navButtonClass = (active: boolean) =>
+        cn(
+            "h-10 rounded-xl border border-transparent px-3 text-[13px] font-medium transition-all duration-200",
+            "hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+            active &&
+            "border-sidebar-border/80 bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
+        );
+
     // Render a navigation group
     const renderNavGroup = (
         label: string,
         items: typeof dailyOpsNav
     ) => (
-        <SidebarGroup>
-            <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+        <SidebarGroup className="px-1.5 py-1">
+            <SidebarGroupLabel className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/45">
                 {label}
             </SidebarGroupLabel>
             <SidebarGroupContent>
-                <SidebarMenu>
+                <SidebarMenu className="gap-1.5">
                     {items.map((item) => (
                         <SidebarMenuItem key={item.title}>
                             <SidebarMenuButton
                                 asChild
                                 tooltip={item.title}
                                 isActive={isActive(item.url)}
-                                className={cn(
-                                    "transition-all duration-200",
-                                    isActive(item.url) &&
-                                    "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                                )}
+                                className={navButtonClass(isActive(item.url))}
                             >
                                 <Link href={item.url} className="flex items-center gap-3">
                                     <item.icon className="h-4 w-4" />
@@ -235,17 +239,21 @@ export function CommandSidebar({
     );
 
     return (
-        <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+        <Sidebar
+            collapsible="icon"
+            variant="floating"
+            className="border-0"
+        >
             {/* Header with Branding */}
-            <SidebarHeader className="border-b border-sidebar-border pb-4">
+            <SidebarHeader className="border-b border-sidebar-border/70 px-3 pt-3 pb-4">
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
+                        <SidebarMenuButton size="lg" asChild className="h-12 rounded-xl">
                             <Link
                                 href={isSupplier ? "/dashboard/supplier" : "/dashboard"}
                                 className="flex items-center gap-3"
                             >
-                                <div className="flex aspect-square size-9 items-center justify-center rounded-lg bg-background overflow-hidden shadow-sm">
+                                <div className="flex aspect-square size-10 items-center justify-center rounded-xl bg-background overflow-hidden shadow-sm">
                                     <Image
                                         src="/logos/logo.png"
                                         alt="Infradyn"
@@ -259,7 +267,7 @@ export function CommandSidebar({
                                         <span className="font-bold tracking-tight text-base">
                                             Infradyn
                                         </span>
-                                        <span className="text-[10px] text-sidebar-foreground/60 tracking-widest uppercase">
+                                        <span className="text-[10px] text-sidebar-foreground/60 tracking-[0.18em] uppercase">
                                             {isSupplier ? "Supplier Portal" : "Home"}
                                         </span>
                                     </div>
@@ -274,7 +282,7 @@ export function CommandSidebar({
                     <div className="mt-3 px-2">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <button className="flex w-full items-center gap-2 rounded-md border border-sidebar-border bg-sidebar-accent/50 px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent">
+                                <button className="flex h-10 w-full items-center gap-2 rounded-xl border border-sidebar-border/80 bg-sidebar-accent/40 px-3 text-sm transition-colors hover:bg-sidebar-accent/70">
                                     <Buildings className="h-4 w-4 text-sidebar-foreground/60" />
                                     <span className="flex-1 truncate text-left font-medium">
                                         {activeOrg?.name || "Select Organization"}
@@ -318,8 +326,8 @@ export function CommandSidebar({
                             <DropdownMenuTrigger asChild>
                                 <button
                                     className={cn(
-                                        "flex w-full items-center gap-3 rounded-lg p-3 text-left transition-all",
-                                        "border-2 border-dashed border-sidebar-border hover:border-sidebar-primary/50",
+                                        "flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all",
+                                        "border border-sidebar-border/80 bg-sidebar-accent/35 hover:bg-sidebar-accent/60",
                                         activeProject && healthColors[activeProject.health].bg
                                     )}
                                 >
@@ -435,64 +443,89 @@ export function CommandSidebar({
             </SidebarHeader>
 
             {/* Main Navigation Content */}
-            <SidebarContent className="px-2 py-2">
+            <SidebarContent className="px-2 py-3">
                 {isSupplier ? (
                     // Supplier Navigation with collapsible sub-items
-                    <SidebarGroup>
-                        <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+                    <SidebarGroup className="px-1.5 py-1">
+                        <SidebarGroupLabel className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/45">
                             Portal
                         </SidebarGroupLabel>
                         <SidebarGroupContent>
-                            <SidebarMenu>
+                            <SidebarMenu className="gap-1.5">
                                 {supplierNav.map((item) =>
                                     item.subItems ? (
-                                        <Collapsible key={item.title} asChild defaultOpen={pathname.startsWith(item.url.split("?")[0])} className="group/collapsible">
-                                            <SidebarMenuItem>
-                                                <CollapsibleTrigger asChild>
-                                                    <SidebarMenuButton
-                                                        tooltip={item.title}
-                                                        isActive={isActive(item.url)}
-                                                        className={cn(
-                                                            "transition-all duration-200",
-                                                            isActive(item.url) &&
-                                                            "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                                                        )}
+                                        isCollapsed ? (
+                                            <SidebarMenuItem key={item.title}>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <SidebarMenuButton
+                                                            tooltip={item.title}
+                                                            isActive={isActive(item.url)}
+                                                            className={navButtonClass(isActive(item.url))}
+                                                        >
+                                                            <item.icon className="h-4 w-4" />
+                                                            <span>{item.title}</span>
+                                                        </SidebarMenuButton>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent
+                                                        side="right"
+                                                        align="start"
+                                                        sideOffset={10}
+                                                        className="w-52 rounded-xl border-sidebar-border/80 bg-sidebar text-sidebar-foreground"
                                                     >
-                                                        <item.icon className="h-4 w-4" />
-                                                        <span>{item.title}</span>
-                                                        <CaretRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                                                    </SidebarMenuButton>
-                                                </CollapsibleTrigger>
-                                                <CollapsibleContent>
-                                                    <SidebarMenuSub>
                                                         {item.subItems.map((sub) => (
-                                                            <SidebarMenuSubItem key={sub.title}>
-                                                                <SidebarMenuSubButton
-                                                                    asChild
-                                                                    isActive={pathname === sub.url}
-                                                                >
-                                                                    <Link href={sub.url} className="flex items-center gap-2">
-                                                                        <sub.icon className="h-3.5 w-3.5" />
-                                                                        <span>{sub.title}</span>
-                                                                    </Link>
-                                                                </SidebarMenuSubButton>
-                                                            </SidebarMenuSubItem>
+                                                            <DropdownMenuItem asChild key={sub.title}>
+                                                                <Link href={sub.url} className="cursor-pointer gap-2 text-sm">
+                                                                    <sub.icon className="h-3.5 w-3.5" />
+                                                                    <span>{sub.title}</span>
+                                                                </Link>
+                                                            </DropdownMenuItem>
                                                         ))}
-                                                    </SidebarMenuSub>
-                                                </CollapsibleContent>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </SidebarMenuItem>
-                                        </Collapsible>
+                                        ) : (
+                                            <Collapsible key={item.title} asChild defaultOpen={pathname.startsWith(item.url.split("?")[0])} className="group/collapsible">
+                                                <SidebarMenuItem>
+                                                    <CollapsibleTrigger asChild>
+                                                        <SidebarMenuButton
+                                                            tooltip={item.title}
+                                                            isActive={isActive(item.url)}
+                                                            className={navButtonClass(isActive(item.url))}
+                                                        >
+                                                            <item.icon className="h-4 w-4" />
+                                                            <span>{item.title}</span>
+                                                            <CaretRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                                                        </SidebarMenuButton>
+                                                    </CollapsibleTrigger>
+                                                    <CollapsibleContent>
+                                                        <SidebarMenuSub className="mx-4 mt-1 border-sidebar-border/70 px-2 py-1">
+                                                            {item.subItems.map((sub) => (
+                                                                <SidebarMenuSubItem key={sub.title}>
+                                                                    <SidebarMenuSubButton
+                                                                        asChild
+                                                                        isActive={pathname === sub.url}
+                                                                        className="h-8 rounded-lg text-xs"
+                                                                    >
+                                                                        <Link href={sub.url} className="flex items-center gap-2">
+                                                                            <sub.icon className="h-3.5 w-3.5" />
+                                                                            <span>{sub.title}</span>
+                                                                        </Link>
+                                                                    </SidebarMenuSubButton>
+                                                                </SidebarMenuSubItem>
+                                                            ))}
+                                                        </SidebarMenuSub>
+                                                    </CollapsibleContent>
+                                                </SidebarMenuItem>
+                                            </Collapsible>
+                                        )
                                     ) : (
                                         <SidebarMenuItem key={item.title}>
                                             <SidebarMenuButton
                                                 asChild
                                                 tooltip={item.title}
                                                 isActive={isActive(item.url)}
-                                                className={cn(
-                                                    "transition-all duration-200",
-                                                    isActive(item.url) &&
-                                                    "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                                                )}
+                                                className={navButtonClass(isActive(item.url))}
                                             >
                                                 <Link href={item.url} className="flex items-center gap-3">
                                                     <item.icon className="h-4 w-4" />
@@ -521,19 +554,15 @@ export function CommandSidebar({
             </SidebarContent>
 
             {/* Footer with Account Links */}
-            <SidebarFooter className="border-t border-sidebar-border">
-                <SidebarMenu>
+            <SidebarFooter className="border-t border-sidebar-border/70 px-3 pb-3 pt-2">
+                <SidebarMenu className="gap-1.5">
                     {accountNav.map((item) => (
                         <SidebarMenuItem key={item.title}>
                             <SidebarMenuButton
                                 asChild
                                 tooltip={item.title}
                                 isActive={isActive(item.url)}
-                                className={cn(
-                                    "transition-all duration-200",
-                                    isActive(item.url) &&
-                                    "bg-sidebar-accent text-sidebar-accent-foreground"
-                                )}
+                                className={navButtonClass(isActive(item.url))}
                             >
                                 <Link href={item.url} className="flex items-center gap-3">
                                     <item.icon className="h-4 w-4" />

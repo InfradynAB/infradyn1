@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import db from "@/db/drizzle";
-import { purchaseOrder, supplier } from "@/db/schema";
+import { purchaseOrder } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { getSupplierActiveProjectId } from "@/lib/utils/supplier-project-context";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -94,18 +94,36 @@ export default async function SupplierPOsPage() {
                                 </TableRow>
                             ) : (
                                 pos.map((po) => (
-                                    <TableRow key={po.id}>
-                                        <TableCell className="font-medium">{po.poNumber}</TableCell>
-                                        <TableCell>{po.project.name}</TableCell>
-                                        <TableCell>{po.createdAt.toLocaleDateString()}</TableCell>
-                                        <TableCell>{po.currency} {po.totalValue}</TableCell>
+                                    <TableRow key={po.id} className="group">
+                                        <TableCell className="font-medium">
+                                            <Link href={`/dashboard/supplier/pos/${po.id}`} className="block w-full py-1">
+                                                {po.poNumber}
+                                            </Link>
+                                        </TableCell>
                                         <TableCell>
-                                            <Badge variant={
-                                                po.status === "ACCEPTED" ? "default" :
-                                                    po.status === "PENDING_RESPONSE" ? "destructive" : "secondary"
-                                            }>
-                                                {po.status}
-                                            </Badge>
+                                            <Link href={`/dashboard/supplier/pos/${po.id}`} className="block w-full py-1">
+                                                {po.project.name}
+                                            </Link>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Link href={`/dashboard/supplier/pos/${po.id}`} className="block w-full py-1">
+                                                {po.createdAt.toLocaleDateString()}
+                                            </Link>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Link href={`/dashboard/supplier/pos/${po.id}`} className="block w-full py-1">
+                                                {po.currency} {po.totalValue}
+                                            </Link>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Link href={`/dashboard/supplier/pos/${po.id}`} className="block w-full py-1">
+                                                <Badge variant={
+                                                    po.status === "ACCEPTED" ? "default" :
+                                                        po.status === "PENDING_RESPONSE" ? "destructive" : "secondary"
+                                                }>
+                                                    {po.status}
+                                                </Badge>
+                                            </Link>
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <Link href={`/dashboard/supplier/pos/${po.id}`}>

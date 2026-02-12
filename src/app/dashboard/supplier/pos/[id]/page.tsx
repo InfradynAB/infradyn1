@@ -1,15 +1,17 @@
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { redirect, notFound } from "next/navigation";
+import Link from "next/link";
 import db from "@/db/drizzle";
 import { purchaseOrder, supplier, invoice, shipment } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SupplierPOActions } from "@/components/supplier/po-actions";
-import { FileTextIcon, CalendarIcon, PackageIcon, StackIcon, TruckIcon, InvoiceIcon, Receipt, ClockCountdown, CheckCircle, HourglassHigh, Airplane } from "@phosphor-icons/react/dist/ssr";
+import { FileTextIcon, CalendarIcon, PackageIcon, StackIcon, TruckIcon, InvoiceIcon, Receipt, ClockCountdown, CheckCircle, HourglassHigh, Airplane, CaretLeftIcon } from "@phosphor-icons/react/dist/ssr";
 import { SupplierInvoiceUpload } from "@/components/supplier/invoice-upload";
 import { findSupplierForUser } from "@/lib/actions/supplier-lookup";
 // Phase 6 Shipment Components
@@ -88,7 +90,19 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
                             <StackIcon className="h-3.5 w-3.5" />
                             <span>Procurement</span>
                             <span>/</span>
+                            <Link href="/dashboard/supplier/pos" className="hover:text-foreground transition-colors">
+                                POs
+                            </Link>
+                            <span>/</span>
                             <span className="font-medium text-foreground">{po.poNumber}</span>
+                        </div>
+                        <div className="mb-1.5">
+                            <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs">
+                                <Link href="/dashboard/supplier/pos">
+                                    <CaretLeftIcon className="h-3.5 w-3.5" />
+                                    Back to PO List
+                                </Link>
+                            </Button>
                         </div>
                         <div className="flex items-center gap-2">
                             <h1 className="text-xl font-bold tracking-tight">{po.organization.name}</h1>
