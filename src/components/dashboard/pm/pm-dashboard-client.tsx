@@ -403,19 +403,19 @@ export function PMDashboardClient() {
         <div className="relative">
             {/* ─── STICKY HEADER ─── */}
             <div className="sticky top-0 z-30 bg-background/85 backdrop-blur-2xl border-b border-border/60 -mx-4 px-4 lg:-mx-6 lg:px-6">
-                <div className="flex items-center justify-between py-3.5">
+                <div className="flex items-center justify-between py-3">
                     <div className="flex items-center gap-3.5">
-                        <div className="w-10 h-10 rounded-2xl bg-black dark:bg-black flex items-center justify-center shadow-lg shadow-black/20">
+                        <div className="w-10 h-10 rounded-xl bg-black dark:bg-black flex items-center justify-center shadow-md shadow-black/20">
                             <Wrench className="w-5 h-5 text-white" weight="bold" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold tracking-tight leading-none">Project Manager Dashboard</h1>
-                            <p className="text-xs text-muted-foreground mt-0.5">Material tracking · Deliveries · Quality · Cost exposure</p>
+                            <h1 className="text-3xl font-semibold tracking-tight leading-none">Dashboard</h1>
+                            <p className="text-sm text-muted-foreground mt-1">Material tracking · Deliveries · Quality · Cost exposure</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2">
                         <Select value={projectFilter} onValueChange={setProjectFilter}>
-                            <SelectTrigger className="w-40 h-9 text-xs rounded-xl border-border/60 bg-card">
+                            <SelectTrigger className="w-40 h-8 text-xs rounded-lg border-border/50 bg-background">
                                 <Funnel className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
                                 <SelectValue placeholder="All Projects" />
                             </SelectTrigger>
@@ -425,7 +425,7 @@ export function PMDashboardClient() {
                             </SelectContent>
                         </Select>
                         <Select value={timeframe} onValueChange={setTimeframe}>
-                            <SelectTrigger className="w-[130px] h-9 text-xs rounded-xl border-border/60 bg-card">
+                            <SelectTrigger className="w-[130px] h-8 text-xs rounded-lg border-border/50 bg-background">
                                 <CalendarBlank className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
                                 <SelectValue placeholder="Timeframe" />
                             </SelectTrigger>
@@ -440,8 +440,8 @@ export function PMDashboardClient() {
                             variant={showAdvancedFilters ? "default" : "outline"}
                             size="sm"
                             className={cn(
-                                "h-9 rounded-xl text-xs gap-1.5 px-3",
-                                showAdvancedFilters ? "bg-black text-white hover:bg-black/90" : "bg-card"
+                                "h-8 rounded-lg text-xs gap-1.5 px-3",
+                                showAdvancedFilters ? "bg-black text-white hover:bg-black/90 border-black" : "bg-background border-border/50"
                             )}
                             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                         >
@@ -454,12 +454,13 @@ export function PMDashboardClient() {
                                 )}>{activeFilterCount}</span>
                             )}
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl" onClick={fetchDashboard}>
-                            <ArrowsClockwise className={cn("w-4 h-4", loading && "animate-spin")} />
+                        <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs gap-1.5 px-2.5 bg-background border-border/50" onClick={fetchDashboard}>
+                            <ArrowsClockwise className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
+                            Refresh
                         </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-9 rounded-xl text-xs gap-1.5 px-3.5 bg-card" disabled={exporting}>
+                                <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs gap-1.5 px-3 bg-background border-border/50" disabled={exporting}>
                                     {exporting ? <ArrowsClockwise className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
                                     Export <CaretDown className="w-3 h-3 text-muted-foreground" />
                                 </Button>
@@ -483,16 +484,16 @@ export function PMDashboardClient() {
                                 key={s.id}
                                 href={`/dashboard/pm/${s.id}`}
                                 className={cn(
-                                    "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 whitespace-nowrap",
+                                    "flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 whitespace-nowrap",
                                     active
-                                        ? "bg-black dark:bg-black text-white shadow-lg shadow-black/20 scale-[1.02]"
+                                        ? "bg-black dark:bg-black text-white shadow-sm"
                                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                                 )}
                             >
                                 <Icon className="w-4 h-4" weight={active ? "fill" : "duotone"} />
                                 {s.label}
                                 {s.id === "deliveries" && overdueDeliveries > 0 && (
-                                    <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">{overdueDeliveries}</span>
+                                    <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{overdueDeliveries}</span>
                                 )}
                             </Link>
                         );
@@ -604,7 +605,7 @@ export function PMDashboardClient() {
                                 iconColor="text-emerald-600 dark:text-emerald-400"
                                 trend={data.kpis.logistics.onTimeRate >= 85 ? "Healthy" : "At Risk"}
                                 trendDir={data.kpis.logistics.onTimeRate >= 85 ? "up" : "alert"}
-                                sideStat={`${deliveries.filter(d => d.status === "delivered" || d.status === "on-track").length}/${deliveries.length}`}
+                                sideStat={`${deliveries.filter(d => d.status === "delivered").length}/${deliveries.length}`}
                                 sideLabel="on time"
                                 subText={`${deliveries.filter(d => d.status === "delayed").length} delayed`}
                                 subHref="/dashboard/pm/deliveries?status=delayed"

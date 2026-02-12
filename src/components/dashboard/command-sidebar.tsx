@@ -426,8 +426,8 @@ export function CommandSidebar({
                             <DropdownMenuTrigger asChild>
                                 <button
                                     className={cn(
-                                        "flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all",
-                                        "border border-sidebar-border/80 bg-sidebar-accent/35 hover:bg-sidebar-accent/60",
+                                        "flex h-10 w-full items-center gap-2 rounded-xl border border-sidebar-border/80 px-3 text-left text-sm transition-colors",
+                                        "bg-sidebar-accent/40 hover:bg-sidebar-accent/70",
                                         activeProject && healthColors[activeProject.health].bg
                                     )}
                                 >
@@ -435,34 +435,16 @@ export function CommandSidebar({
                                         <>
                                             <div
                                                 className={cn(
-                                                    "h-3 w-3 rounded-full animate-pulse",
+                                                    "h-2.5 w-2.5 rounded-full",
                                                     healthColors[activeProject.health].dot
                                                 )}
                                             />
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-medium text-sidebar-foreground/60 uppercase tracking-wide">
-                                                    Active Project
-                                                </p>
-                                                <p className="font-semibold truncate">
+                                                <p className="font-medium truncate leading-none">
                                                     {activeProject.name}
                                                 </p>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <div className="h-1.5 flex-1 rounded-full bg-sidebar-border overflow-hidden">
-                                                        <div
-                                                            className={cn(
-                                                                "h-full rounded-full transition-all",
-                                                                healthColors[activeProject.health].dot
-                                                            )}
-                                                            style={{
-                                                                width: `${activeProject.progress}%`,
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    <span className="text-xs font-medium">
-                                                        {activeProject.progress}%
-                                                    </span>
-                                                </div>
                                             </div>
+                                            <span className="text-xs font-medium text-sidebar-foreground/70">{activeProject.progress}%</span>
                                             <CaretRight className="h-4 w-4 text-sidebar-foreground/40" />
                                         </>
                                     ) : (
