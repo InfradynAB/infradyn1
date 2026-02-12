@@ -32,7 +32,7 @@ import { getProgressKPIs } from "@/lib/services/kpi-engine"
 // Prevent search engine indexing of dashboard pages
 export const metadata: Metadata = {
     ...noIndexMetadata,
-    title: "Home | Infradyn",
+    title: "Home ",
 };
 
 export default async function DashboardLayout({
