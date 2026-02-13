@@ -109,35 +109,35 @@
 
 .dark {
   /* Dark Theme Adaptation */
-  --background: #0A1C27;
-  /* Deep Navy Main BG */
+  --background: #000000;
+  /* Black Main BG */
   --foreground: #F5F5F5;
 
-  --card: #152836;
-  /* Slightly lighter navy for cards */
+  --card: #0A0A0A;
+  /* Slightly lighter black for cards */
   --card-foreground: #F5F5F5;
 
-  --popover: #152836;
+  --popover: #0A0A0A;
   --popover-foreground: #F5F5F5;
 
   --primary: #0F6157;
   /* Keep Infra Green */
   --primary-foreground: #FFFFFF;
 
-  --secondary: #1E2D3D;
+  --secondary: #111111;
   --secondary-foreground: #F5F5F5;
 
-  --muted: #1E2D3D;
-  --muted-foreground: #A0A0A0;
+  --muted: #111111;
+  --muted-foreground: #B3B3B3;
 
-  --accent: #1E2D3D;
+  --accent: #111111;
   --accent-foreground: #F5F5F5;
 
   --destructive: #FF4F4F;
   --destructive-foreground: #FFFFFF;
 
-  --border: #1E2D3D;
-  --input: #1E2D3D;
+  --border: #1F1F1F;
+  --input: #1F1F1F;
   --ring: #0F6157;
 
   --chart-1: #0F6157;
@@ -146,15 +146,15 @@
   --chart-4: #FFC107;
   --chart-5: #FF4F4F;
 
-  /* Sidebar uses same colors in dark mode essentially, but maybe slightly tweaked */
-  --sidebar: #050E14;
-  /* Even darker for sidebar in dark mode to distinguish */
+  /* Sidebar uses black-based shades in dark mode */
+  --sidebar: #000000;
+  /* Black sidebar in dark mode */
   --sidebar-foreground: #F5F5F5;
   --sidebar-primary: #0F6157;
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #0F6157;
   --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #1E2D3D;
+  --sidebar-border: #1F1F1F;
   --sidebar-ring: #E14FE3;
 }
 
