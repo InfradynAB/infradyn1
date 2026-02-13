@@ -329,42 +329,116 @@ export function CommandSidebar({
             variant="floating"
             className="border-0"
         >
-            {/* Header with Branding */}
+            {/* Header with Project Context */}
             <SidebarHeader className="border-b border-sidebar-border/70 px-3 pt-3 pb-4">
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild className="h-12 rounded-xl">
-                            <Link
-                                href={isSupplier ? "/dashboard/supplier" : "/dashboard"}
-                                className="flex items-center gap-3"
-                            >
-                                <div className="flex aspect-square size-10 items-center justify-center rounded-xl bg-background overflow-hidden shadow-sm">
-                                    <Image
-                                        src="/logos/logo.png"
-                                        alt="Infradyn"
-                                        width={32}
-                                        height={32}
-                                        className="object-contain"
-                                    />
-                                </div>
-                                {!isCollapsed && (
-                                    <div className="flex flex-col gap-0.5 leading-none">
-                                        <span className="font-bold tracking-tight text-base">
-                                            Infradyn
-                                        </span>
-                                        <span className="text-[10px] text-sidebar-foreground/60 tracking-[0.18em] uppercase">
-                                            {isSupplier ? "Supplier Portal" : "Home"}
-                                        </span>
-                                    </div>
-                                )}
-                            </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
+                {isCollapsed && (
+                    <SidebarMenu>
+                        <SidebarMenuItem>
+                            {isSupplier ? (
+                                <SidebarMenuButton size="lg" asChild className="h-12 rounded-xl">
+                                    <Link
+                                        href="/dashboard/supplier"
+                                        className="flex items-center justify-center"
+                                    >
+                                        <div className="flex aspect-square size-10 items-center justify-center rounded-xl bg-background overflow-hidden shadow-sm">
+                                            <Image
+                                                src="/logos/logo.png"
+                                                alt="Infradyn"
+                                                width={32}
+                                                height={32}
+                                                className="object-contain"
+                                            />
+                                        </div>
+                                    </Link>
+                                </SidebarMenuButton>
+                            ) : (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <SidebarMenuButton
+                                            size="lg"
+                                            className="h-12 rounded-xl flex items-center justify-center"
+                                            tooltip="Switch Project"
+                                        >
+                                            <div className="flex items-center justify-center gap-1.5">
+                                                <FolderSimple className="h-4.5 w-4.5" />
+                                                {activeProject && (
+                                                    <span
+                                                        className={cn(
+                                                            "h-2 w-2 rounded-full",
+                                                            healthColors[activeProject.health].dot
+                                                        )}
+                                                    />
+                                                )}
+                                            </div>
+                                        </SidebarMenuButton>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent side="right" align="start" sideOffset={10} className="w-64">
+                                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                                            Switch Project
+                                        </div>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onClick={() => onProjectChange?.("")}
+                                            className={cn(
+                                                "cursor-pointer flex items-center gap-2",
+                                                !activeProjectId && "bg-accent"
+                                            )}
+                                        >
+                                            <div className="h-2 w-2 rounded-full bg-blue-500" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-medium">All Projects</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    View data across all projects
+                                                </p>
+                                            </div>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        {projects.length === 0 ? (
+                                            <DropdownMenuItem disabled>
+                                                No projects available
+                                            </DropdownMenuItem>
+                                        ) : (
+                                            projects.map((project) => (
+                                                <DropdownMenuItem
+                                                    key={project.id}
+                                                    onClick={() => onProjectChange?.(project.id)}
+                                                    className={cn(
+                                                        "cursor-pointer flex items-center gap-2",
+                                                        project.id === activeProjectId && "bg-accent"
+                                                    )}
+                                                >
+                                                    <div
+                                                        className={cn(
+                                                            "h-2 w-2 rounded-full",
+                                                            healthColors[project.health].dot
+                                                        )}
+                                                    />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-medium truncate">{project.name}</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {project.code} · {project.progress}% complete
+                                                        </p>
+                                                    </div>
+                                                </DropdownMenuItem>
+                                            ))
+                                        )}
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem asChild>
+                                            <Link href="/dashboard/projects" className="cursor-pointer">
+                                                <FolderSimple className="mr-2 h-4 w-4" />
+                                                Manage Projects
+                                            </Link>
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+                )}
 
                 {/* Supplier Project Switcher */}
                 {isSupplier && !isCollapsed && supplierProjects.length > 0 && (
-                    <div className="mt-3 px-2">
+                    <div className="px-2">
                         <SupplierProjectSwitcher
                             projects={supplierProjects}
                             activeProjectId={activeSupplierProjectId ?? null}
@@ -374,7 +448,7 @@ export function CommandSidebar({
 
                 {/* Active Project Indicator (The "Uber" Context) */}
                 {!isSupplier && !isCollapsed && (
-                    <div className="mt-3 px-2">
+                    <div className="px-2">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <button

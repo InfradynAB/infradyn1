@@ -65,6 +65,7 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PMOnboardingTour } from "./onboarding-tour";
 
 // PM Charts
 import { TrafficLightChart } from "./charts/traffic-light-chart";
@@ -139,6 +140,8 @@ const fmt = (value: number | undefined | null, currency = "$") => {
     return `${currency}${num.toFixed(0)}`;
 };
 const pct = (v: number | undefined | null, d = 1) => `${(Number(v) || 0).toFixed(d)}%`;
+
+
 
 // ============================================
 // MAIN COMPONENT
@@ -401,8 +404,9 @@ export function PMDashboardClient() {
     // ════════════════════════════════════════════════════════
     return (
         <div className="relative">
-            {/* ─── STICKY HEADER ─── */}
-            <div className="sticky top-0 z-30 bg-background/85 backdrop-blur-2xl border-b border-border/60 -mx-4 px-4 lg:-mx-6 lg:px-6">
+            <PMOnboardingTour />
+            {/* Header / Global Filters */}
+            <div id="tour-pm-header" className="sticky top-0 z-30 bg-background/85 backdrop-blur-2xl border-b border-border/60 -mx-4 px-4 lg:-mx-6 lg:px-6">
                 <div className="flex items-center justify-between py-3">
                     <div className="flex items-center gap-3.5">
                         <div className="w-10 h-10 rounded-xl bg-[#0E7490]/10 dark:bg-[#0E7490]/10 flex items-center justify-center shadow-md shadow-black/20">
@@ -477,7 +481,7 @@ export function PMDashboardClient() {
                 </div>
 
                 {/* ─── NAV PILLS ─── */}
-                <div className="flex items-center gap-1.5 pb-3 overflow-x-auto scrollbar-none">
+                <div id="tour-pm-nav" className="flex items-center gap-1.5 pb-3 overflow-x-auto scrollbar-none">
                     {SECTIONS.map((s) => {
                         const Icon = s.icon;
                         const active = (routeSection ?? activeSection) === s.id;
@@ -579,13 +583,13 @@ export function PMDashboardClient() {
 
             {/* ─── BODY ─── */}
             {loading ? <DashboardSkeleton /> : data ? (
-                <div className="space-y-12 pt-8 pb-24">
+                <div id="tour-pm-content" className="space-y-12 pt-8 pb-24">
 
                     {/* ═══════════ SECTION 1: OVERVIEW ═══════════ */}
                     <section id="overview" ref={(el) => { sectionRefs.current.overview = el; }} className={cn("scroll-mt-32 space-y-6", routeSection && routeSection !== "overview" && "hidden")}>
 
                         {/* KPI Row 1: Core PM metrics */}
-                        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+                        <div id="tour-pm-overview" className="grid gap-4 grid-cols-2 lg:grid-cols-4">
                             <GlowKPI
                                 label="Material Availability"
                                 value={pct(calcMaterialAvailability(materials))}
@@ -668,7 +672,7 @@ export function PMDashboardClient() {
                             rightContent={<ViewToggle section="deliveries" current={viewModes.deliveries} onChange={toggleView} />}
                         />
                         {viewModes.deliveries === "chart" ? (
-                            <div className="grid gap-5 lg:grid-cols-2">
+                            <div id="tour-pm-deliveries" className="grid gap-5 lg:grid-cols-2">
                                 <GlowCard>
                                     <DeliveryPipeline data={filteredDeliveries} onDeliveryClick={(id) => console.log("Delivery:", id)} />
                                 </GlowCard>
@@ -716,11 +720,6 @@ export function PMDashboardClient() {
                         <SectionHeader icon={Package} iconBg="bg-teal-100 dark:bg-teal-500/20" iconColor="text-teal-600 dark:text-teal-400" title="Material Availability" subtitle={`${filteredMaterials.length} materials · Ordered, delivered, and installed quantities`}
                             rightContent={<ViewToggle section="materials" current={viewModes.materials} onChange={toggleView} />}
                         />
-                        <div className="grid gap-4 md:grid-cols-3">
-                            <MatStatCard label="Total Ordered" value={filteredMaterials.reduce((s, m) => s + m.ordered, 0).toLocaleString()} color="blue" />
-                            <MatStatCard label="Total Delivered" value={filteredMaterials.reduce((s, m) => s + m.delivered, 0).toLocaleString()} color="emerald" />
-                            <MatStatCard label="Availability Index" value={pct(calcMaterialAvailability(filteredMaterials))} color={calcMaterialAvailability(filteredMaterials) >= 80 ? "emerald" : "amber"} />
-                        </div>
                         {viewModes.materials === "chart" ? (
                             <GlowCard>
                                 <MaterialAvailabilityChart data={filteredMaterials} />
@@ -862,59 +861,62 @@ export function PMDashboardClient() {
                     </section>
 
                     {/* ═══════════ SECTION 6: SUPPLIERS ═══════════ */}
-                    <section id="suppliers" ref={(el) => { sectionRefs.current.suppliers = el; }} className={cn("scroll-mt-32 space-y-5", routeSection && routeSection !== "suppliers" && "hidden")}>
-                        <SectionHeader icon={UsersFour} iconBg="bg-indigo-100 dark:bg-indigo-500/20" iconColor="text-indigo-600 dark:text-indigo-400" title="Supplier Reliability" subtitle={`${filteredSuppliers.length} suppliers across your projects`}
+                    <section id="suppliers" ref={(el) => { sectionRefs.current.suppliers = el; }} className={cn("scroll-mt-32 space-y-6", routeSection && routeSection !== "suppliers" && "hidden")}>
+                        <SectionHeader icon={UsersFour} iconBg="bg-emerald-100 dark:bg-emerald-500/20" iconColor="text-emerald-600 dark:text-emerald-400" title="Supplier Performance" subtitle={`${filteredSuppliers.length} active suppliers · Risk assessment, response rates, and accuracy`}
                             rightContent={<ViewToggle section="suppliers" current={viewModes.suppliers} onChange={toggleView} />}
                         />
-                        {viewModes.suppliers === "chart" ? (
-                            <GlowCard>
-                                <SupplierRadarChart suppliers={filteredSuppliers} maxDisplayed={3} />
-                            </GlowCard>
-                        ) : (
-                            <GlowCard noPad>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider">Supplier</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Delivery</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Quality</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Compliance</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Comms</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Overall</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredSuppliers.map((s) => (
-                                            <TableRow key={s.supplierId} className="hover:bg-muted/20">
-                                                <TableCell className="font-semibold">{s.supplierName}</TableCell>
-                                                <TableCell className="text-center"><ScorePill score={s.delivery} /></TableCell>
-                                                <TableCell className="text-center"><ScorePill score={s.quality} /></TableCell>
-                                                <TableCell className="text-center"><ScorePill score={s.compliance} /></TableCell>
-                                                <TableCell className="text-center"><ScorePill score={s.communication} /></TableCell>
-                                                <TableCell className="text-center"><ScorePill score={s.overall} bold /></TableCell>
+                        <div id="tour-pm-suppliers" className="space-y-6">
+                            {viewModes.suppliers === "chart" ? (
+                                <GlowCard>
+                                    <SupplierRadarChart suppliers={filteredSuppliers} maxDisplayed={3} />
+                                </GlowCard>
+                            ) : (
+                                <GlowCard noPad>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="bg-muted/40 dark:bg-muted/20">
+                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Supplier</TableHead>
+                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Delivery</TableHead>
+                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Quality</TableHead>
+                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Compliance</TableHead>
+                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Comms</TableHead>
+                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Overall</TableHead>
                                             </TableRow>
-                                        ))}
-                                        {filteredSuppliers.length === 0 && (
-                                            <TableRow><TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">No suppliers match your filters</TableCell></TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </GlowCard>
-                        )}
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredSuppliers.map((s) => (
+                                                <TableRow key={s.supplierId} className="hover:bg-muted/20">
+                                                    <TableCell className="font-semibold">{s.supplierName}</TableCell>
+                                                    <TableCell className="text-center"><ScorePill score={s.delivery} /></TableCell>
+                                                    <TableCell className="text-center"><ScorePill score={s.quality} /></TableCell>
+                                                    <TableCell className="text-center"><ScorePill score={s.compliance} /></TableCell>
+                                                    <TableCell className="text-center"><ScorePill score={s.communication} /></TableCell>
+                                                    <TableCell className="text-center"><ScorePill score={s.overall} bold /></TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {filteredSuppliers.length === 0 && (
+                                                <TableRow><TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">No suppliers match your filters</TableCell></TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </GlowCard>
+                            )}
+                        </div>
                     </section>
 
-                    {/* ═══════════ SECTION 7: FINANCIALS ═══════════ */}
+                    {/* ═══════════ SECTION 7: COSTS & FINANCIALS ═══════════ */}
                     <section id="financials" ref={(el) => { sectionRefs.current.financials = el; }} className={cn("scroll-mt-32 space-y-5", routeSection && routeSection !== "financials" && "hidden")}>
-                        <SectionHeader icon={CurrencyDollar} iconBg="bg-emerald-100 dark:bg-emerald-500/20" iconColor="text-emerald-600 dark:text-emerald-400" title="Cost & Budget" subtitle="Budget utilization, cost waterfall, and payment analytics" />
-                        <GlowCard>
+                        <SectionHeader icon={CurrencyDollar} iconBg="bg-emerald-100 dark:bg-emerald-500/20" iconColor="text-emerald-600 dark:text-emerald-400" title="Cost & Financial Control" subtitle="Budget tracking, change orders, and payment milestones" />
+                        <div id="tour-pm-financials" className="grid gap-4 md:grid-cols-4">
                             <BudgetUtilizationBar
                                 originalBudget={data.kpis.financial.totalCommitted + data.kpis.financial.retentionHeld}
                                 committed={data.kpis.financial.totalCommitted}
                                 invoiced={data.kpis.financial.totalPaid + data.kpis.financial.totalUnpaid}
                                 paid={data.kpis.financial.totalPaid}
                             />
-                        </GlowCard>
+                        </div>
                         <GlowCard>
+
                             <CostWaterfallChart data={waterfall} />
                         </GlowCard>
                         <div className="grid gap-4 md:grid-cols-4">
@@ -927,7 +929,7 @@ export function PMDashboardClient() {
 
                     {/* ═══════════ SECTION 8: INSPECTIONS ═══════════ */}
                     <section id="inspections" ref={(el) => { sectionRefs.current.inspections = el; }} className={cn("scroll-mt-32 space-y-5", routeSection && routeSection !== "inspections" && "hidden")}>
-                        <SectionHeader icon={CalendarCheck} iconBg="bg-slate-200 dark:bg-slate-500/20" iconColor="text-slate-600 dark:text-slate-400" title="QA Inspections" subtitle={`${filteredInspections.length} inspections · Schedule, pass rates, and upcoming reviews`}
+                        <SectionHeader icon={CalendarCheck} iconBg="bg-slate-100 dark:bg-slate-500/20" iconColor="text-slate-600 dark:text-slate-400" title="QA Inspections" subtitle={`${filteredInspections.length} inspections · Schedule, pass rates, and upcoming reviews`}
                             rightContent={<ViewToggle section="inspections" current={viewModes.inspections} onChange={toggleView} />}
                         />
                         <div className="grid gap-4 md:grid-cols-3">
@@ -1228,7 +1230,7 @@ function StatusPill({ status }: { status: string }) {
 
 function DashboardSkeleton() {
     return (
-        <div className="space-y-8 pt-8">
+        <div id="tour-pm-overview" className="space-y-8 pt-4">
             <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
                 {[1, 2, 3, 4].map((i) => (
                     <div key={i} className="rounded-2xl border border-border/60 bg-card p-4">

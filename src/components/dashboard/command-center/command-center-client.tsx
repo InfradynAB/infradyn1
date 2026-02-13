@@ -22,6 +22,7 @@ import {
     QuickStatsTiles,
 } from "@/components/dashboard/command-center";
 import { toast } from "sonner";
+import { HomeOnboardingTour } from "./onboarding-tour";
 
 interface ProjectData {
     id: string;
@@ -131,8 +132,9 @@ export function CommandCenterClient({ userName }: CommandCenterClientProps) {
 
     return (
         <div className="space-y-6 pb-8">
+            <HomeOnboardingTour />
             {/* Header Section */}
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div id="tour-home-header" className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
                         {getGreeting()}, {userName?.split(" ")[0] || "there"}!
@@ -165,7 +167,7 @@ export function CommandCenterClient({ userName }: CommandCenterClientProps) {
             </div>
 
             {/* Global Search Bar */}
-            <div className="flex justify-center">
+            <div id="tour-home-search" className="flex justify-center">
                 <GlobalSearch className="w-full max-w-2xl" />
             </div>
 
@@ -173,14 +175,16 @@ export function CommandCenterClient({ userName }: CommandCenterClientProps) {
             <AISummaryCard data={data?.aiSummary || null} loading={loading} />
 
             {/* Quick Stats Tiles */}
-            <QuickStatsTiles stats={data?.quickStats || null} loading={loading} />
+            <div id="tour-home-stats">
+                <QuickStatsTiles stats={data?.quickStats || null} loading={loading} />
+            </div>
 
             {/* Main Content Grid */}
             <div className="grid gap-6 lg:grid-cols-3">
                 {/* Left Column - Projects (2/3 width) */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Active Projects Section */}
-                    <div>
+                    <div id="tour-home-projects">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-semibold flex items-center gap-2">
                                 Active Projects
@@ -210,27 +214,31 @@ export function CommandCenterClient({ userName }: CommandCenterClientProps) {
                     </div>
 
                     {/* Activity Feed */}
-                    {loading ? (
-                        <Skeleton className="h-96 rounded-xl" />
-                    ) : (
-                        <ActivityFeed
-                            activities={data?.activity || []}
-                            maxHeight="350px"
-                        />
-                    )}
+                    <div id="tour-home-activity">
+                        {loading ? (
+                            <Skeleton className="h-96 rounded-xl" />
+                        ) : (
+                            <ActivityFeed
+                                activities={data?.activity || []}
+                                maxHeight="350px"
+                            />
+                        )}
+                    </div>
                 </div>
 
                 {/* Right Column - Alerts (1/3 width) */}
                 <div className="space-y-6">
                     {/* Top Priorities / Alerts Queue */}
-                    {loading ? (
-                        <Skeleton className="h-80 rounded-xl" />
-                    ) : (
-                        <TopPrioritiesSection alerts={data?.alerts || []} />
-                    )}
+                    <div id="tour-home-priorities">
+                        {loading ? (
+                            <Skeleton className="h-80 rounded-xl" />
+                        ) : (
+                            <TopPrioritiesSection alerts={data?.alerts || []} />
+                        )}
+                    </div>
 
                     {/* Quick Actions Card */}
-                    <div className="rounded-xl border bg-card p-5">
+                    <div id="tour-home-actions" className="rounded-xl border bg-card p-5">
                         <h3 className="font-semibold mb-4 flex items-center gap-2">
                             <Sparkle className="h-4 w-4 text-primary" />
                             Quick Actions

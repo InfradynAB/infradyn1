@@ -27,7 +27,7 @@ import { PerformanceBarChart, PerformanceDonut } from "@/components/supplier/per
 import { SignOutButton } from "@/components/sign-out-button";
 import { getSupplierActionItems } from "@/lib/actions/supplier-dashboard-actions";
 import { getSupplierPerformance } from "@/lib/actions/supplier-performance";
-import { OnboardingTour } from "@/components/dashboard/supplier/onboarding-tour";
+import { OnboardingTourWrapper } from "@/components/dashboard/supplier/onboarding-tour";
 
 export default async function SupplierDashboardPage() {
     const session = await auth.api.getSession({
@@ -174,7 +174,8 @@ export default async function SupplierDashboardPage() {
 
     return (
         <div className="max-w-7xl mx-auto space-y-8 pb-16">
-            <OnboardingTour />
+            {/* Onboarding Tour */}
+            <OnboardingTourWrapper />
 
             {/* ── HEADER BAR ── */}
             <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
