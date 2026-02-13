@@ -405,8 +405,8 @@ export function PMDashboardClient() {
             <div className="sticky top-0 z-30 bg-background/85 backdrop-blur-2xl border-b border-border/60 -mx-4 px-4 lg:-mx-6 lg:px-6">
                 <div className="flex items-center justify-between py-3">
                     <div className="flex items-center gap-3.5">
-                        <div className="w-10 h-10 rounded-xl bg-black dark:bg-black flex items-center justify-center shadow-md shadow-black/20">
-                            <Wrench className="w-5 h-5 text-white" weight="bold" />
+                        <div className="w-10 h-10 rounded-xl bg-[#0F6157]/10 dark:bg-[#0F6157]/10 flex items-center justify-center shadow-md shadow-black/20">
+                            <Wrench className="w-5 h-5 text-[#0F6157]" weight="bold" />
                         </div>
                         <div>
                             <h1 className="text-3xl font-semibold tracking-tight leading-none">Dashboard</h1>
@@ -415,8 +415,8 @@ export function PMDashboardClient() {
                     </div>
                     <div className="flex items-center gap-2">
                         <Select value={projectFilter} onValueChange={setProjectFilter}>
-                            <SelectTrigger className="w-40 h-8 text-xs rounded-lg border-border/50 bg-background">
-                                <Funnel className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                            <SelectTrigger className="w-40 h-8 text-xs rounded-lg border-[#0F6157]/35 bg-[#0F6157]/10 text-[#0F6157] hover:bg-[#0F6157]/15">
+                                <Funnel className="w-3.5 h-3.5 mr-1.5 text-[#0F6157]/80" />
                                 <SelectValue placeholder="All Projects" />
                             </SelectTrigger>
                             <SelectContent>
@@ -425,8 +425,8 @@ export function PMDashboardClient() {
                             </SelectContent>
                         </Select>
                         <Select value={timeframe} onValueChange={setTimeframe}>
-                            <SelectTrigger className="w-[130px] h-8 text-xs rounded-lg border-border/50 bg-background">
-                                <CalendarBlank className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                            <SelectTrigger className="w-[130px] h-8 text-xs rounded-lg border-[#0F6157]/35 bg-[#0F6157]/10 text-[#0F6157] hover:bg-[#0F6157]/15">
+                                <CalendarBlank className="w-3.5 h-3.5 mr-1.5 text-[#0F6157]/80" />
                                 <SelectValue placeholder="Timeframe" />
                             </SelectTrigger>
                             <SelectContent>
@@ -441,7 +441,9 @@ export function PMDashboardClient() {
                             size="sm"
                             className={cn(
                                 "h-8 rounded-lg text-xs gap-1.5 px-3",
-                                showAdvancedFilters ? "bg-black text-white hover:bg-black/90 border-black" : "bg-background border-border/50"
+                                showAdvancedFilters
+                                    ? "bg-[#0F6157] text-white hover:bg-[#0F6157]/90 border-[#0F6157]"
+                                    : "bg-[#0F6157]/10 text-[#0F6157] hover:bg-[#0F6157]/15 border-[#0F6157]/35"
                             )}
                             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                         >
@@ -450,19 +452,19 @@ export function PMDashboardClient() {
                             {activeFilterCount > 0 && (
                                 <span className={cn(
                                     "w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center",
-                                    showAdvancedFilters ? "bg-white/20" : "bg-black text-white"
+                                    showAdvancedFilters ? "bg-white/20" : "bg-[#0F6157] text-white"
                                 )}>{activeFilterCount}</span>
                             )}
                         </Button>
-                        <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs gap-1.5 px-2.5 bg-background border-border/50" onClick={fetchDashboard}>
+                        <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs gap-1.5 px-2.5 bg-[#0F6157]/10 text-[#0F6157] hover:bg-[#0F6157]/15 border-[#0F6157]/35" onClick={fetchDashboard}>
                             <ArrowsClockwise className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
                             Refresh
                         </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs gap-1.5 px-3 bg-background border-border/50" disabled={exporting}>
+                                <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs gap-1.5 px-3 bg-[#0F6157]/10 text-[#0F6157] hover:bg-[#0F6157]/15 border-[#0F6157]/35" disabled={exporting}>
                                     {exporting ? <ArrowsClockwise className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                                    Export <CaretDown className="w-3 h-3 text-muted-foreground" />
+                                    Export <CaretDown className="w-3 h-3 text-[#0F6157]/70" />
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="rounded-xl">
@@ -484,10 +486,10 @@ export function PMDashboardClient() {
                                 key={s.id}
                                 href={`/dashboard/pm/${s.id}`}
                                 className={cn(
-                                    "flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 whitespace-nowrap",
+                                    "flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium border transition-all duration-200 whitespace-nowrap",
                                     active
-                                        ? "bg-black dark:bg-black text-white shadow-sm"
-                                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                        ? "bg-[#0F6157] text-white border-[#0F6157] shadow-sm"
+                                        : "text-muted-foreground border-transparent hover:bg-[#0F6157]/10 hover:text-[#0F6157] hover:border-[#0F6157]/30"
                                 )}
                             >
                                 <Icon className="w-4 h-4" weight={active ? "fill" : "duotone"} />
@@ -967,11 +969,11 @@ export function PMDashboardClient() {
                     </section>
 
                     {!routeSection && (
-                    <div className="flex justify-center pt-6">
-                        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground gap-2 rounded-xl hover:bg-muted" onClick={() => scrollTo("overview")}>
-                            <ArrowUp className="w-4 h-4" /> Back to top
-                        </Button>
-                    </div>
+                        <div className="flex justify-center pt-6">
+                            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground gap-2 rounded-xl hover:bg-muted" onClick={() => scrollTo("overview")}>
+                                <ArrowUp className="w-4 h-4" /> Back to top
+                            </Button>
+                        </div>
                     )}
                 </div>
             ) : null}
@@ -1028,10 +1030,10 @@ function GlowKPI({
                 )}
             </div>
             <div className="flex items-end justify-between gap-3">
-                <p className="text-[2.2rem] font-bold font-mono tracking-tight tabular-nums leading-none">{value}</p>
+                <p className="text-[1.75rem] font-semibold font-mono tracking-tight tabular-nums leading-none">{value}</p>
                 {sideStat && (
                     <div className="text-right pb-0.5">
-                        <p className="text-sm font-semibold font-mono tabular-nums leading-none">{sideStat}</p>
+                        <p className="text-sm font-medium font-mono tabular-nums leading-none">{sideStat}</p>
                         {sideLabel && <p className="text-[10px] text-muted-foreground mt-1">{sideLabel}</p>}
                     </div>
                 )}
@@ -1105,7 +1107,7 @@ function FinCard({ label, value, icon: Icon, color }: { label: string; value: st
                 </div>
                 <span className="text-xs text-muted-foreground font-medium">{label}</span>
             </div>
-            <p className="text-xl font-bold font-mono tabular-nums">{value}</p>
+            <p className="text-lg font-semibold font-mono tabular-nums">{value}</p>
         </div>
     );
 }
@@ -1113,7 +1115,7 @@ function FinCard({ label, value, icon: Icon, color }: { label: string; value: st
 function ScorePill({ score, bold }: { score: number; bold?: boolean }) {
     const color = score >= 80 ? "text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/15"
         : score >= 60 ? "text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/15"
-        : "text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-500/15";
+            : "text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-500/15";
     return (
         <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-[11px] tabular-nums font-mono", color, bold && "font-bold")}>
             {score}
@@ -1130,7 +1132,7 @@ function NCRStatCard({ label, value, color, alert }: { label: string; value: num
     }[color];
     return (
         <div className={cn("rounded-2xl border border-border/60 bg-card p-5 text-center", alert && "border-red-200/80 dark:border-red-800/40")}>
-            <p className={cn("text-3xl font-bold font-mono tabular-nums", palette)}>{value}</p>
+            <p className={cn("text-2xl font-semibold font-mono tabular-nums", palette)}>{value}</p>
             <p className="text-xs text-muted-foreground mt-1 font-medium">{label}</p>
         </div>
     );
@@ -1140,7 +1142,7 @@ function MatStatCard({ label, value, color }: { label: string; value: string; co
     const palette = { blue: "text-blue-600 dark:text-blue-400", emerald: "text-emerald-600 dark:text-emerald-400", amber: "text-amber-600 dark:text-amber-400" }[color];
     return (
         <div className="rounded-2xl border border-border/60 bg-card p-5 text-center">
-            <p className={cn("text-2xl font-bold font-mono tabular-nums", palette)}>{value}</p>
+            <p className={cn("text-xl font-semibold font-mono tabular-nums", palette)}>{value}</p>
             <p className="text-xs text-muted-foreground mt-1 font-medium">{label}</p>
         </div>
     );
@@ -1150,7 +1152,7 @@ function InspStatCard({ label, value, color, alert }: { label: string; value: nu
     const palette = { blue: "text-blue-600 dark:text-blue-400", emerald: "text-emerald-600 dark:text-emerald-400", red: "text-red-600 dark:text-red-400" }[color];
     return (
         <div className={cn("rounded-2xl border border-border/60 bg-card p-5 text-center", alert && "border-red-200/80 dark:border-red-800/40")}>
-            <p className={cn("text-3xl font-bold font-mono tabular-nums", palette)}>{value}</p>
+            <p className={cn("text-2xl font-semibold font-mono tabular-nums", palette)}>{value}</p>
             <p className="text-xs text-muted-foreground mt-1 font-medium">{label}</p>
         </div>
     );

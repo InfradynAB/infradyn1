@@ -25,11 +25,8 @@ import {
 import {
     ArrowLeftIcon,
     DownloadSimpleIcon,
-    UploadSimpleIcon,
     FileTextIcon,
     ClockIcon,
-    PencilSimpleIcon,
-    TrashIcon,
     ChartLineUpIcon,
     ImagesIcon,
     WarningCircleIcon,
@@ -38,9 +35,7 @@ import {
     TruckIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { format } from "date-fns";
-import { UploadVersionDialog } from "@/components/procurement/upload-version-dialog";
 import { ImportBOQDialog } from "@/components/procurement/import-boq-dialog";
-import { DeletePOButton } from "@/components/procurement/delete-po-button";
 import { InternalProgressForm } from "@/components/procurement/internal-progress-form";
 import { POGallery } from "@/components/procurement/po-gallery";
 import { ConflictQueue } from "@/components/procurement/conflict-queue";
@@ -78,6 +73,9 @@ import { AlertTriangle } from "lucide-react";
 import { PizzaTrackerProgress } from "@/components/ui/pizza-tracker-progress";
 import { POTabsWrapper } from "@/components/procurement/po-tabs-wrapper";
 import { SubmitPOButton } from "@/components/procurement/submit-po-button";
+import { POCommandCenter } from "@/components/procurement/po-command-center";
+import { POActionsModal } from "@/components/procurement/po-actions-modal";
+import { PODetailWorkspace } from "@/components/procurement/po-detail-workspace";
 
 // Status badge colors and icons - Infradyn Design System
 const statusConfig: Record<string, { color: string; icon: string; label: string }> = {
@@ -87,6 +85,27 @@ const statusConfig: Record<string, { color: string; icon: string; label: string 
     COMPLETED: { color: "bg-slate-500 text-white border-slate-600", icon: "⚪", label: "Closed" },
     CANCELLED: { color: "bg-red-600 text-white border-red-700", icon: "🔴", label: "Cancelled" },
 };
+
+function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+    return (
+        <div>
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className={cn("font-medium", mono && "font-mono")}>{value}</p>
+        </div>
+    );
+}
+
+function QuickTabLink({ href, label, hint }: { href: string; label: string; hint: string }) {
+    return (
+        <Link
+            href={href}
+            className="flex items-center justify-between rounded-lg border border-[#0F6157]/25 bg-[#0F6157]/5 px-3 py-2.5 transition-colors hover:bg-[#0F6157]/10"
+        >
+            <span className="text-sm font-medium text-[#0F6157]">{label}</span>
+            <span className="text-xs text-muted-foreground">{hint}</span>
+        </Link>
+    );
+}
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -103,6 +122,7 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
     }
 
     const { id } = await params;
+    const resolvedSearchParams = await searchParams;
     const result = await getPurchaseOrder(id);
 
     if (!result.success || !result.data) {
@@ -164,6 +184,122 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
     const changeOrders = cosResult.data || [];
     const coImpact = coImpactResult.data || { totalCOs: 0, approvedCOs: 0, pendingCOs: 0, totalCostImpact: 0, totalScheduleImpact: 0, affectedMilestones: 0 };
 
+    const tabFromQuery = Array.isArray(resolvedSearchParams.tab)
+        ? resolvedSearchParams.tab[0]
+        : resolvedSearchParams.tab;
+    const viewFromQuery = Array.isArray(resolvedSearchParams.view)
+        ? resolvedSearchParams.view[0]
+        : resolvedSearchParams.view;
+    const datasetFromQuery = Array.isArray(resolvedSearchParams.dataset)
+        ? resolvedSearchParams.dataset[0]
+        : resolvedSearchParams.dataset;
+    const queryFromSearch = Array.isArray(resolvedSearchParams.q)
+        ? resolvedSearchParams.q[0]
+        : resolvedSearchParams.q;
+    const allowedTabs = [
+        "overview",
+        "financials",
+        "progress",
+        "boq",
+        "change-orders",
+        "gallery",
+        "quality",
+        "history",
+        "conflicts",
+    ];
+    const defaultTab = allowedTabs.includes(tabFromQuery || "") ? tabFromQuery : "overview";
+    const defaultWorkspaceMode = viewFromQuery === "table" ? "table" : "analytics";
+    const allowedDatasets = ["invoices", "deliveries", "boq", "changeOrders", "documents", "quality", "history", "conflicts"] as const;
+    const defaultDataset = allowedDatasets.includes((datasetFromQuery || "") as (typeof allowedDatasets)[number])
+        ? (datasetFromQuery as (typeof allowedDatasets)[number])
+        : "invoices";
+    const defaultSearch = queryFromSearch || "";
+
+    const chartMilestones: Array<{ id: string; title: string; progress: number; amount: number }> = ((po as any).milestones || []).map((milestone: any) => ({
+        id: milestone.id,
+        title: milestone.title,
+        progress: Number(milestone.progressRecords?.[0]?.percentComplete || 0),
+        amount: Number(milestone.amount || (Number(po.totalValue) * Number(milestone.paymentPercentage || 0)) / 100),
+    }));
+
+    const chartBoqItems: Array<{ id: string; description: string; totalPrice: number }> = ((po as any).boqItems || []).map((item: any) => ({
+        id: item.id,
+        description: item.description || item.itemNumber || "Item",
+        totalPrice: Number(item.totalPrice ?? (Number(item.quantity || 0) * Number(item.unitPrice || 0))),
+    }));
+
+    const invoiceRows = pendingInvoices.map((invoice: any) => ({
+        invoiceNumber: invoice.invoiceNumber,
+        milestone: invoice.milestone?.title || "No milestone",
+        amount: Number(invoice.amount || 0),
+        paidAmount: Number(invoice.paidAmount || 0),
+        status: invoice.status,
+        submittedAt: invoice.submittedAt ? format(new Date(invoice.submittedAt), "MMM d, yyyy") : "—",
+    }));
+
+    const deliveryRows = ((po as any).milestones || []).map((milestone: any) => ({
+        milestone: milestone.title,
+        status: milestone.status,
+        progress: Number(milestone.progressRecords?.[0]?.percentComplete || 0),
+        paymentPercentage: Number(milestone.paymentPercentage || 0),
+        amount: Number(milestone.amount || (Number(po.totalValue) * Number(milestone.paymentPercentage || 0)) / 100),
+    }));
+
+    const boqRows = ((po as any).boqItems || []).map((item: any) => ({
+        itemNumber: item.itemNumber || "—",
+        description: item.description || "—",
+        unit: item.unit || "—",
+        quantity: Number(item.quantity || 0),
+        unitPrice: Number(item.unitPrice || 0),
+        totalPrice: Number(item.totalPrice || 0),
+    }));
+
+    const changeOrderRows = changeOrders.map((co: any) => ({
+        changeNumber: co.changeNumber,
+        type: co.changeOrderType,
+        status: co.status,
+        amountDelta: Number(co.amountDelta || 0),
+        reason: co.reason || "—",
+        createdAt: co.createdAt ? format(new Date(co.createdAt), "MMM d, yyyy") : "—",
+    }));
+
+    const documentRows = poDocuments.map((doc: any) => ({
+        fileName: doc.fileName,
+        type: doc.documentType || "PO",
+        mimeType: doc.mimeType,
+        uploadedAt: doc.createdAt ? format(new Date(doc.createdAt), "MMM d, yyyy") : "—",
+        uploadedBy: doc.createdBy?.name || "—",
+    }));
+
+    const qualityRows = ((po as any).conflicts || []).map((conflict: any) => ({
+        type: conflict.type,
+        state: conflict.state,
+        deviationPercent: Number(conflict.deviationPercent || 0),
+        criticalPath: Boolean(conflict.isCriticalPath),
+        escalationLevel: Number(conflict.escalationLevel || 0),
+    }));
+
+    const historyRows = (((po as any).milestones || []).flatMap((milestone: any) =>
+        (milestone.progressRecords || []).map((progressRecord: any) => ({
+            milestone: milestone.title,
+            percentComplete: Number(progressRecord.percentComplete || 0),
+            source: progressRecord.source || "—",
+            trustLevel: progressRecord.trustLevel || "INTERNAL",
+            reportedDate: progressRecord.reportedDate ? format(new Date(progressRecord.reportedDate), "MMM d, yyyy") : "—",
+            forecast: Boolean(progressRecord.isForecast),
+        }))
+    )) as Array<Record<string, string | number | boolean | null>>;
+
+    const conflictRows = ((po as any).conflicts || []).map((conflict: any) => ({
+        type: conflict.type,
+        state: conflict.state,
+        description: conflict.description || "—",
+        deviationPercent: Number(conflict.deviationPercent || 0),
+        escalationLevel: Number(conflict.escalationLevel || 0),
+        criticalPath: Boolean(conflict.isCriticalPath),
+        createdAt: conflict.createdAt ? format(new Date(conflict.createdAt), "MMM d, yyyy") : "—",
+    }));
+
     return (
         <div className="space-y-6">
             {/* Hero Header - Ticket Layout */}
@@ -220,12 +356,6 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                     {/* Submit PO Button - Only shows for DRAFT status */}
                     <SubmitPOButton poId={po.id} poNumber={po.poNumber} status={po.status} />
                     
-                    <Button variant="outline" asChild>
-                        <Link href={`/dashboard/procurement/${po.id}/analytics`}>
-                            <ChartLineUpIcon className="mr-2 h-4 w-4" />
-                            Analytics
-                        </Link>
-                    </Button>
 
                     {downloadUrl && (
                         <Button variant="outline" asChild>
@@ -239,212 +369,84 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                             </a>
                         </Button>
                     )}
-                    <Button variant="outline" asChild>
-                        <Link href={`/dashboard/procurement/${po.id}/edit`}>
-                            <PencilSimpleIcon className="mr-2 h-4 w-4" />
-                            Edit PO
-                        </Link>
-                    </Button>
-                    <UploadVersionDialog
-                        purchaseOrderId={po.id}
+
+                    <POActionsModal
+                        poId={po.id}
+                        poNumber={po.poNumber}
                         organizationId={po.organizationId}
                         projectId={po.projectId}
                         nextVersionNumber={(latestVersion?.versionNumber || 0) + 1}
                     />
-                    <DeletePOButton poId={po.id} poNumber={po.poNumber} />
                 </div>
             </div>
 
-            {/* Summary Cards - Enhanced for Construction Workers */}
-            <div className="grid gap-4 md:grid-cols-4">
-                {/* Total Value Card - Show Original + CO Impact */}
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>Total Value</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold font-mono">
-                            {po.currency}{" "}
-                            {Number(po.totalValue ?? 0).toLocaleString()}
-                        </div>
-                        {coImpact.totalCostImpact !== 0 && (
-                            <div className="mt-2 text-xs space-y-0.5">
-                                <p className="text-muted-foreground">
-                                    Original: {po.currency} {(Number(po.totalValue) - coImpact.totalCostImpact).toLocaleString()}
-                                </p>
-                                <p className={coImpact.totalCostImpact > 0 ? "text-orange-600 font-medium" : "text-green-600 font-medium"}>
-                                    Approved COs: {coImpact.totalCostImpact >= 0 ? "+" : ""}{po.currency} {coImpact.totalCostImpact.toLocaleString()}
-                                </p>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+            <PODetailWorkspace
+                datasets={{
+                    invoices: invoiceRows,
+                    deliveries: deliveryRows,
+                    boq: boqRows,
+                    changeOrders: changeOrderRows,
+                    documents: documentRows,
+                    quality: qualityRows,
+                    history: historyRows,
+                    conflicts: conflictRows,
+                }}
+                initialMode={defaultWorkspaceMode}
+                initialDataset={defaultDataset}
+                initialSearch={defaultSearch}
+            >
+                <POCommandCenter
+                    poId={po.id}
+                    currency={po.currency}
+                    totalValue={Number(po.totalValue ?? 0)}
+                    totalPaid={paymentSummary.totalPaid}
+                    totalPending={paymentSummary.totalPending}
+                    totalOverdue={paymentSummary.totalOverdue}
+                    totalRetained={paymentSummary.totalRetained}
+                    pendingInvoicesCount={pendingInvoices.length}
+                    milestones={chartMilestones}
+                    boqItems={chartBoqItems}
+                    pendingCOs={coImpact.pendingCOs}
+                    totalCOs={coImpact.totalCOs}
+                />
 
-                {/* Paid Card - With Progress Bar */}
-                {/* Paid Card - Pizza Tracker Style */}
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription className="flex items-center gap-1">
-                            <CheckCircle className="h-3 w-3 text-emerald-600" />
-                            Paid
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold font-mono text-emerald-600">
-                            {po.currency} {paymentSummary.totalPaid.toLocaleString()}
-                        </div>
-                        {Number(po.totalValue) > 0 && (
-                            <div className="mt-3">
-                                <PizzaTrackerProgress
-                                    value={(paymentSummary.totalPaid / Number(po.totalValue)) * 100}
-                                    currency={po.currency}
-                                    paid={paymentSummary.totalPaid}
-                                    total={Number(po.totalValue)}
-                                />
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Pending Card - With Action Link */}
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription className="flex items-center gap-1">
-                            <Warning className="h-3 w-3 text-amber-500" />
-                            Pending
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold font-mono text-amber-600">
-                            {po.currency} {paymentSummary.totalPending.toLocaleString()}
-                        </div>
-                        {paymentSummary.totalOverdue > 0 && (
-                            <p className="text-xs text-red-500 mt-1">
-                                {po.currency} {paymentSummary.totalOverdue.toLocaleString()} overdue
-                            </p>
-                        )}
-                        {paymentSummary.totalPending > 0 && (
-                            <a 
-                                href="#financials" 
-                                className="text-xs text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300 mt-2 inline-flex items-center gap-1 font-medium hover:underline"
-                            >
-                                → Review Invoices
-                            </a>
-                        )}
-                        {paymentSummary.totalPending === 0 && (
-                            <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
-                                <CheckCircle className="h-3 w-3" />
-                                All caught up
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Change Orders Card - With Impact Summary */}
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription className="flex items-center gap-1">
-                            <ArrowsClockwise className="h-3 w-3" />
-                            Change Orders
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {coImpact.totalCOs}
-                        </div>
-                        {coImpact.totalCOs === 0 ? (
-                            <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                                <CheckCircle className="h-3 w-3" />
-                                No impact on cost or schedule
-                            </p>
-                        ) : (
-                            <div className="mt-1 space-y-0.5">
-                                <p className="text-xs text-muted-foreground">
-                                    {coImpact.pendingCOs > 0
-                                        ? `${coImpact.pendingCOs} pending review`
-                                        : "All processed"}
-                                </p>
-                                {coImpact.totalCostImpact !== 0 && (
-                                    <p className="text-xs font-medium text-orange-600">
-                                        +{po.currency} {Math.abs(coImpact.totalCostImpact).toLocaleString()}
-                                    </p>
-                                )}
-                                {coImpact.totalScheduleImpact > 0 && (
-                                    <p className="text-xs font-medium text-orange-600">
-                                        +{coImpact.totalScheduleImpact} days
-                                    </p>
-                                )}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Tabs - Streamlined Navigation with "More" Dropdown */}
-            <POTabsWrapper defaultTab="overview">
+                {/* Tabs - Streamlined Navigation with "More" Dropdown */}
+                <POTabsWrapper defaultTab={defaultTab}>
 
                 {/* Overview Tab */}
                 <TabsContent value="overview">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Purchase Order Details</CardTitle>
-                        </CardHeader>
-                        <CardContent className="grid gap-4 md:grid-cols-2">
-                            <div>
-                                <p className="text-sm text-muted-foreground">
-                                    PO Number
-                                </p>
-                                <p className="font-medium">{po.poNumber}</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">
-                                    Status
-                                </p>
-                                <p className="font-medium">{po.status}</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">
-                                    Project
-                                </p>
-                                <p className="font-medium">
-                                    {(po as any).project?.name || "—"}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">
-                                    Supplier
-                                </p>
-                                <p className="font-medium">
-                                    {(po as any).supplier?.name || "—"}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">
-                                    Currency
-                                </p>
-                                <p className="font-medium">{po.currency}</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">
-                                    Total Value
-                                </p>
-                                <p className="font-medium font-mono">
-                                    {Number(po.totalValue ?? 0).toLocaleString()}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">
-                                    Created
-                                </p>
-                                <p className="font-medium">
-                                    {format(
-                                        new Date(po.createdAt),
-                                        "MMM d, yyyy 'at' h:mm a"
-                                    )}
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>PO Snapshot</CardTitle>
+                                <CardDescription>At-a-glance details and ownership</CardDescription>
+                            </CardHeader>
+                            <CardContent className="grid gap-3 text-sm md:grid-cols-2">
+                                <InfoRow label="PO Number" value={po.poNumber} />
+                                <InfoRow label="Status" value={po.status} />
+                                <InfoRow label="Project" value={(po as any).project?.name || "—"} />
+                                <InfoRow label="Supplier" value={(po as any).supplier?.name || "—"} />
+                                <InfoRow label="Currency" value={po.currency} />
+                                <InfoRow label="Total Value" value={`${po.currency} ${Number(po.totalValue ?? 0).toLocaleString()}`} mono />
+                                <InfoRow label="Created" value={format(new Date(po.createdAt), "MMM d, yyyy 'at' h:mm a")} />
+                                <InfoRow label="Last Version" value={latestVersion ? `v${latestVersion.versionNumber}` : "v1"} />
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Workstream Access</CardTitle>
+                                <CardDescription>Open a specific PO stream in one click</CardDescription>
+                            </CardHeader>
+                            <CardContent className="grid gap-2.5">
+                                <QuickTabLink href={`/dashboard/procurement/${po.id}?tab=financials`} label="Invoices & Payments" hint={`${pendingInvoices.length} pending invoices`} />
+                                <QuickTabLink href={`/dashboard/procurement/${po.id}?tab=progress`} label="Deliveries & Progress" hint={`${chartMilestones.filter((m) => m.progress >= 100).length}/${chartMilestones.length} milestones complete`} />
+                                <QuickTabLink href={`/dashboard/procurement/${po.id}?tab=boq`} label="BOQ / Scope" hint={`${chartBoqItems.length} scope line items`} />
+                                <QuickTabLink href={`/dashboard/procurement/${po.id}?tab=change-orders`} label="Change Orders" hint={`${coImpact.pendingCOs} pending of ${coImpact.totalCOs}`} />
+                                <QuickTabLink href={`/dashboard/procurement/${po.id}?tab=gallery`} label="Documents" hint={`${poDocuments.length} files attached`} />
+                            </CardContent>
+                        </Card>
+                    </div>
                 </TabsContent>
 
                 {/* Financials Tab - Phase 5 */}
@@ -956,7 +958,8 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                 <TabsContent value="history">
                     <AuditLogTimeline purchaseOrderId={po.id} />
                 </TabsContent>
-            </POTabsWrapper>
+                </POTabsWrapper>
+            </PODetailWorkspace>
             <ConflictResolver
                 conflicts={(po as any).conflicts?.map((c: any) => ({
                     id: c.id,

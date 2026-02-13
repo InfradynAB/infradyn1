@@ -61,6 +61,8 @@
     "exceljs": "^4.4.0",
     "googleapis": "^169.0.0",
     "input-otp": "^1.4.2",
+    "jspdf": "^4.1.0",
+    "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.556.0",
     "mammoth": "^1.11.0",
     "nanoid": "^5.1.6",
