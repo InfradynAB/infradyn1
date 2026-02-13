@@ -2,8 +2,6 @@
 
 import { CommandSidebar } from "./command-sidebar";
 import { switchProject } from "@/lib/actions/project-switch";
-import { switchSupplierProject } from "@/lib/actions/supplier-project";
-import { setActiveOrganizationId } from "@/lib/utils/org-context";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -36,8 +34,6 @@ interface SidebarWrapperProps {
 
 export function SidebarWrapper({
     user,
-    organizations = [],
-    activeOrgId,
     projects = [],
     activeProjectId,
     alertCount = 0,
@@ -45,21 +41,6 @@ export function SidebarWrapper({
     activeSupplierProjectId,
 }: SidebarWrapperProps) {
     const router = useRouter();
-
-    async function handleOrgChange(orgId: string) {
-        const success = await setActiveOrganizationId(orgId);
-        if (success) {
-            // Reset supplier project selection when org changes
-            // (projects list will change for the new org)
-            if (user?.role === "SUPPLIER") {
-                await switchSupplierProject(null);
-            }
-            router.refresh();
-            toast.success("Organization switched");
-        } else {
-            toast.error("Failed to switch organization");
-        }
-    }
 
     async function handleProjectChange(projectId: string) {
         // Empty string means "All Projects"
@@ -75,12 +56,9 @@ export function SidebarWrapper({
     return (
         <CommandSidebar
             user={user}
-            organizations={organizations}
-            activeOrgId={activeOrgId}
             projects={projects}
             activeProjectId={activeProjectId}
             alertCount={alertCount}
-            onOrgChange={handleOrgChange}
             onProjectChange={handleProjectChange}
             supplierProjects={supplierProjects}
             activeSupplierProjectId={activeSupplierProjectId}

@@ -69,14 +69,6 @@ interface Project {
     progress: number;
 }
 
-interface Organization {
-    id: string;
-    name: string;
-    slug: string;
-    logo: string | null;
-    role: string;
-}
-
 interface SupplierProject {
     id: string;
     name: string;
@@ -85,13 +77,10 @@ interface SupplierProject {
 
 interface CommandSidebarProps {
     user?: { role: string; name?: string } | null;
-    organizations?: Organization[];
-    activeOrgId?: string | null;
     projects?: Project[];
     activeProjectId?: string | null;
     alertCount?: number;
     onProjectChange?: (projectId: string) => void;
-    onOrgChange?: (orgId: string) => void;
     supplierProjects?: SupplierProject[];
     activeSupplierProjectId?: string | null;
 }
@@ -188,13 +177,10 @@ const pmAnalyticsSubItems: { title: string; url: string; icon: React.ElementType
 
 export function CommandSidebar({
     user,
-    organizations = [],
-    activeOrgId,
     projects = [],
     activeProjectId,
     alertCount = 0,
     onProjectChange,
-    onOrgChange,
     supplierProjects = [],
     activeSupplierProjectId,
 }: CommandSidebarProps) {
@@ -204,7 +190,6 @@ export function CommandSidebar({
     const isSupplier = user?.role === "SUPPLIER";
     const isPM = user?.role === "PM" || user?.role === "PROJECT_MANAGER";
 
-    const activeOrg = organizations.find((o) => o.id === activeOrgId);
     const activeProject = projects.find((p) => p.id === activeProjectId);
     const dailyOpsItems: SidebarNavItem[] = isPM
         ? dailyOpsNav.map((item) =>
@@ -225,7 +210,7 @@ export function CommandSidebar({
             "h-10 rounded-xl border border-transparent px-3 text-[13px] font-medium transition-all duration-200",
             "hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
             active &&
-            "border-sidebar-border/80 bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
+            "border-[#0E7490]/80 bg-[#0E7490] text-white shadow-sm data-[active=true]:!border-[#0E7490]/80 data-[active=true]:!bg-[#0E7490] data-[active=true]:!text-white"
         );
 
     const shouldShowAlertBadge = (item: SidebarNavItem) =>
@@ -295,7 +280,7 @@ export function CommandSidebar({
                                                         <SidebarMenuSubButton
                                                             asChild
                                                             isActive={pathname === sub.url}
-                                                            className="h-8 rounded-lg text-xs"
+                                                            className="h-8 rounded-lg text-xs data-[active=true]:bg-[#0E7490]! data-[active=true]:text-white!"
                                                         >
                                                             <Link href={sub.url} className="flex items-center gap-2">
                                                                 <sub.icon className="h-3.5 w-3.5" />
@@ -376,38 +361,6 @@ export function CommandSidebar({
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
-
-                {/* Organization Switcher */}
-                {!isCollapsed && organizations.length > 0 && (
-                    <div className="mt-3 px-2">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <button className="flex h-10 w-full items-center gap-2 rounded-xl border border-sidebar-border/80 bg-sidebar-accent/40 px-3 text-sm transition-colors hover:bg-sidebar-accent/70">
-                                    <Buildings className="h-4 w-4 text-sidebar-foreground/60" />
-                                    <span className="flex-1 truncate text-left font-medium">
-                                        {activeOrg?.name || "Select Organization"}
-                                    </span>
-                                    <CaretDown className="h-4 w-4 text-sidebar-foreground/60" />
-                                </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="w-56">
-                                {organizations.map((org) => (
-                                    <DropdownMenuItem
-                                        key={org.id}
-                                        onClick={() => onOrgChange?.(org.id)}
-                                        className={cn(
-                                            "cursor-pointer",
-                                            org.id === activeOrgId && "bg-accent"
-                                        )}
-                                    >
-                                        <Buildings className="mr-2 h-4 w-4" />
-                                        {org.name}
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                )}
 
                 {/* Supplier Project Switcher */}
                 {isSupplier && !isCollapsed && supplierProjects.length > 0 && (
@@ -587,7 +540,7 @@ export function CommandSidebar({
                                                                     <SidebarMenuSubButton
                                                                         asChild
                                                                         isActive={pathname === sub.url}
-                                                                        className="h-8 rounded-lg text-xs"
+                                                                        className="h-8 rounded-lg text-xs data-[active=true]:bg-[#0E7490]! data-[active=true]:text-white!"
                                                                     >
                                                                         <Link href={sub.url} className="flex items-center gap-2">
                                                                             <sub.icon className="h-3.5 w-3.5" />

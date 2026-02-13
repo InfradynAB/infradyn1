@@ -1,21 +1,13 @@
 import { SidebarWrapper } from "@/components/dashboard/sidebar-wrapper"
 import { UserMenu } from "@/components/user-menu"
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
 import { ModeToggle } from "@/components/themes/mode-toggle"
-import { Separator } from "@/components/ui/separator"
 import {
     SidebarInset,
     SidebarProvider,
     SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { NotificationCenter } from "@/components/shared/notification-center"
+import { OrgSwitcher } from "@/components/org-switcher"
 import { auth } from "../../../auth"
 import { headers } from "next/headers"
 import { noIndexMetadata } from "@/lib/seo.config"
@@ -205,22 +197,16 @@ export default async function DashboardLayout({
                 activeSupplierProjectId={activeSupplierProjectId}
             />
             <SidebarInset>
-                <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4">
-                    <div className="flex items-center gap-2">
+                <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b px-4">
+                    <div className="flex min-w-0 items-center gap-3">
                         <SidebarTrigger className="-ml-1" />
-                        <Separator orientation="vertical" className="mr-2 h-4" />
-                        <Breadcrumb>
-                            <BreadcrumbList>
-                                <BreadcrumbItem className="hidden md:block">
-                                    <BreadcrumbLink href="/dashboard">Infradyn</BreadcrumbLink>
-                                </BreadcrumbItem>
-                                <BreadcrumbSeparator className="hidden md:block" />
-                                <BreadcrumbItem>
-                                    <BreadcrumbPage>Home</BreadcrumbPage>
-                                </BreadcrumbItem>
-                            </BreadcrumbList>
-                        </Breadcrumb>
+                        {user.role !== "SUPPLIER" && organizations.length > 0 && (
+                            <div className="w-56 max-w-[60vw]">
+                                <OrgSwitcher organizations={organizations} activeOrgId={activeOrgId} />
+                            </div>
+                        )}
                     </div>
+
                     <div className="flex items-center gap-2">
                         {user?.id && <NotificationCenter userId={user.id} />}
                         <ModeToggle />

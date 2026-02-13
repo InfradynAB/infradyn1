@@ -53,10 +53,22 @@ interface POCommandCenterProps {
     boqItems: BoqPoint[];
     pendingCOs: number;
     totalCOs: number;
+    onOpenSection?: (section: SectionTab) => void;
 }
 
+export type SectionTab =
+    | "overview"
+    | "financials"
+    | "progress"
+    | "boq"
+    | "change-orders"
+    | "gallery"
+    | "quality"
+    | "history"
+    | "conflicts";
+
 const CHART_COLORS = {
-    paid: "#0F6157",
+    paid: "#0E7490",
     pending: "#F59E0B",
     retained: "#6366F1",
     overdue: "#EF4444",
@@ -76,6 +88,7 @@ export function POCommandCenter({
     boqItems,
     pendingCOs,
     totalCOs,
+    onOpenSection,
 }: POCommandCenterProps) {
     const router = useRouter();
     const remainingBudget = Math.max(totalValue - totalPaid - totalPending - totalRetained, 0);
@@ -121,34 +134,73 @@ export function POCommandCenter({
                 <CardHeader className="pb-3">
                     <CardTitle className="text-base">PO Command Center</CardTitle>
                     <CardDescription>
-                        Chart-first view with fast access to invoices, deliveries, BOQ, and change orders
+                        Chart-first view with one-click access to all PO sections
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                         <QuickLink
+                            onClick={onOpenSection ? () => onOpenSection("overview") : undefined}
+                            href={`/dashboard/procurement/${poId}?tab=overview`}
+                            icon={ChartLineUp}
+                            label="Overview"
+                            value="Summary"
+                        />
+                        <QuickLink
+                            onClick={onOpenSection ? () => onOpenSection("financials") : undefined}
                             href={`/dashboard/procurement/${poId}?tab=financials`}
                             icon={Receipt}
                             label="Invoices"
                             value={`${pendingInvoicesCount} pending`}
                         />
                         <QuickLink
+                            onClick={onOpenSection ? () => onOpenSection("progress") : undefined}
                             href={`/dashboard/procurement/${poId}?tab=progress`}
                             icon={ChartLineUp}
                             label="Deliveries"
                             value={`${milestones.filter((m) => m.progress >= 100).length}/${milestones.length} complete`}
                         />
                         <QuickLink
+                            onClick={onOpenSection ? () => onOpenSection("boq") : undefined}
                             href={`/dashboard/procurement/${poId}?tab=boq`}
                             icon={Files}
                             label="BOQ / Scope"
                             value={`${boqItems.length} line items`}
                         />
                         <QuickLink
+                            onClick={onOpenSection ? () => onOpenSection("change-orders") : undefined}
                             href={`/dashboard/procurement/${poId}?tab=change-orders`}
                             icon={ArrowsClockwise}
                             label="Change Orders"
                             value={`${pendingCOs} pending · ${totalCOs} total`}
+                        />
+                        <QuickLink
+                            onClick={onOpenSection ? () => onOpenSection("gallery") : undefined}
+                            href={`/dashboard/procurement/${poId}?tab=gallery`}
+                            icon={Files}
+                            label="Documents"
+                            value="Files"
+                        />
+                        <QuickLink
+                            onClick={onOpenSection ? () => onOpenSection("quality") : undefined}
+                            href={`/dashboard/procurement/${poId}?tab=quality`}
+                            icon={ChartLineUp}
+                            label="Quality"
+                            value="NCR"
+                        />
+                        <QuickLink
+                            onClick={onOpenSection ? () => onOpenSection("history") : undefined}
+                            href={`/dashboard/procurement/${poId}?tab=history`}
+                            icon={ArrowsClockwise}
+                            label="History"
+                            value="Timeline"
+                        />
+                        <QuickLink
+                            onClick={onOpenSection ? () => onOpenSection("conflicts") : undefined}
+                            href={`/dashboard/procurement/${poId}?tab=conflicts`}
+                            icon={Receipt}
+                            label="Conflicts"
+                            value="Queue"
                         />
                     </div>
                 </CardContent>
@@ -299,20 +351,37 @@ export function POCommandCenter({
 }
 
 function QuickLink({
+    onClick,
     href,
     icon: Icon,
     label,
     value,
 }: {
+    onClick?: () => void;
     href: string;
     icon: ElementType;
     label: string;
     value: string;
 }) {
+    if (onClick) {
+        return (
+            <Button type="button" variant="outline" className="h-auto justify-between rounded-xl border-[#0E7490]/30 bg-[#0E7490]/5 px-3 py-2.5 text-left hover:bg-[#0E7490]/10" onClick={onClick}>
+                <span className="flex items-center gap-2 text-[#0E7490]">
+                    <Icon className="h-4 w-4" weight="duotone" />
+                    <span className="text-sm font-semibold">{label}</span>
+                </span>
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    {value}
+                    <ArrowRight className="h-3.5 w-3.5" weight="bold" />
+                </span>
+            </Button>
+        );
+    }
+
     return (
-        <Button asChild variant="outline" className="h-auto justify-between rounded-xl border-[#0F6157]/30 bg-[#0F6157]/5 px-3 py-2.5 text-left hover:bg-[#0F6157]/10">
+        <Button asChild variant="outline" className="h-auto justify-between rounded-xl border-[#0E7490]/30 bg-[#0E7490]/5 px-3 py-2.5 text-left hover:bg-[#0E7490]/10">
             <Link href={href}>
-                <span className="flex items-center gap-2 text-[#0F6157]">
+            <span className="flex items-center gap-2 text-[#0E7490]">
                     <Icon className="h-4 w-4" weight="duotone" />
                     <span className="text-sm font-semibold">{label}</span>
                 </span>

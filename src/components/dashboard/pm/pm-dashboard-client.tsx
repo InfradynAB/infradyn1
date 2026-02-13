@@ -405,8 +405,8 @@ export function PMDashboardClient() {
             <div className="sticky top-0 z-30 bg-background/85 backdrop-blur-2xl border-b border-border/60 -mx-4 px-4 lg:-mx-6 lg:px-6">
                 <div className="flex items-center justify-between py-3">
                     <div className="flex items-center gap-3.5">
-                        <div className="w-10 h-10 rounded-xl bg-[#0F6157]/10 dark:bg-[#0F6157]/10 flex items-center justify-center shadow-md shadow-black/20">
-                            <Wrench className="w-5 h-5 text-[#0F6157]" weight="bold" />
+                        <div className="w-10 h-10 rounded-xl bg-[#0E7490]/10 dark:bg-[#0E7490]/10 flex items-center justify-center shadow-md shadow-black/20">
+                            <Wrench className="w-5 h-5 text-[#0E7490]" weight="bold" />
                         </div>
                         <div>
                             <h1 className="text-3xl font-semibold tracking-tight leading-none">Dashboard</h1>
@@ -415,8 +415,8 @@ export function PMDashboardClient() {
                     </div>
                     <div className="flex items-center gap-2">
                         <Select value={projectFilter} onValueChange={setProjectFilter}>
-                            <SelectTrigger className="w-40 h-8 text-xs rounded-lg border-[#0F6157]/35 bg-[#0F6157]/10 text-[#0F6157] hover:bg-[#0F6157]/15">
-                                <Funnel className="w-3.5 h-3.5 mr-1.5 text-[#0F6157]/80" />
+                            <SelectTrigger className="w-40 h-8 text-xs rounded-lg border-[#0E7490]/35 bg-[#0E7490]/10 text-[#0E7490] hover:bg-[#0E7490]/15">
+                                <Funnel className="w-3.5 h-3.5 mr-1.5 text-[#0E7490]/80" />
                                 <SelectValue placeholder="All Projects" />
                             </SelectTrigger>
                             <SelectContent>
@@ -425,8 +425,8 @@ export function PMDashboardClient() {
                             </SelectContent>
                         </Select>
                         <Select value={timeframe} onValueChange={setTimeframe}>
-                            <SelectTrigger className="w-[130px] h-8 text-xs rounded-lg border-[#0F6157]/35 bg-[#0F6157]/10 text-[#0F6157] hover:bg-[#0F6157]/15">
-                                <CalendarBlank className="w-3.5 h-3.5 mr-1.5 text-[#0F6157]/80" />
+                            <SelectTrigger className="w-[130px] h-8 text-xs rounded-lg border-[#0E7490]/35 bg-[#0E7490]/10 text-[#0E7490] hover:bg-[#0E7490]/15">
+                                <CalendarBlank className="w-3.5 h-3.5 mr-1.5 text-[#0E7490]/80" />
                                 <SelectValue placeholder="Timeframe" />
                             </SelectTrigger>
                             <SelectContent>
@@ -442,8 +442,8 @@ export function PMDashboardClient() {
                             className={cn(
                                 "h-8 rounded-lg text-xs gap-1.5 px-3",
                                 showAdvancedFilters
-                                    ? "bg-[#0F6157] text-white hover:bg-[#0F6157]/90 border-[#0F6157]"
-                                    : "bg-[#0F6157]/10 text-[#0F6157] hover:bg-[#0F6157]/15 border-[#0F6157]/35"
+                                    ? "bg-[#0E7490] text-white hover:bg-[#0E7490]/90 border-[#0E7490]"
+                                    : "bg-[#0E7490]/10 text-[#0E7490] hover:bg-[#0E7490]/15 border-[#0E7490]/35"
                             )}
                             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                         >
@@ -452,19 +452,19 @@ export function PMDashboardClient() {
                             {activeFilterCount > 0 && (
                                 <span className={cn(
                                     "w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center",
-                                    showAdvancedFilters ? "bg-white/20" : "bg-[#0F6157] text-white"
+                                    showAdvancedFilters ? "bg-white/20" : "bg-[#0E7490] text-white"
                                 )}>{activeFilterCount}</span>
                             )}
                         </Button>
-                        <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs gap-1.5 px-2.5 bg-[#0F6157]/10 text-[#0F6157] hover:bg-[#0F6157]/15 border-[#0F6157]/35" onClick={fetchDashboard}>
+                        <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs gap-1.5 px-2.5 bg-[#0E7490]/10 text-[#0E7490] hover:bg-[#0E7490]/15 border-[#0E7490]/35" onClick={fetchDashboard}>
                             <ArrowsClockwise className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
                             Refresh
                         </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs gap-1.5 px-3 bg-[#0F6157]/10 text-[#0F6157] hover:bg-[#0F6157]/15 border-[#0F6157]/35" disabled={exporting}>
+                                <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs gap-1.5 px-3 bg-[#0E7490]/10 text-[#0E7490] hover:bg-[#0E7490]/15 border-[#0E7490]/35" disabled={exporting}>
                                     {exporting ? <ArrowsClockwise className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                                    Export <CaretDown className="w-3 h-3 text-[#0F6157]/70" />
+                                    Export <CaretDown className="w-3 h-3 text-[#0E7490]/70" />
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="rounded-xl">
@@ -488,8 +488,8 @@ export function PMDashboardClient() {
                                 className={cn(
                                     "flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium border transition-all duration-200 whitespace-nowrap",
                                     active
-                                        ? "bg-[#0F6157] text-white border-[#0F6157] shadow-sm"
-                                        : "text-muted-foreground border-transparent hover:bg-[#0F6157]/10 hover:text-[#0F6157] hover:border-[#0F6157]/30"
+                                        ? "bg-[#0E7490] text-white border-[#0E7490] shadow-sm"
+                                        : "text-muted-foreground border-transparent hover:bg-[#0E7490]/10 hover:text-[#0E7490] hover:border-[#0E7490]/30"
                                 )}
                             >
                                 <Icon className="w-4 h-4" weight={active ? "fill" : "duotone"} />

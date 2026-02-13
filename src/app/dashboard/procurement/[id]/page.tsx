@@ -71,11 +71,10 @@ import { MilestoneInvoiceStatus } from "@/components/procurement/milestone-invoi
 import { POQualityTab } from "@/components/procurement/po-quality-tab";
 import { AlertTriangle } from "lucide-react";
 import { PizzaTrackerProgress } from "@/components/ui/pizza-tracker-progress";
-import { POTabsWrapper } from "@/components/procurement/po-tabs-wrapper";
 import { SubmitPOButton } from "@/components/procurement/submit-po-button";
-import { POCommandCenter } from "@/components/procurement/po-command-center";
 import { POActionsModal } from "@/components/procurement/po-actions-modal";
 import { PODetailWorkspace } from "@/components/procurement/po-detail-workspace";
+import { POCommandCenterSheet } from "@/components/procurement/po-command-center-sheet";
 
 // Status badge colors and icons - Infradyn Design System
 const statusConfig: Record<string, { color: string; icon: string; label: string }> = {
@@ -92,18 +91,6 @@ function InfoRow({ label, value, mono }: { label: string; value: string; mono?: 
             <p className="text-xs text-muted-foreground">{label}</p>
             <p className={cn("font-medium", mono && "font-mono")}>{value}</p>
         </div>
-    );
-}
-
-function QuickTabLink({ href, label, hint }: { href: string; label: string; hint: string }) {
-    return (
-        <Link
-            href={href}
-            className="flex items-center justify-between rounded-lg border border-[#0F6157]/25 bg-[#0F6157]/5 px-3 py-2.5 transition-colors hover:bg-[#0F6157]/10"
-        >
-            <span className="text-sm font-medium text-[#0F6157]">{label}</span>
-            <span className="text-xs text-muted-foreground">{hint}</span>
-        </Link>
     );
 }
 
@@ -395,27 +382,28 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                 initialDataset={defaultDataset}
                 initialSearch={defaultSearch}
             >
-                <POCommandCenter
-                    poId={po.id}
-                    currency={po.currency}
-                    totalValue={Number(po.totalValue ?? 0)}
-                    totalPaid={paymentSummary.totalPaid}
-                    totalPending={paymentSummary.totalPending}
-                    totalOverdue={paymentSummary.totalOverdue}
-                    totalRetained={paymentSummary.totalRetained}
-                    pendingInvoicesCount={pendingInvoices.length}
-                    milestones={chartMilestones}
-                    boqItems={chartBoqItems}
-                    pendingCOs={coImpact.pendingCOs}
-                    totalCOs={coImpact.totalCOs}
-                />
-
-                {/* Tabs - Streamlined Navigation with "More" Dropdown */}
-                <POTabsWrapper defaultTab={defaultTab}>
+                <POCommandCenterSheet
+                    defaultTab={defaultTab}
+                    openOnLoad={defaultTab !== "overview"}
+                    commandCenterProps={{
+                        poId: po.id,
+                        currency: po.currency,
+                        totalValue: Number(po.totalValue ?? 0),
+                        totalPaid: paymentSummary.totalPaid,
+                        totalPending: paymentSummary.totalPending,
+                        totalOverdue: paymentSummary.totalOverdue,
+                        totalRetained: paymentSummary.totalRetained,
+                        pendingInvoicesCount: pendingInvoices.length,
+                        milestones: chartMilestones,
+                        boqItems: chartBoqItems,
+                        pendingCOs: coImpact.pendingCOs,
+                        totalCOs: coImpact.totalCOs,
+                    }}
+                >
 
                 {/* Overview Tab */}
                 <TabsContent value="overview">
-                    <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="grid gap-4">
                         <Card>
                             <CardHeader>
                                 <CardTitle>PO Snapshot</CardTitle>
@@ -432,28 +420,14 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                 <InfoRow label="Last Version" value={latestVersion ? `v${latestVersion.versionNumber}` : "v1"} />
                             </CardContent>
                         </Card>
-
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Workstream Access</CardTitle>
-                                <CardDescription>Open a specific PO stream in one click</CardDescription>
-                            </CardHeader>
-                            <CardContent className="grid gap-2.5">
-                                <QuickTabLink href={`/dashboard/procurement/${po.id}?tab=financials`} label="Invoices & Payments" hint={`${pendingInvoices.length} pending invoices`} />
-                                <QuickTabLink href={`/dashboard/procurement/${po.id}?tab=progress`} label="Deliveries & Progress" hint={`${chartMilestones.filter((m) => m.progress >= 100).length}/${chartMilestones.length} milestones complete`} />
-                                <QuickTabLink href={`/dashboard/procurement/${po.id}?tab=boq`} label="BOQ / Scope" hint={`${chartBoqItems.length} scope line items`} />
-                                <QuickTabLink href={`/dashboard/procurement/${po.id}?tab=change-orders`} label="Change Orders" hint={`${coImpact.pendingCOs} pending of ${coImpact.totalCOs}`} />
-                                <QuickTabLink href={`/dashboard/procurement/${po.id}?tab=gallery`} label="Documents" hint={`${poDocuments.length} files attached`} />
-                            </CardContent>
-                        </Card>
                     </div>
                 </TabsContent>
 
                 {/* Financials Tab - Phase 5 */}
-                <TabsContent value="financials">
-                    <div className="grid gap-6 lg:grid-cols-2">
+                <TabsContent value="financials" className="h-[calc(100vh-230px)] min-h-[520px]">
+                    <div className="grid h-full gap-6 lg:grid-cols-2">
                         {/* Left Column: Invoices */}
-                        <div className="space-y-6">
+                        <div className="space-y-6 min-h-0 overflow-y-auto pr-1">
                             <Card>
                                 <CardHeader>
                                     <div className="flex items-center justify-between">
@@ -564,7 +538,7 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                         </div>
 
                         {/* Right Column: Change Orders */}
-                        <div className="space-y-6">
+                        <div className="space-y-6 min-h-0 overflow-y-auto pr-1">
                             <Card>
                                 <CardHeader>
                                     <div className="flex items-center justify-between">
@@ -703,8 +677,8 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                 </TabsContent>
 
                 {/* Progress Tab - Phase 4 */}
-                <TabsContent value="progress">
-                    <div className="grid gap-6 lg:grid-cols-2">
+                <TabsContent value="progress" className="h-[calc(100vh-230px)] min-h-[520px]">
+                    <div className="grid h-full gap-6 lg:grid-cols-2">
                         {/* Internal Progress Form */}
                         <InternalProgressForm
                             purchaseOrderId={po.id}
@@ -719,7 +693,7 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                         />
 
                         {/* Progress History */}
-                        <Card>
+                        <Card className="h-full flex flex-col">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     <ChartLineUpIcon className="h-5 w-5" />
@@ -727,8 +701,8 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                 </CardTitle>
                                 <CardDescription>Recent updates from supplier and internal teams</CardDescription>
                             </CardHeader>
-                            <CardContent>
-                                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                            <CardContent className="flex-1 min-h-0">
+                                <div className="h-full space-y-4 overflow-y-auto pr-2">
                                     {(po as any).milestones?.flatMap((m: any) =>
                                         m.progressRecords?.map((pr: any) => ({
                                             ...pr,
@@ -757,21 +731,23 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                 </TabsContent>
 
                 {/* Gallery Tab - Phase 4 */}
-                <TabsContent value="gallery">
-                    <Card>
-                        <CardContent className="pt-6">
-                            <POGallery
-                                purchaseOrderId={po.id}
-                                poNumber={po.poNumber}
-                                media={poDocuments.map((doc: any) => ({
-                                    id: doc.id,
-                                    fileName: doc.fileName,
-                                    fileUrl: doc.fileUrl,
-                                    mimeType: doc.mimeType,
-                                    documentType: doc.documentType,
-                                    uploadedAt: new Date(doc.createdAt),
-                                }))}
-                            />
+                <TabsContent value="gallery" className="h-[calc(100vh-230px)] min-h-[520px]">
+                    <Card className="h-full flex flex-col">
+                        <CardContent className="pt-6 flex-1 min-h-0">
+                            <div className="h-full overflow-y-auto">
+                                <POGallery
+                                    purchaseOrderId={po.id}
+                                    poNumber={po.poNumber}
+                                    media={poDocuments.map((doc: any) => ({
+                                        id: doc.id,
+                                        fileName: doc.fileName,
+                                        fileUrl: doc.fileUrl,
+                                        mimeType: doc.mimeType,
+                                        documentType: doc.documentType,
+                                        uploadedAt: new Date(doc.createdAt),
+                                    }))}
+                                />
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -804,7 +780,7 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
 
                 {/* BOQ Tab */}
                 <TabsContent value="boq">
-                    <Card>
+                    <Card className="h-[calc(100vh-230px)] min-h-[520px] flex flex-col">
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <div>
@@ -816,9 +792,9 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                 <ImportBOQDialog purchaseOrderId={po.id} />
                             </div>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="flex-1 min-h-0">
                             {(po as any).boqItems?.length > 0 ? (
-                                <div className="max-h-[400px] overflow-y-auto border rounded-lg">
+                                <div className="h-full overflow-y-auto border rounded-lg">
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
@@ -958,7 +934,7 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                 <TabsContent value="history">
                     <AuditLogTimeline purchaseOrderId={po.id} />
                 </TabsContent>
-                </POTabsWrapper>
+                </POCommandCenterSheet>
             </PODetailWorkspace>
             <ConflictResolver
                 conflicts={(po as any).conflicts?.map((c: any) => ({

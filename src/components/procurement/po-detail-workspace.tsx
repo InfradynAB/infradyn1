@@ -235,7 +235,7 @@ export function PODetailWorkspace({
                                 className={cn(
                                     "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
                                     mode === "analytics"
-                                        ? "bg-[#0F6157] text-white"
+                                        ? "bg-[#0E7490] text-white"
                                         : "text-muted-foreground hover:text-foreground"
                                 )}
                                 onClick={() => setMode("analytics")}
@@ -247,7 +247,7 @@ export function PODetailWorkspace({
                                 className={cn(
                                     "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
                                     mode === "table"
-                                        ? "bg-[#0F6157] text-white"
+                                        ? "bg-[#0E7490] text-white"
                                         : "text-muted-foreground hover:text-foreground"
                                 )}
                                 onClick={() => setMode("table")}
@@ -274,7 +274,7 @@ export function PODetailWorkspace({
                                         size="sm"
                                         className={cn(
                                             "rounded-lg",
-                                            activeDataset === key && "bg-[#0F6157] text-white hover:bg-[#0F6157]/90"
+                                            activeDataset === key && "bg-[#0E7490] text-white hover:bg-[#0E7490]/90"
                                         )}
                                         onClick={() => {
                                             setActiveDataset(key);
@@ -298,7 +298,7 @@ export function PODetailWorkspace({
                                             className={cn(
                                                 "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                                                 currentPreset === preset
-                                                    ? "bg-[#0F6157] text-white"
+                                                    ? "bg-[#0E7490] text-white"
                                                     : "text-muted-foreground hover:text-foreground"
                                             )}
                                         >
@@ -443,7 +443,7 @@ export function PODetailWorkspace({
                             </div>
 
                             {showViewExplanation && (
-                                <div className="rounded-lg border border-[#0F6157]/25 bg-[#0F6157]/5 px-3 py-2 text-sm text-muted-foreground">
+                                <div className="rounded-lg border border-[#0E7490]/25 bg-[#0E7490]/5 px-3 py-2 text-sm text-muted-foreground">
                                     {viewExplanation}
                                 </div>
                             )}

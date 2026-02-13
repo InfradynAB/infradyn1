@@ -59,8 +59,8 @@
   --popover: #FFFFFF;
   --popover-foreground: #1E293B;
 
-  /* Deep Navy Primary - Infradyn Design System */
-  --primary: #1E293B;
+  /* Action Teal-Blue (distinct from success green) */
+  --primary: #0E7490;
   --primary-foreground: #FFFFFF;
 
   /* Secondary / Muted */
@@ -87,8 +87,8 @@
   --border: #E2E8F0;
   /* Slate 200 */
   --input: #E2E8F0;
-  --ring: #1E293B;
-  /* Deep Navy Ring */
+  --ring: #0E7490;
+  /* Action Teal-Blue Ring */
 
   --chart-1: #1E293B;
   --chart-2: #059669;
@@ -99,12 +99,12 @@
   /* Sidebar - Light Mode */
   --sidebar: #F8FAFC;
   --sidebar-foreground: #1E293B;
-  --sidebar-primary: #1E293B;
+  --sidebar-primary: #0E7490;
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #F1F5F9;
   --sidebar-accent-foreground: #1E1E1E;
   --sidebar-border: #DDDDDD;
-  --sidebar-ring: #0F6157;
+  --sidebar-ring: #0E7490;
 }
 
 .dark {
@@ -120,8 +120,8 @@
   --popover: #152836;
   --popover-foreground: #F5F5F5;
 
-  --primary: #0F6157;
-  /* Keep Infra Green */
+  --primary: #0E7490;
+  /* Action Teal-Blue (distinct from success green) */
   --primary-foreground: #FFFFFF;
 
   --secondary: #1E2D3D;
@@ -138,9 +138,9 @@
 
   --border: #1E2D3D;
   --input: #1E2D3D;
-  --ring: #0F6157;
+  --ring: #0E7490;
 
-  --chart-1: #0F6157;
+  --chart-1: #0E7490;
   --chart-2: #E14FE3;
   --chart-3: #F5F5F5;
   --chart-4: #FFC107;
@@ -150,9 +150,9 @@
   --sidebar: #050E14;
   /* Darker navy sidebar in dark mode */
   --sidebar-foreground: #F5F5F5;
-  --sidebar-primary: #0F6157;
+  --sidebar-primary: #0E7490;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #0F6157;
+  --sidebar-accent: #0E7490;
   --sidebar-accent-foreground: #FFFFFF;
   --sidebar-border: #1E2D3D;
   --sidebar-ring: #E14FE3;

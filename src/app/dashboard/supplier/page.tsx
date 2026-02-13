@@ -27,6 +27,7 @@ import { PerformanceBarChart, PerformanceDonut } from "@/components/supplier/per
 import { SignOutButton } from "@/components/sign-out-button";
 import { getSupplierActionItems } from "@/lib/actions/supplier-dashboard-actions";
 import { getSupplierPerformance } from "@/lib/actions/supplier-performance";
+import { OnboardingTour } from "@/components/dashboard/supplier/onboarding-tour";
 
 export default async function SupplierDashboardPage() {
     const session = await auth.api.getSession({
@@ -173,6 +174,7 @@ export default async function SupplierDashboardPage() {
 
     return (
         <div className="max-w-7xl mx-auto space-y-8 pb-16">
+            <OnboardingTour />
 
             {/* ── HEADER BAR ── */}
             <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
@@ -194,7 +196,7 @@ export default async function SupplierDashboardPage() {
                             Verified
                         </span>
                     )}
-                    <div className="inline-flex items-center gap-2 rounded-full bg-muted/50 border border-border px-3 py-1.5">
+                    <div id="tour-readiness" className="inline-flex items-center gap-2 rounded-full bg-muted/50 border border-border px-3 py-1.5">
                         <span className="text-xs text-muted-foreground font-medium">Readiness</span>
                         <ReadinessScore score={readinessScore} size={26} strokeWidth={3} />
                     </div>
@@ -205,7 +207,7 @@ export default async function SupplierDashboardPage() {
             </div>
 
             {/* ── CLICKABLE STATS ROW ── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div id="tour-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     href="/dashboard/supplier/pos?filter=ncr"
                     count={actions.openNcrs}
@@ -360,7 +362,7 @@ export default async function SupplierDashboardPage() {
                 </div>
 
                 {/* RIGHT — Performance & Analytics */}
-                <div className="space-y-6">
+                <div id="tour-performance" className="space-y-6">
 
                     {/* Performance Bar Chart */}
                     <div className="rounded-2xl border border-border bg-card p-6">
@@ -392,7 +394,7 @@ export default async function SupplierDashboardPage() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
 
                 {/* Upcoming Milestones */}
-                <div className="rounded-2xl border border-border bg-card p-6">
+                <div id="tour-milestones" className="rounded-2xl border border-border bg-card p-6">
                     <h3 className="text-lg font-bold text-foreground mb-1">Coming Up</h3>
                     <p className="text-xs text-muted-foreground mb-5">
                         {upcomingMilestones.length === 0
@@ -431,6 +433,7 @@ export default async function SupplierDashboardPage() {
 
                 {/* Onboarding / Profile Card */}
                 <Link
+                    id="tour-onboarding"
                     href="/dashboard/supplier/onboarding"
                     className="group rounded-2xl border border-border bg-card p-6 hover:border-primary/30 transition-all flex flex-col justify-between"
                 >

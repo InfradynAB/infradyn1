@@ -64,13 +64,17 @@ export function UserMenu({ user }: UserMenuProps) {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                <Button variant="ghost" className="relative h-12 min-w-[220px] justify-start gap-2 rounded-xl border border-border/70 bg-muted/20 px-2.5 hover:bg-muted/35">
                     <Avatar className="h-9 w-9">
                         <AvatarImage src={user.image || undefined} alt={user.name || "User"} />
                         <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                             {getInitials(user.name)}
                         </AvatarFallback>
                     </Avatar>
+                    <div className="flex min-w-0 flex-col items-start">
+                        <span className="truncate text-sm font-medium leading-tight">{user.name || "User"}</span>
+                        <span className="truncate text-xs leading-tight text-muted-foreground">{user.email || ""}</span>
+                    </div>
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
