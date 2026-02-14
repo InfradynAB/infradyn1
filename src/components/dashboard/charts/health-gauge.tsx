@@ -69,10 +69,22 @@ export function HealthGauge({ score, label = "Procurement Health", breakdown }: 
         return () => clearTimeout(timer);
     }, [score]);
 
-    // SVG gauge
-    const radius = 80;
-    const circumference = 2 * Math.PI * radius;
-    const strokeDashoffset = circumference - (animatedScore / 100) * circumference * 0.75;
+    // SVG gauge (true 270° arc path)
+    const svgWidth = 200;
+    const svgHeight = 140;
+    const centerX = 100;
+    const centerY = 70;
+    const radius = 56;
+    const startAngle = 135;
+    const endAngle = 405;
+    const clampedScore = Math.max(0, Math.min(animatedScore, 100));
+
+    const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+    const startX = centerX + radius * Math.cos(toRadians(startAngle));
+    const startY = centerY + radius * Math.sin(toRadians(startAngle));
+    const endX = centerX + radius * Math.cos(toRadians(endAngle));
+    const endY = centerY + radius * Math.sin(toRadians(endAngle));
+    const arcPath = `M ${startX} ${startY} A ${radius} ${radius} 0 1 1 ${endX} ${endY}`;
 
     return (
         <Card className="shadow-none border">
@@ -91,26 +103,24 @@ export function HealthGauge({ score, label = "Procurement Health", breakdown }: 
                 <div className="flex flex-col items-center">
                     {/* Gauge SVG */}
                     <div className="relative w-[200px] h-[140px]">
-                        <svg width="200" height="140" viewBox="0 0 200 140" className="transform -rotate-[135deg]">
+                        <svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
                             {/* Background arc */}
-                            <circle
-                                cx="100" cy="100" r={radius}
+                            <path
+                                d={arcPath}
                                 fill="none"
                                 stroke="currentColor"
                                 strokeWidth="14"
-                                strokeDasharray={circumference}
-                                strokeDashoffset={circumference * 0.25}
                                 strokeLinecap="round"
                                 className="text-muted/40"
                             />
                             {/* Colored arc */}
-                            <circle
-                                cx="100" cy="100" r={radius}
+                            <path
+                                d={arcPath}
                                 fill="none"
                                 stroke={config.color}
                                 strokeWidth="14"
-                                strokeDasharray={circumference}
-                                strokeDashoffset={strokeDashoffset}
+                                pathLength={100}
+                                strokeDasharray={`${clampedScore} 100`}
                                 strokeLinecap="round"
                                 className="transition-all duration-1000 ease-out"
                                 style={{ filter: `drop-shadow(0 0 8px ${config.glowColor})` }}
@@ -118,7 +128,7 @@ export function HealthGauge({ score, label = "Procurement Health", breakdown }: 
                         </svg>
 
                         {/* Center score */}
-                        <div className="absolute inset-0 flex flex-col items-center justify-center mt-6">
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
                             <span
                                 className="text-4xl font-bold font-mono transition-all duration-700"
                                 style={{ color: config.color }}
