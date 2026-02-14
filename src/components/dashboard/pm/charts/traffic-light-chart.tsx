@@ -15,6 +15,13 @@ interface Props {
 
 export function TrafficLightChart({ data, onLightClick }: Props) {
     const total = data.green.count + data.amber.count + data.red.count;
+    const onTimePct = total > 0 ? Math.round((data.green.count / total) * 100) : 0;
+    const atRiskPct = total > 0 ? Math.round((data.amber.count / total) * 100) : 0;
+    const delayedPct = total > 0 ? Math.round((data.red.count / total) * 100) : 0;
+    const riskCount = data.amber.count + data.red.count;
+    const riskPct = total > 0 ? Math.round((riskCount / total) * 100) : 0;
+    const targetOnTime = 85;
+    const onTimeGap = Math.max(0, targetOnTime - onTimePct);
 
     const lights = [
         {
@@ -99,6 +106,43 @@ export function TrafficLightChart({ data, onLightClick }: Props) {
                         <div className="bg-amber-500 transition-all duration-700" style={{ width: `${(data.amber.count / total) * 100}%` }} />
                         <div className="bg-red-500 transition-all duration-700" style={{ width: `${(data.red.count / total) * 100}%` }} />
                     </>
+                )}
+            </div>
+
+            {/* Insight rows (fills card space with actionable context) */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 dark:border-emerald-800/50 dark:bg-emerald-500/10 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">On-Time Rate</p>
+                    <p className="text-xl font-mono font-bold text-emerald-600 dark:text-emerald-400">{onTimePct}%</p>
+                    <p className="text-[11px] text-muted-foreground">{data.green.count} deliveries on schedule</p>
+                </div>
+                <div className="rounded-xl border border-amber-200/70 bg-amber-50/40 dark:border-amber-800/50 dark:bg-amber-500/10 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Watchlist</p>
+                    <p className="text-xl font-mono font-bold text-amber-600 dark:text-amber-400">{atRiskPct}%</p>
+                    <p className="text-[11px] text-muted-foreground">{data.amber.count} deliveries may slip</p>
+                </div>
+                <div className="rounded-xl border border-red-200/70 bg-red-50/40 dark:border-red-800/50 dark:bg-red-500/10 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Critical Delay</p>
+                    <p className="text-xl font-mono font-bold text-red-600 dark:text-red-400">{delayedPct}%</p>
+                    <p className="text-[11px] text-muted-foreground">{data.red.count} deliveries behind plan</p>
+                </div>
+            </div>
+
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-1.5">
+                <p className="text-xs font-semibold">Recommended Focus</p>
+                <p className="text-xs text-muted-foreground">
+                    {riskCount > 0
+                        ? `${riskCount} deliveries (${riskPct}%) need active follow-up across at-risk and delayed queues.`
+                        : "All deliveries are currently on track. Maintain current supplier cadence."}
+                </p>
+                {onTimeGap > 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                        Raise on-time performance by {onTimeGap}% to reach the {targetOnTime}% control target.
+                    </p>
+                ) : (
+                    <p className="text-xs text-muted-foreground">
+                        On-time performance is meeting the {targetOnTime}% control target.
+                    </p>
                 )}
             </div>
         </div>
