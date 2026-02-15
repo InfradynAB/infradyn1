@@ -10,7 +10,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 
-const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || "http://localhost:8000";
+function resolvePythonServiceUrl(): string {
+    const configuredUrl = process.env.PYTHON_SERVICE_URL?.trim();
+
+    if (!configuredUrl) {
+        return "http://localhost:8000";
+    }
+
+    if (/^https?:\/\//i.test(configuredUrl)) {
+        return configuredUrl.replace(/\/+$/, "");
+    }
+
+    const normalizedWithScheme = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?(\/.*)?$/i.test(configuredUrl)
+        ? `http://${configuredUrl}`
+        : `https://${configuredUrl}`;
+
+    return normalizedWithScheme.replace(/\/+$/, "");
+}
+
+const PYTHON_SERVICE_URL = resolvePythonServiceUrl();
 
 export async function POST(request: NextRequest) {
     try {
