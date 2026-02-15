@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -27,6 +27,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft,
@@ -45,6 +61,7 @@ import {
 import {
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   Tooltip,
@@ -57,6 +74,7 @@ import {
   Legend,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { exportTabularData } from "@/lib/export-engine";
 
 // ============================================================================
 // Types
@@ -129,12 +147,6 @@ function getScoreColor(score: number) {
   return "text-red-600";
 }
 
-function getScoreBg(score: number) {
-  if (score >= 80) return "bg-emerald-50 border-emerald-200";
-  if (score >= 60) return "bg-amber-50 border-amber-200";
-  return "bg-red-50 border-red-200";
-}
-
 function getScoreBadge(score: number) {
   if (score >= 80) return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Excellent</Badge>;
   if (score >= 60) return <Badge className="bg-amber-100 text-amber-700 border-amber-200">Needs Attention</Badge>;
@@ -148,6 +160,27 @@ function TrendIcon({ trend }: { trend: "up" | "down" | "stable" }) {
 }
 
 type SortKey = "overallScore" | "deliveryPerformance" | "qualityScore" | "complianceScore" | "onTimeRate" | "name";
+type DistributionMetric = "deliveryPerformance" | "qualityScore" | "complianceScore" | "communicationScore" | "onTimeRate";
+type WorkspacePreset = "default" | "performance" | "risk" | "operations" | "custom";
+
+const SUPPLIER_COLUMNS = [
+  "supplier",
+  "status",
+  "overallScore",
+  "deliveryPerformance",
+  "qualityScore",
+  "complianceScore",
+  "communicationScore",
+  "onTimeRate",
+  "avgResponseTime",
+  "activePOs",
+  "totalPOs",
+  "openNCRs",
+  "totalNCRs",
+  "trend",
+] as const;
+
+type SupplierColumn = typeof SUPPLIER_COLUMNS[number];
 
 // ============================================================================
 // Component
@@ -163,6 +196,26 @@ export function SupplierScorecardsClient() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierScore | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [distributionView, setDistributionView] = useState<"overall" | "metric">("overall");
+  const [distributionMetric, setDistributionMetric] = useState<DistributionMetric>("deliveryPerformance");
+  const [workspaceMode, setWorkspaceMode] = useState<"analytics" | "table">("analytics");
+  const [workspacePreset, setWorkspacePreset] = useState<WorkspacePreset>("default");
+  const [workspaceSearch, setWorkspaceSearch] = useState("");
+  const [showViewExplanation, setShowViewExplanation] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [savedCustomColumns, setSavedCustomColumns] = useState<SupplierColumn[]>(() => {
+    if (typeof window === "undefined") return [...SUPPLIER_COLUMNS];
+    try {
+      const raw = window.localStorage.getItem("supplier-scorecards-custom-view-v1");
+      if (!raw) return [...SUPPLIER_COLUMNS];
+      const parsed = JSON.parse(raw) as SupplierColumn[];
+      return parsed.length > 0 ? parsed : [...SUPPLIER_COLUMNS];
+    } catch {
+      return [...SUPPLIER_COLUMNS];
+    }
+  });
+  const [manualColumns, setManualColumns] = useState<SupplierColumn[] | null>(null);
 
   useEffect(() => {
     // TODO: Replace with real API call
@@ -209,10 +262,113 @@ export function SupplierScorecardsClient() {
 
   const comparedSuppliers = suppliers.filter((s) => compareIds.includes(s.id));
 
+  const metricLabels: Record<DistributionMetric, string> = {
+    deliveryPerformance: "Delivery",
+    qualityScore: "Quality",
+    complianceScore: "Compliance",
+    communicationScore: "Communication",
+    onTimeRate: "On-Time",
+  };
+
+  const distributionData = filtered.map((s) => ({
+    id: s.id,
+    name: s.name.length > 18 ? s.name.slice(0, 18) + "..." : s.name,
+    overall: s.overallScore,
+    metric: s[distributionMetric],
+  }));
+
+  const supplierTableRows = useMemo(
+    () => filtered.map((s) => ({
+      supplier: s.name,
+      status: s.status,
+      overallScore: s.overallScore,
+      deliveryPerformance: s.deliveryPerformance,
+      qualityScore: s.qualityScore,
+      complianceScore: s.complianceScore,
+      communicationScore: s.communicationScore,
+      onTimeRate: s.onTimeRate,
+      avgResponseTime: s.avgResponseTime,
+      activePOs: s.activePOs,
+      totalPOs: s.totalPOs,
+      openNCRs: s.openNCRs,
+      totalNCRs: s.totalNCRs,
+      trend: s.trend,
+    })),
+    [filtered]
+  );
+
+  const visibleColumns = useMemo(() => {
+    if (workspacePreset === "custom") {
+      return manualColumns ?? savedCustomColumns;
+    }
+    return getWorkspacePresetColumns(workspacePreset);
+  }, [workspacePreset, manualColumns, savedCustomColumns]);
+
+  const workspaceFilteredRows = useMemo(() => {
+    if (!workspaceSearch.trim()) return supplierTableRows;
+    const query = workspaceSearch.toLowerCase();
+    return supplierTableRows.filter((row) =>
+      Object.values(row).some((value) => String(value ?? "").toLowerCase().includes(query))
+    );
+  }, [supplierTableRows, workspaceSearch]);
+
+  const totalPages = Math.max(1, Math.ceil(workspaceFilteredRows.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = useMemo(
+    () => workspaceFilteredRows.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [workspaceFilteredRows, safePage, pageSize]
+  );
+
+  const viewExplanation = useMemo(() => {
+    const presetText = workspacePreset === "custom" ? "custom" : `${workspacePreset} preset`;
+    const queryText = workspaceSearch.trim() ? ` with search "${workspaceSearch.trim()}"` : " with no search";
+    return `You are viewing Supplier Scorecards in table mode using ${presetText}${queryText}. ${workspaceFilteredRows.length.toLocaleString()} row(s) and ${visibleColumns.length} visible column(s).`;
+  }, [workspacePreset, workspaceSearch, workspaceFilteredRows.length, visibleColumns.length]);
+
   // KPI summary
   const avgScore = suppliers.length > 0 ? Math.round(suppliers.reduce((s, x) => s + x.overallScore, 0) / suppliers.length) : 0;
   const excellentCount = suppliers.filter((s) => s.overallScore >= 80).length;
   const atRiskCount = suppliers.filter((s) => s.overallScore < 60).length;
+
+  const applyWorkspacePreset = (preset: WorkspacePreset) => {
+    setWorkspacePreset(preset);
+    if (preset !== "custom") {
+      setManualColumns(null);
+    } else if (!manualColumns || manualColumns.length === 0) {
+      setManualColumns(savedCustomColumns);
+    }
+    setPage(1);
+  };
+
+  const toggleWorkspaceColumn = (column: SupplierColumn, checked: boolean) => {
+    const base = workspacePreset === "custom" ? (manualColumns ?? savedCustomColumns) : getWorkspacePresetColumns(workspacePreset);
+    const next = checked
+      ? Array.from(new Set([...base, column])) as SupplierColumn[]
+      : base.filter((col) => col !== column);
+    setWorkspacePreset("custom");
+    setManualColumns(next);
+  };
+
+  const saveCustomView = () => {
+    const current = visibleColumns.length > 0 ? visibleColumns : [...SUPPLIER_COLUMNS];
+    setSavedCustomColumns(current);
+    setWorkspacePreset("custom");
+    setManualColumns(current);
+    try {
+      window.localStorage.setItem("supplier-scorecards-custom-view-v1", JSON.stringify(current));
+    } catch {
+    }
+  };
+
+  const handleWorkspaceExport = async (format: "csv" | "excel" | "pdf") => {
+    await exportTabularData({
+      fileName: "supplier-scorecards-view",
+      title: "Supplier Scorecards Export",
+      format,
+      columns: visibleColumns.map((col) => ({ key: col, label: prettySupplierLabel(col) })),
+      rows: workspaceFilteredRows,
+    });
+  };
 
   if (loading) {
     return (
@@ -321,6 +477,40 @@ export function SupplierScorecardsClient() {
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">Supplier Data Workspace</CardTitle>
+              <CardDescription>Switch between analytics and fully manipulatable table mode</CardDescription>
+            </div>
+            <div className="inline-flex items-center rounded-lg border border-border/60 bg-muted/30 p-1">
+              <button
+                className={cn(
+                  "px-3 py-1.5 text-xs font-semibold rounded-md transition-colors",
+                  workspaceMode === "analytics" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setWorkspaceMode("analytics")}
+              >
+                Analytics
+              </button>
+              <button
+                className={cn(
+                  "px-3 py-1.5 text-xs font-semibold rounded-md transition-colors",
+                  workspaceMode === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setWorkspaceMode("table")}
+              >
+                Table
+              </button>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {workspaceMode === "analytics" ? (
+        <>
 
       {/* Comparison View */}
       {comparedSuppliers.length >= 2 && (
@@ -443,19 +633,20 @@ export function SupplierScorecardsClient() {
                     </TableCell>
                     <TableCell><TrendIcon trend={s.trend} /></TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant={compareIds.includes(s.id) ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => toggleCompare(s.id)}
-                          title="Add to comparison"
-                        >
-                          <BarChart3 className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedSupplier(s)} title="View scorecard">
-                          <Eye className="h-3 w-3" />
-                        </Button>
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-8 px-3">Action</Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem onClick={() => setSelectedSupplier(s)}>
+                            <Eye className="h-3.5 w-3.5 mr-2" /> Detailed View
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toggleCompare(s.id)}>
+                            <BarChart3 className="h-3.5 w-3.5 mr-2" />
+                            {compareIds.includes(s.id) ? "Remove from Compare" : "Add to Compare"}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -466,109 +657,304 @@ export function SupplierScorecardsClient() {
       </Card>
 
       {/* Individual Scorecard Detail */}
-      {selectedSupplier && (
-        <Card className={cn("border-2", getScoreBg(selectedSupplier.overallScore))}>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xl">{selectedSupplier.name}</CardTitle>
-                <CardDescription>Detailed performance scorecard</CardDescription>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedSupplier(null)}>Close</Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* Score Breakdown */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Category Scores</h3>
-                <ScoreRow label="Delivery Performance" value={selectedSupplier.deliveryPerformance} weight={35} />
-                <ScoreRow label="Quality (NCR Rate)" value={selectedSupplier.qualityScore} weight={30} />
-                <ScoreRow label="Compliance" value={selectedSupplier.complianceScore} weight={20} />
-                <ScoreRow label="Communication" value={selectedSupplier.communicationScore} weight={15} />
-                <div className="pt-3 border-t">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold">Overall Score</span>
-                    <span className={cn("text-2xl font-bold", getScoreColor(selectedSupplier.overallScore))}>
-                      {selectedSupplier.overallScore}
-                    </span>
+      <Dialog open={!!selectedSupplier} onOpenChange={(open) => { if (!open) setSelectedSupplier(null); }}>
+        <DialogContent className="max-w-6xl">
+          {selectedSupplier && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedSupplier.name}</DialogTitle>
+                <DialogDescription>Detailed performance scorecard</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Category Scores</h3>
+                  <ScoreRow label="Delivery Performance" value={selectedSupplier.deliveryPerformance} weight={35} />
+                  <ScoreRow label="Quality (NCR Rate)" value={selectedSupplier.qualityScore} weight={30} />
+                  <ScoreRow label="Compliance" value={selectedSupplier.complianceScore} weight={20} />
+                  <ScoreRow label="Communication" value={selectedSupplier.communicationScore} weight={15} />
+                  <div className="pt-3 border-t">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">Overall Score</span>
+                      <span className={cn("text-2xl font-bold", getScoreColor(selectedSupplier.overallScore))}>
+                        {selectedSupplier.overallScore}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="h-[250px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart data={[
+                        { category: "Delivery", value: selectedSupplier.deliveryPerformance },
+                        { category: "Quality", value: selectedSupplier.qualityScore },
+                        { category: "Compliance", value: selectedSupplier.complianceScore },
+                        { category: "Communication", value: selectedSupplier.communicationScore },
+                        { category: "On-Time", value: selectedSupplier.onTimeRate },
+                      ]}>
+                        <PolarGrid />
+                        <PolarAngleAxis dataKey="category" tick={{ fontSize: 11 }} />
+                        <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 10 }} />
+                        <Radar dataKey="value" stroke="#6366F1" fill="#6366F1" fillOpacity={0.2} />
+                        <Tooltip />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-muted-foreground">Total POs</p>
+                      <p className="text-lg font-bold">{selectedSupplier.totalPOs}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-muted-foreground">Avg Response</p>
+                      <p className="text-lg font-bold">{selectedSupplier.avgResponseTime}h</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-muted-foreground">Open NCRs</p>
+                      <p className="text-lg font-bold">{selectedSupplier.openNCRs}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-muted-foreground">On-Time Rate</p>
+                      <p className="text-lg font-bold">{selectedSupplier.onTimeRate}%</p>
+                    </div>
                   </div>
                 </div>
               </div>
-              {/* Radar + Stats */}
-              <div className="space-y-4">
-                <div className="h-[250px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={[
-                      { category: "Delivery", value: selectedSupplier.deliveryPerformance },
-                      { category: "Quality", value: selectedSupplier.qualityScore },
-                      { category: "Compliance", value: selectedSupplier.complianceScore },
-                      { category: "Communication", value: selectedSupplier.communicationScore },
-                      { category: "On-Time", value: selectedSupplier.onTimeRate },
-                    ]}>
-                      <PolarGrid />
-                      <PolarAngleAxis dataKey="category" tick={{ fontSize: 11 }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 10 }} />
-                      <Radar dataKey="value" stroke="#6366F1" fill="#6366F1" fillOpacity={0.2} />
-                      <Tooltip />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="p-3 rounded-lg bg-muted/50">
-                    <p className="text-muted-foreground">Total POs</p>
-                    <p className="text-lg font-bold">{selectedSupplier.totalPOs}</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-muted/50">
-                    <p className="text-muted-foreground">Avg Response</p>
-                    <p className="text-lg font-bold">{selectedSupplier.avgResponseTime}h</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-muted/50">
-                    <p className="text-muted-foreground">Open NCRs</p>
-                    <p className="text-lg font-bold">{selectedSupplier.openNCRs}</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-muted/50">
-                    <p className="text-muted-foreground">On-Time Rate</p>
-                    <p className="text-lg font-bold">{selectedSupplier.onTimeRate}%</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Performance Distribution Bar Chart */}
       <Card>
-        <CardHeader>
-          <CardTitle>Performance Distribution</CardTitle>
-          <CardDescription>Supplier scores across all categories</CardDescription>
+        <CardHeader className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle>Performance Distribution</CardTitle>
+              <CardDescription>
+                {distributionView === "overall"
+                  ? "Clean overall ranking by supplier"
+                  : `${metricLabels[distributionMetric]} scores by supplier`}
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={distributionView === "overall" ? "default" : "outline"}
+                onClick={() => setDistributionView("overall")}
+              >
+                Overall
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={distributionView === "metric" ? "default" : "outline"}
+                onClick={() => setDistributionView("metric")}
+              >
+                Single Metric
+              </Button>
+              {distributionView === "metric" && (
+                <Select value={distributionMetric} onValueChange={(value) => setDistributionMetric(value as DistributionMetric)}>
+                  <SelectTrigger className="w-40 h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="deliveryPerformance">Delivery</SelectItem>
+                    <SelectItem value="qualityScore">Quality</SelectItem>
+                    <SelectItem value="complianceScore">Compliance</SelectItem>
+                    <SelectItem value="communicationScore">Communication</SelectItem>
+                    <SelectItem value="onTimeRate">On-Time</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={filtered.map((s) => ({
-                name: s.name.length > 15 ? s.name.slice(0, 15) + "..." : s.name,
-                Delivery: s.deliveryPerformance,
-                Quality: s.qualityScore,
-                Compliance: s.complianceScore,
-                Communication: s.communicationScore,
-              }))} layout="vertical" margin={{ left: 120 }}>
+              <BarChart data={distributionData} layout="vertical" margin={{ left: 120, right: 20 }}>
                 <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={120} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="Delivery" fill="#6366F1" radius={[0, 2, 2, 0]} />
-                <Bar dataKey="Quality" fill="#EC4899" radius={[0, 2, 2, 0]} />
-                <Bar dataKey="Compliance" fill="#14B8A6" radius={[0, 2, 2, 0]} />
-                <Bar dataKey="Communication" fill="#F97316" radius={[0, 2, 2, 0]} />
+                <Tooltip
+                  formatter={(value: number) => [`${value}%`, distributionView === "overall" ? "Overall Score" : metricLabels[distributionMetric]]}
+                />
+                {distributionView === "overall" ? (
+                  <Bar dataKey="overall" radius={[0, 3, 3, 0]}>
+                    {distributionData.map((entry) => (
+                      <Cell
+                        key={entry.id}
+                        fill={entry.overall >= 80 ? "#10B981" : entry.overall >= 60 ? "#F59E0B" : "#EF4444"}
+                      />
+                    ))}
+                  </Bar>
+                ) : (
+                  <Bar dataKey="metric" fill="#3B82F6" radius={[0, 3, 3, 0]} />
+                )}
               </BarChart>
             </ResponsiveContainer>
           </div>
         </CardContent>
       </Card>
+        </>
+      ) : (
+        <Card>
+          <CardHeader className="pb-3 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {(["default", "performance", "risk", "operations", "custom"] as WorkspacePreset[]).map((preset) => (
+                <Button
+                  key={preset}
+                  type="button"
+                  size="sm"
+                  variant={workspacePreset === preset ? "default" : "outline"}
+                  onClick={() => applyWorkspacePreset(preset)}
+                >
+                  {prettySupplierLabel(preset)}
+                </Button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-[220px] flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={workspaceSearch}
+                  onChange={(e) => {
+                    setWorkspaceSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  className="pl-9"
+                  placeholder="Search visible supplier rows..."
+                />
+              </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" size="sm">Columns ({visibleColumns.length})</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto">
+                  <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {SUPPLIER_COLUMNS.map((column) => (
+                    <DropdownMenuCheckboxItem
+                      key={column}
+                      checked={visibleColumns.includes(column)}
+                      onCheckedChange={(checked) => toggleWorkspaceColumn(column, checked === true)}
+                    >
+                      {prettySupplierLabel(column)}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowViewExplanation((v) => !v)}>
+                Explain View
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={saveCustomView}>
+                Save Custom View
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" size="sm">Export</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem onClick={() => handleWorkspaceExport("csv")}>Export CSV</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleWorkspaceExport("excel")}>Export Excel</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleWorkspaceExport("pdf")}>Export PDF</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            {showViewExplanation && (
+              <div className="rounded-lg border bg-muted/20 p-3 text-sm text-muted-foreground">
+                {viewExplanation}
+              </div>
+            )}
+          </CardHeader>
+
+          <CardContent className="space-y-3">
+            <div className="rounded-lg border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/40">
+                    {visibleColumns.map((column) => (
+                      <TableHead key={column} className="whitespace-nowrap">{prettySupplierLabel(column)}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pagedRows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={Math.max(visibleColumns.length, 1)} className="py-8 text-center text-sm text-muted-foreground">
+                        No rows match your current filters.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    pagedRows.map((row, idx) => (
+                      <TableRow key={`${row.supplier}-${idx}`} className="hover:bg-muted/20">
+                        {visibleColumns.map((column) => (
+                          <TableCell key={column} className="whitespace-nowrap">
+                            {formatSupplierCell(column, row[column])}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Showing {workspaceFilteredRows.length === 0 ? 0 : (safePage - 1) * pageSize + 1}
+                -{Math.min(safePage * pageSize, workspaceFilteredRows.length)} of {workspaceFilteredRows.length} suppliers
+              </p>
+              <div className="flex items-center gap-2">
+                <Select value={String(pageSize)} onValueChange={(value) => { setPageSize(Number(value)); setPage(1); }}>
+                  <SelectTrigger className="w-24 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+                <span className="text-xs text-muted-foreground">Page {safePage} / {totalPages}</span>
+                <Button type="button" variant="outline" size="sm" disabled={safePage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
+}
+
+function prettySupplierLabel(value: string) {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getWorkspacePresetColumns(preset: WorkspacePreset): SupplierColumn[] {
+  if (preset === "performance") {
+    return ["supplier", "overallScore", "deliveryPerformance", "qualityScore", "complianceScore", "communicationScore", "onTimeRate", "trend"];
+  }
+  if (preset === "risk") {
+    return ["supplier", "status", "overallScore", "qualityScore", "complianceScore", "onTimeRate", "openNCRs", "totalNCRs", "trend"];
+  }
+  if (preset === "operations") {
+    return ["supplier", "status", "activePOs", "totalPOs", "deliveryPerformance", "avgResponseTime", "onTimeRate", "openNCRs"];
+  }
+  return [...SUPPLIER_COLUMNS];
+}
+
+function formatSupplierCell(column: SupplierColumn, value: unknown) {
+  if (value === null || value === undefined) return "-";
+  if (column === "onTimeRate") return `${value}%`;
+  if (column === "avgResponseTime") return `${value}h`;
+  return String(value);
 }
 
 // ============================================================================

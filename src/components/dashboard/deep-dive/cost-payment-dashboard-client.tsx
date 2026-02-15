@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -27,6 +27,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft,
@@ -53,6 +62,7 @@ import {
   Area,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { exportTabularData } from "@/lib/export-engine";
 
 // ============================================================================
 // Types
@@ -112,6 +122,9 @@ interface InvoiceRow {
   daysPending: number;
   currency: string;
 }
+
+type CostDatasetKey = "kpis" | "cashFlow" | "aging" | "budget" | "supplierCycle" | "invoices";
+type CostPreset = "default" | "finance" | "risk" | "supplier" | "custom";
 
 // ============================================================================
 // Mock Data
@@ -184,6 +197,45 @@ const STATUS_COLORS: Record<string, string> = {
   REJECTED: "bg-red-200 text-red-800",
 };
 
+function prettyLabel(value: string) {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getCostPresetColumns(columns: string[], preset: CostPreset) {
+  if (preset === "finance") {
+    return columns.filter((col) =>
+      ["invoiceNumber", "poNumber", "amount", "status", "supplierName", "projectName", "dueDate", "currency", "totalCommitted", "totalPaid", "totalPending", "totalOverdue"].includes(col)
+    );
+  }
+  if (preset === "risk") {
+    return columns.filter((col) =>
+      ["invoiceNumber", "status", "daysPending", "dueDate", "submittedDate", "overdue", "bucket", "criticalOpen", "supplierName", "variancePercent"].includes(col)
+    );
+  }
+  if (preset === "supplier") {
+    return columns.filter((col) =>
+      ["supplierName", "avgDays", "totalInvoices", "onTimePayments", "projectName", "amount", "status"].includes(col)
+    );
+  }
+  return columns;
+}
+
+function formatCell(value: string | number | boolean | null | undefined, column: string, currency?: string) {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (column.toLowerCase().includes("amount") || column.startsWith("total") || column === "costOfQuality" || column === "planned" || column === "actual" || column === "variance" || column === "value") {
+    if (typeof value === "number") return `${currency ?? "AED"} ${value.toLocaleString()}`;
+  }
+  if (column.toLowerCase().includes("rate") || column.toLowerCase().includes("percent") || column === "budgetUtilization" || column === "closureRate" || column === "escalationRate") {
+    return `${value}%`;
+  }
+  if (column.toLowerCase().includes("days") && typeof value === "number") return `${value}d`;
+  return String(value);
+}
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -203,6 +255,24 @@ export function CostPaymentDashboardClient() {
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
   const [overdueOnly, setOverdueOnly] = useState(false);
+  const [workspaceMode, setWorkspaceMode] = useState<"analytics" | "table">("analytics");
+  const [activeDataset, setActiveDataset] = useState<CostDatasetKey>("invoices");
+  const [workspacePreset, setWorkspacePreset] = useState<CostPreset>("default");
+  const [workspaceSearch, setWorkspaceSearch] = useState("");
+  const [showViewExplanation, setShowViewExplanation] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [savedCustomViews, setSavedCustomViews] = useState<Partial<Record<CostDatasetKey, string[]>>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = window.localStorage.getItem("cost-payment-custom-views-v1");
+      if (!raw) return {};
+      return JSON.parse(raw) as Partial<Record<CostDatasetKey, string[]>>;
+    } catch {
+      return {};
+    }
+  });
+  const [manualColumns, setManualColumns] = useState<Partial<Record<CostDatasetKey, string[]>>>({});
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -229,6 +299,132 @@ export function CostPaymentDashboardClient() {
   const uniqueSuppliers = [...new Set(invoices.map((i) => i.supplierName))];
   const uniqueProjects = [...new Set(invoices.map((i) => i.projectName))];
 
+  const datasets = useMemo<Record<CostDatasetKey, Record<string, string | number | boolean | null>[]>>(() => ({
+    kpis: kpis ? [{
+      totalCommitted: kpis.totalCommitted,
+      totalPaid: kpis.totalPaid,
+      totalPending: kpis.totalPending,
+      totalOverdue: kpis.totalOverdue,
+      totalRetained: kpis.totalRetained,
+      avgPaymentCycleDays: kpis.avgPaymentCycleDays,
+      invoicesPending: kpis.invoicesPending,
+      budgetUtilization: kpis.budgetUtilization,
+      currency: kpis.currency,
+    }] : [],
+    cashFlow: cashFlow.map((row) => ({ month: row.month, incoming: row.incoming, outgoing: row.outgoing, cumulative: row.cumulative })),
+    aging: agingBuckets.map((row) => ({ bucket: row.bucket, count: row.count, value: row.value })),
+    budget: budgetVariance.map((row) => ({
+      category: row.category,
+      planned: row.planned,
+      actual: row.actual,
+      variance: row.variance,
+      variancePercent: row.variancePercent,
+    })),
+    supplierCycle: paymentCycle.map((row) => ({
+      supplierName: row.supplierName,
+      avgDays: row.avgDays,
+      totalInvoices: row.totalInvoices,
+      onTimePayments: row.onTimePayments,
+    })),
+    invoices: filteredInvoices.map((row) => ({
+      invoiceNumber: row.invoiceNumber,
+      poNumber: row.poNumber,
+      supplierName: row.supplierName,
+      projectName: row.projectName,
+      amount: row.amount,
+      status: row.status,
+      submittedDate: row.submittedDate,
+      dueDate: row.dueDate,
+      paidDate: row.paidDate ?? "—",
+      daysPending: row.daysPending,
+      currency: row.currency,
+    })),
+  }), [kpis, cashFlow, agingBuckets, budgetVariance, paymentCycle, filteredInvoices]);
+
+  const datasetLabels: Record<CostDatasetKey, string> = {
+    kpis: "KPIs",
+    cashFlow: "Cash Flow",
+    aging: "Invoice Aging",
+    budget: "Budget Variance",
+    supplierCycle: "Supplier Cycle",
+    invoices: "Invoices",
+  };
+
+  const datasetRows = datasets[activeDataset] || [];
+
+  const allColumns = useMemo(() => {
+    const keys = new Set<string>();
+    datasetRows.forEach((row) => Object.keys(row).forEach((key) => keys.add(key)));
+    return Array.from(keys);
+  }, [datasetRows]);
+
+  const visibleColumns = useMemo(() => {
+    if (workspacePreset === "custom") {
+      return manualColumns[activeDataset] || savedCustomViews[activeDataset] || allColumns;
+    }
+    return getCostPresetColumns(allColumns, workspacePreset);
+  }, [workspacePreset, manualColumns, savedCustomViews, activeDataset, allColumns]);
+
+  const workspaceFilteredRows = useMemo(() => {
+    if (!workspaceSearch.trim()) return datasetRows;
+    const query = workspaceSearch.toLowerCase();
+    return datasetRows.filter((row) =>
+      Object.values(row).some((value) => String(value ?? "").toLowerCase().includes(query))
+    );
+  }, [datasetRows, workspaceSearch]);
+
+  const totalPages = Math.max(1, Math.ceil(workspaceFilteredRows.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = useMemo(
+    () => workspaceFilteredRows.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [workspaceFilteredRows, safePage, pageSize]
+  );
+
+  const viewExplanation = useMemo(() => {
+    const presetText = workspacePreset === "custom" ? "custom" : `${workspacePreset} preset`;
+    const queryText = workspaceSearch.trim() ? ` with search "${workspaceSearch.trim()}"` : " with no search";
+    return `You are viewing ${datasetLabels[activeDataset]} in table mode using ${presetText}${queryText}. ${workspaceFilteredRows.length.toLocaleString()} row(s) match across ${visibleColumns.length} visible column(s).`;
+  }, [workspacePreset, workspaceSearch, activeDataset, workspaceFilteredRows.length, visibleColumns.length]);
+
+  const applyPreset = (preset: CostPreset) => {
+    setWorkspacePreset(preset);
+    if (preset !== "custom") {
+      setManualColumns((prev) => ({ ...prev, [activeDataset]: undefined }));
+    }
+    setPage(1);
+  };
+
+  const toggleColumn = (column: string, checked: boolean) => {
+    const base = workspacePreset === "custom"
+      ? (manualColumns[activeDataset] || savedCustomViews[activeDataset] || allColumns)
+      : getCostPresetColumns(allColumns, workspacePreset);
+    const next = checked ? Array.from(new Set([...base, column])) : base.filter((col) => col !== column);
+    setWorkspacePreset("custom");
+    setManualColumns((prev) => ({ ...prev, [activeDataset]: next }));
+  };
+
+  const saveCustomView = () => {
+    const currentCols = visibleColumns.length > 0 ? visibleColumns : allColumns;
+    const next = { ...savedCustomViews, [activeDataset]: currentCols };
+    setSavedCustomViews(next);
+    setWorkspacePreset("custom");
+    setManualColumns((prev) => ({ ...prev, [activeDataset]: currentCols }));
+    try {
+      window.localStorage.setItem("cost-payment-custom-views-v1", JSON.stringify(next));
+    } catch {
+    }
+  };
+
+  const handleExport = async (format: "csv" | "excel" | "pdf") => {
+    await exportTabularData({
+      fileName: `cost-payment-${activeDataset}-view`,
+      title: `${datasetLabels[activeDataset]} Export`,
+      format,
+      columns: visibleColumns.map((column) => ({ key: column, label: prettyLabel(column) })),
+      rows: workspaceFilteredRows,
+    });
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -240,6 +436,7 @@ export function CostPaymentDashboardClient() {
   }
 
   const fmt = (v: number) => `${kpis!.currency} ${v.toLocaleString()}`;
+  const fmtAmount = (v: number) => v.toLocaleString();
 
   return (
     <div className="space-y-6">
@@ -255,57 +452,96 @@ export function CostPaymentDashboardClient() {
       </div>
 
       {/* KPIs */}
-      <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-5">
-        <Card>
-          <CardHeader className="pb-2"><CardDescription>Total Committed</CardDescription></CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-primary" />
-              <span className="text-xl font-bold font-mono">{fmt(kpis!.totalCommitted)}</span>
+      <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-5">
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="p-4 min-h-[124px] flex flex-col justify-between">
+            <CardDescription className="text-sm font-medium">Total Committed</CardDescription>
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{kpis!.currency}</p>
+              <p className="text-[1.75rem] leading-none font-semibold font-mono tracking-tight">{fmtAmount(kpis!.totalCommitted)}</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardDescription>Total Paid</CardDescription></CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              <span className="text-xl font-bold font-mono text-emerald-600">{fmt(kpis!.totalPaid)}</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">{kpis!.budgetUtilization}% utilization</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardDescription>Pending</CardDescription></CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Receipt className="h-5 w-5 text-amber-500" />
-              <span className="text-xl font-bold font-mono text-amber-600">{fmt(kpis!.totalPending)}</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">{kpis!.invoicesPending} invoices</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardDescription>Overdue</CardDescription></CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-              <span className="text-xl font-bold font-mono text-red-600">{fmt(kpis!.totalOverdue)}</span>
+
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="p-4 min-h-[124px] flex flex-col justify-between">
+            <CardDescription className="text-sm font-medium">Total Paid</CardDescription>
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{kpis!.currency}</p>
+              <p className="text-[1.75rem] leading-none font-semibold font-mono tracking-tight text-emerald-600">{fmtAmount(kpis!.totalPaid)}</p>
+              <p className="text-xs text-muted-foreground mt-1">{kpis!.budgetUtilization}% utilization</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardDescription>Avg Payment Cycle</CardDescription></CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-1">
-              <Clock className="h-5 w-5 text-muted-foreground" />
-              <span className="text-xl font-bold">{kpis!.avgPaymentCycleDays}</span>
-              <span className="text-sm text-muted-foreground">days</span>
+
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="p-4 min-h-[124px] flex flex-col justify-between">
+            <CardDescription className="text-sm font-medium">Pending</CardDescription>
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{kpis!.currency}</p>
+              <p className="text-[1.75rem] leading-none font-semibold font-mono tracking-tight text-amber-600">{fmtAmount(kpis!.totalPending)}</p>
+              <p className="text-xs text-muted-foreground mt-1">{kpis!.invoicesPending} invoices</p>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Retained: {fmt(kpis!.totalRetained)}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="p-4 min-h-[124px] flex flex-col justify-between">
+            <CardDescription className="text-sm font-medium">Overdue</CardDescription>
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{kpis!.currency}</p>
+              <p className="text-[1.75rem] leading-none font-semibold font-mono tracking-tight text-red-600">{fmtAmount(kpis!.totalOverdue)}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="p-4 min-h-[124px] flex flex-col justify-between">
+            <CardDescription className="text-sm font-medium">Avg Payment Cycle</CardDescription>
+            <div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-[1.72rem] leading-none font-semibold">{kpis!.avgPaymentCycleDays}</span>
+                <span className="text-xs text-muted-foreground">days</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Retained: {kpis!.currency} {fmtAmount(kpis!.totalRetained)}</p>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">Cost & Payment Data Workspace</CardTitle>
+              <CardDescription>Switch between analytics and fully manipulatable table mode</CardDescription>
+            </div>
+            <div className="inline-flex items-center rounded-lg border border-border/60 bg-muted/30 p-1">
+              <button
+                className={cn(
+                  "px-3 py-1.5 text-xs font-semibold rounded-md transition-colors",
+                  workspaceMode === "analytics" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setWorkspaceMode("analytics")}
+              >
+                Analytics
+              </button>
+              <button
+                className={cn(
+                  "px-3 py-1.5 text-xs font-semibold rounded-md transition-colors",
+                  workspaceMode === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setWorkspaceMode("table")}
+              >
+                Table
+              </button>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {workspaceMode === "analytics" ? (
+        <>
 
       {/* Cash Flow + Invoice Aging */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -518,6 +754,155 @@ export function CostPaymentDashboardClient() {
           </div>
         </CardContent>
       </Card>
+
+        </>
+      ) : (
+        <Card>
+          <CardHeader className="pb-3 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {(Object.keys(datasetLabels) as CostDatasetKey[]).map((key) => (
+                <Button
+                  key={key}
+                  type="button"
+                  variant={activeDataset === key ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setActiveDataset(key);
+                    setWorkspaceSearch("");
+                    setPage(1);
+                  }}
+                >
+                  {datasetLabels[key]}
+                  <Badge variant="secondary" className="ml-2 text-[10px]">{datasets[key].length}</Badge>
+                </Button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {(["default", "finance", "risk", "supplier", "custom"] as CostPreset[]).map((preset) => (
+                <Button
+                  key={preset}
+                  type="button"
+                  size="sm"
+                  variant={workspacePreset === preset ? "default" : "outline"}
+                  onClick={() => applyPreset(preset)}
+                >
+                  {prettyLabel(preset)}
+                </Button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-[220px] flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={workspaceSearch}
+                  onChange={(e) => {
+                    setWorkspaceSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  className="pl-9"
+                  placeholder="Search active dataset rows..."
+                />
+              </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" size="sm">Columns ({visibleColumns.length})</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto">
+                  <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {allColumns.map((column) => (
+                    <DropdownMenuCheckboxItem
+                      key={column}
+                      checked={visibleColumns.includes(column)}
+                      onCheckedChange={(checked) => toggleColumn(column, checked === true)}
+                    >
+                      {prettyLabel(column)}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowViewExplanation((v) => !v)}>
+                Explain View
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={saveCustomView}>
+                Save Custom View
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" size="sm">Export</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem onClick={() => handleExport("csv")}>Export CSV</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport("excel")}>Export Excel</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport("pdf")}>Export PDF</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            {showViewExplanation && (
+              <div className="rounded-lg border bg-muted/20 p-3 text-sm text-muted-foreground">
+                {viewExplanation}
+              </div>
+            )}
+          </CardHeader>
+
+          <CardContent className="space-y-3">
+            <div className="rounded-lg border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    {visibleColumns.map((column) => (
+                      <TableHead key={column} className="whitespace-nowrap">{prettyLabel(column)}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pagedRows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={Math.max(visibleColumns.length, 1)} className="text-center py-8 text-muted-foreground">
+                        No rows in this dataset match your current view.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    pagedRows.map((row, index) => (
+                      <TableRow key={`${activeDataset}-${index}`} className="hover:bg-muted/40">
+                        {visibleColumns.map((column) => (
+                          <TableCell key={column} className="whitespace-nowrap">{formatCell(row[column], column, kpis?.currency)}</TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Showing {workspaceFilteredRows.length === 0 ? 0 : (safePage - 1) * pageSize + 1}
+                -{Math.min(safePage * pageSize, workspaceFilteredRows.length)} of {workspaceFilteredRows.length} rows
+              </p>
+              <div className="flex items-center gap-2">
+                <Select value={String(pageSize)} onValueChange={(value) => { setPageSize(Number(value)); setPage(1); }}>
+                  <SelectTrigger className="w-24 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+                <span className="text-xs text-muted-foreground">Page {safePage} / {totalPages}</span>
+                <Button type="button" variant="outline" size="sm" disabled={safePage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

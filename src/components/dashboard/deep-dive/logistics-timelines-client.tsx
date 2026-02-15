@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -27,6 +27,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft,
@@ -50,6 +59,7 @@ import {
   Legend,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { exportTabularData } from "@/lib/export-engine";
 
 // ============================================================================
 // Types
@@ -92,6 +102,9 @@ interface CarrierPerformance {
   avgTransitDays: number;
   onTimeRate: number;
 }
+
+type LogisticsDatasetKey = "kpis" | "carriers" | "pipeline" | "shipments";
+type LogisticsPreset = "default" | "delivery" | "risk" | "ops" | "custom";
 
 // ============================================================================
 // Mock Data
@@ -140,6 +153,40 @@ const ETA_COLORS: Record<string, string> = {
   LOW: "text-red-600",
 };
 
+function prettyLabel(value: string) {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getLogisticsPresetColumns(columns: string[], preset: LogisticsPreset) {
+  if (preset === "delivery") {
+    return columns.filter((col) =>
+      ["trackingNumber", "status", "carrier", "expectedDate", "actualDate", "etaConfidence", "isDelayed", "daysInTransit", "onTimeRate"].includes(col)
+    );
+  }
+  if (preset === "risk") {
+    return columns.filter((col) =>
+      ["trackingNumber", "status", "isDelayed", "etaConfidence", "daysInTransit", "lastLocation", "expectedDate", "supplierName", "projectName"].includes(col)
+    );
+  }
+  if (preset === "ops") {
+    return columns.filter((col) =>
+      ["trackingNumber", "poNumber", "supplierName", "carrier", "origin", "destination", "status", "daysInTransit", "expectedDate"].includes(col)
+    );
+  }
+  return columns;
+}
+
+function formatCell(value: string | number | boolean | null | undefined, column: string) {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (column.toLowerCase().includes("rate") && typeof value === "number") return `${value}%`;
+  if (column.toLowerCase().includes("days") && typeof value === "number") return `${value}d`;
+  return String(value);
+}
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -157,6 +204,24 @@ export function LogisticsTimelinesClient() {
   const [projectFilter, setProjectFilter] = useState("all");
   const [etaFilter, setEtaFilter] = useState("all");
   const [delayedOnly, setDelayedOnly] = useState(false);
+  const [workspaceMode, setWorkspaceMode] = useState<"analytics" | "table">("analytics");
+  const [activeDataset, setActiveDataset] = useState<LogisticsDatasetKey>("shipments");
+  const [workspacePreset, setWorkspacePreset] = useState<LogisticsPreset>("default");
+  const [workspaceSearch, setWorkspaceSearch] = useState("");
+  const [showViewExplanation, setShowViewExplanation] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [savedCustomViews, setSavedCustomViews] = useState<Partial<Record<LogisticsDatasetKey, string[]>>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = window.localStorage.getItem("logistics-custom-views-v1");
+      if (!raw) return {};
+      return JSON.parse(raw) as Partial<Record<LogisticsDatasetKey, string[]>>;
+    } catch {
+      return {};
+    }
+  });
+  const [manualColumns, setManualColumns] = useState<Partial<Record<LogisticsDatasetKey, string[]>>>({});
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -180,6 +245,129 @@ export function LogisticsTimelinesClient() {
 
   const uniqueCarriers = [...new Set(shipments.map((s) => s.carrier))];
   const uniqueProjects = [...new Set(shipments.map((s) => s.projectName))];
+
+  const datasets = useMemo<Record<LogisticsDatasetKey, Record<string, string | number | boolean | null>[]>>(() => ({
+    kpis: kpis ? [{
+      activeShipments: kpis.activeShipments,
+      inTransit: kpis.inTransit,
+      delivered: kpis.delivered,
+      delayed: kpis.delayed,
+      avgTransitDays: kpis.avgTransitDays,
+      onTimeRate: kpis.onTimeRate,
+      totalCarriers: kpis.totalCarriers,
+      pendingInspection: kpis.pendingInspection,
+    }] : [],
+    carriers: carriers.map((row) => ({
+      carrier: row.carrier,
+      totalShipments: row.totalShipments,
+      onTime: row.onTime,
+      delayed: row.delayed,
+      avgTransitDays: row.avgTransitDays,
+      onTimeRate: row.onTimeRate,
+    })),
+    pipeline: (["PENDING", "DISPATCHED", "IN_TRANSIT", "CUSTOMS_HOLD", "DELIVERED", "DELAYED"] as const).map((status) => ({
+      status,
+      count: shipments.filter((s) => s.status === status).length,
+    })),
+    shipments: filtered.map((row) => ({
+      trackingNumber: row.trackingNumber,
+      poNumber: row.poNumber,
+      supplierName: row.supplierName,
+      projectName: row.projectName,
+      carrier: row.carrier,
+      status: row.status,
+      origin: row.origin,
+      destination: row.destination,
+      expectedDate: row.expectedDate,
+      actualDate: row.actualDate ?? "—",
+      etaConfidence: row.etaConfidence,
+      lastLocation: row.lastLocation ?? "—",
+      daysInTransit: row.daysInTransit,
+      isDelayed: row.isDelayed,
+    })),
+  }), [kpis, carriers, shipments, filtered]);
+
+  const datasetLabels: Record<LogisticsDatasetKey, string> = {
+    kpis: "KPIs",
+    carriers: "Carriers",
+    pipeline: "Pipeline",
+    shipments: "Shipments",
+  };
+
+  const datasetRows = datasets[activeDataset] || [];
+
+  const allColumns = useMemo(() => {
+    const keys = new Set<string>();
+    datasetRows.forEach((row) => Object.keys(row).forEach((key) => keys.add(key)));
+    return Array.from(keys);
+  }, [datasetRows]);
+
+  const visibleColumns = useMemo(() => {
+    if (workspacePreset === "custom") {
+      return manualColumns[activeDataset] || savedCustomViews[activeDataset] || allColumns;
+    }
+    return getLogisticsPresetColumns(allColumns, workspacePreset);
+  }, [workspacePreset, manualColumns, savedCustomViews, activeDataset, allColumns]);
+
+  const workspaceFilteredRows = useMemo(() => {
+    if (!workspaceSearch.trim()) return datasetRows;
+    const query = workspaceSearch.toLowerCase();
+    return datasetRows.filter((row) =>
+      Object.values(row).some((value) => String(value ?? "").toLowerCase().includes(query))
+    );
+  }, [datasetRows, workspaceSearch]);
+
+  const totalPages = Math.max(1, Math.ceil(workspaceFilteredRows.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = useMemo(
+    () => workspaceFilteredRows.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [workspaceFilteredRows, safePage, pageSize]
+  );
+
+  const viewExplanation = useMemo(() => {
+    const presetText = workspacePreset === "custom" ? "custom" : `${workspacePreset} preset`;
+    const queryText = workspaceSearch.trim() ? ` with search "${workspaceSearch.trim()}"` : " with no search";
+    return `You are viewing ${datasetLabels[activeDataset]} in table mode using ${presetText}${queryText}. ${workspaceFilteredRows.length.toLocaleString()} row(s) match across ${visibleColumns.length} visible column(s).`;
+  }, [workspacePreset, workspaceSearch, activeDataset, workspaceFilteredRows.length, visibleColumns.length]);
+
+  const applyPreset = (preset: LogisticsPreset) => {
+    setWorkspacePreset(preset);
+    if (preset !== "custom") {
+      setManualColumns((prev) => ({ ...prev, [activeDataset]: undefined }));
+    }
+    setPage(1);
+  };
+
+  const toggleColumn = (column: string, checked: boolean) => {
+    const base = workspacePreset === "custom"
+      ? (manualColumns[activeDataset] || savedCustomViews[activeDataset] || allColumns)
+      : getLogisticsPresetColumns(allColumns, workspacePreset);
+    const next = checked ? Array.from(new Set([...base, column])) : base.filter((col) => col !== column);
+    setWorkspacePreset("custom");
+    setManualColumns((prev) => ({ ...prev, [activeDataset]: next }));
+  };
+
+  const saveCustomView = () => {
+    const currentCols = visibleColumns.length > 0 ? visibleColumns : allColumns;
+    const next = { ...savedCustomViews, [activeDataset]: currentCols };
+    setSavedCustomViews(next);
+    setWorkspacePreset("custom");
+    setManualColumns((prev) => ({ ...prev, [activeDataset]: currentCols }));
+    try {
+      window.localStorage.setItem("logistics-custom-views-v1", JSON.stringify(next));
+    } catch {
+    }
+  };
+
+  const handleExport = async (format: "csv" | "excel" | "pdf") => {
+    await exportTabularData({
+      fileName: `logistics-${activeDataset}-view`,
+      title: `${datasetLabels[activeDataset]} Export`,
+      format,
+      columns: visibleColumns.map((column) => ({ key: column, label: prettyLabel(column) })),
+      rows: workspaceFilteredRows,
+    });
+  };
 
   if (loading) {
     return (
@@ -244,6 +432,40 @@ export function LogisticsTimelinesClient() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">Logistics Data Workspace</CardTitle>
+              <CardDescription>Switch between analytics and fully manipulatable table mode</CardDescription>
+            </div>
+            <div className="inline-flex items-center rounded-lg border border-border/60 bg-muted/30 p-1">
+              <button
+                className={cn(
+                  "px-3 py-1.5 text-xs font-semibold rounded-md transition-colors",
+                  workspaceMode === "analytics" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setWorkspaceMode("analytics")}
+              >
+                Analytics
+              </button>
+              <button
+                className={cn(
+                  "px-3 py-1.5 text-xs font-semibold rounded-md transition-colors",
+                  workspaceMode === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setWorkspaceMode("table")}
+              >
+                Table
+              </button>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {workspaceMode === "analytics" ? (
+        <>
 
       {/* Carrier Performance Chart */}
       <Card>
@@ -417,6 +639,155 @@ export function LogisticsTimelinesClient() {
           </div>
         </CardContent>
       </Card>
+
+        </>
+      ) : (
+        <Card>
+          <CardHeader className="pb-3 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {(Object.keys(datasetLabels) as LogisticsDatasetKey[]).map((key) => (
+                <Button
+                  key={key}
+                  type="button"
+                  variant={activeDataset === key ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setActiveDataset(key);
+                    setWorkspaceSearch("");
+                    setPage(1);
+                  }}
+                >
+                  {datasetLabels[key]}
+                  <Badge variant="secondary" className="ml-2 text-[10px]">{datasets[key].length}</Badge>
+                </Button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {(["default", "delivery", "risk", "ops", "custom"] as LogisticsPreset[]).map((preset) => (
+                <Button
+                  key={preset}
+                  type="button"
+                  size="sm"
+                  variant={workspacePreset === preset ? "default" : "outline"}
+                  onClick={() => applyPreset(preset)}
+                >
+                  {prettyLabel(preset)}
+                </Button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-[220px] flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={workspaceSearch}
+                  onChange={(e) => {
+                    setWorkspaceSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  className="pl-9"
+                  placeholder="Search active dataset rows..."
+                />
+              </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" size="sm">Columns ({visibleColumns.length})</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto">
+                  <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {allColumns.map((column) => (
+                    <DropdownMenuCheckboxItem
+                      key={column}
+                      checked={visibleColumns.includes(column)}
+                      onCheckedChange={(checked) => toggleColumn(column, checked === true)}
+                    >
+                      {prettyLabel(column)}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowViewExplanation((v) => !v)}>
+                Explain View
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={saveCustomView}>
+                Save Custom View
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" size="sm">Export</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem onClick={() => handleExport("csv")}>Export CSV</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport("excel")}>Export Excel</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport("pdf")}>Export PDF</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            {showViewExplanation && (
+              <div className="rounded-lg border bg-muted/20 p-3 text-sm text-muted-foreground">
+                {viewExplanation}
+              </div>
+            )}
+          </CardHeader>
+
+          <CardContent className="space-y-3">
+            <div className="rounded-lg border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    {visibleColumns.map((column) => (
+                      <TableHead key={column} className="whitespace-nowrap">{prettyLabel(column)}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pagedRows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={Math.max(visibleColumns.length, 1)} className="text-center py-8 text-muted-foreground">
+                        No rows in this dataset match your current view.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    pagedRows.map((row, index) => (
+                      <TableRow key={`${activeDataset}-${index}`} className="hover:bg-muted/40">
+                        {visibleColumns.map((column) => (
+                          <TableCell key={column} className="whitespace-nowrap">{formatCell(row[column], column)}</TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Showing {workspaceFilteredRows.length === 0 ? 0 : (safePage - 1) * pageSize + 1}
+                -{Math.min(safePage * pageSize, workspaceFilteredRows.length)} of {workspaceFilteredRows.length} rows
+              </p>
+              <div className="flex items-center gap-2">
+                <Select value={String(pageSize)} onValueChange={(value) => { setPageSize(Number(value)); setPage(1); }}>
+                  <SelectTrigger className="w-24 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+                <span className="text-xs text-muted-foreground">Page {safePage} / {totalPages}</span>
+                <Button type="button" variant="outline" size="sm" disabled={safePage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
