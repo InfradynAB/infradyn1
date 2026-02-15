@@ -9,6 +9,28 @@ import { InviteMemberDialog } from "@/components/invite-member-dialog"; // Extra
 import { getSuppliers } from "@/lib/actions/supplier";
 import { Skeleton } from "@/components/ui/skeleton";
 
+function getAccessLabel(role: string) {
+    if (role === "SUPPLIER") return "Supplier Portal";
+    if (role === "ADMIN" || role === "SUPER_ADMIN") return "Organization Admin";
+    return "Project Workspace";
+}
+
+function getStatusBadge(status: string) {
+    const normalized = status.toUpperCase();
+
+    if (normalized === "ACTIVE" || normalized === "ACCEPTED") {
+        return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">Active</Badge>;
+    }
+    if (normalized === "PENDING") {
+        return <Badge variant="secondary">Pending</Badge>;
+    }
+    if (normalized === "REJECTED") {
+        return <Badge className="bg-red-500/15 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800">Rejected</Badge>;
+    }
+
+    return <Badge variant="outline">Inactive</Badge>;
+}
+
 export default async function TeamSettingsPage() {
     const suppliers = await getSuppliers();
 
@@ -81,6 +103,9 @@ async function TeamList() {
                             <TableHead>User</TableHead>
                             <TableHead>Email</TableHead>
                             <TableHead>Role</TableHead>
+                            <TableHead>Access</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Joined</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -97,11 +122,14 @@ async function TeamList() {
                                 <TableCell>
                                     <Badge variant="outline">{m.role}</Badge>
                                 </TableCell>
+                                <TableCell className="text-muted-foreground">{getAccessLabel(m.role)}</TableCell>
+                                <TableCell>{getStatusBadge((m.user as any).isDeleted ? "INACTIVE" : "ACTIVE")}</TableCell>
+                                <TableCell className="text-muted-foreground">{new Date(m.createdAt).toLocaleDateString()}</TableCell>
                             </TableRow>
                         ))}
                         {members.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={3} className="text-center text-muted-foreground">No members found.</TableCell>
+                                <TableCell colSpan={6} className="text-center text-muted-foreground">No members found.</TableCell>
                             </TableRow>
                         )}
                     </TableBody>
@@ -127,6 +155,7 @@ async function InvitationList() {
                         <TableRow>
                             <TableHead>Email</TableHead>
                             <TableHead>Role</TableHead>
+                            <TableHead>Access</TableHead>
                             <TableHead>Sent</TableHead>
                             <TableHead>Status</TableHead>
                         </TableRow>
@@ -136,9 +165,10 @@ async function InvitationList() {
                             <TableRow key={inv.id}>
                                 <TableCell>{inv.email}</TableCell>
                                 <TableCell>{inv.role}</TableCell>
+                                <TableCell className="text-muted-foreground">{getAccessLabel(inv.role)}</TableCell>
                                 <TableCell>{new Date(inv.createdAt).toLocaleDateString()}</TableCell>
                                 <TableCell>
-                                    <Badge variant="secondary">{inv.status}</Badge>
+                                    {getStatusBadge(inv.status)}
                                 </TableCell>
                             </TableRow>
                         ))}

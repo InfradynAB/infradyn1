@@ -999,9 +999,7 @@ function GlowCard({ children, noPad, className }: { children: React.ReactNode; n
     );
 }
 
-function GlowKPI({
-    label, value, icon: Icon, iconBg, iconColor, trend, trendDir, sideStat, sideLabel, subText, subHref,
-}: {
+function GlowKPI(props: {
     label: string; value: string; icon: React.ElementType; iconBg: string; iconColor: string;
     trend: string; trendDir: "up" | "down" | "alert" | "neutral";
     sideStat?: string;
@@ -1009,13 +1007,15 @@ function GlowKPI({
     subText?: string;
     subHref?: string;
 }) {
+    const { label, value, trend, trendDir, sideStat, sideLabel, subText, subHref } = props;
+
     return (
         <div className={cn(
-            "rounded-2xl border border-border/60 bg-card p-4",
+            "rounded-2xl border border-border/60 bg-card p-3.5",
             "shadow-sm transition-all duration-200",
         )}>
-            <div className="flex items-start justify-between gap-3 mb-3">
-                <p className="text-sm font-semibold text-foreground/90">{label}</p>
+            <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-medium text-foreground/90 leading-tight">{label}</p>
                 {trend && (
                     <span className={cn(
                         "inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap",
@@ -1031,23 +1031,29 @@ function GlowKPI({
                     </span>
                 )}
             </div>
-            <div className="flex items-end justify-between gap-3">
+
+            <div className="mt-3 flex items-end justify-between gap-3">
                 <p className="text-[1.75rem] font-semibold font-mono tracking-tight tabular-nums leading-none">{value}</p>
                 {sideStat && (
-                    <div className="text-right pb-0.5">
+                    <div className="text-right">
                         <p className="text-sm font-medium font-mono tabular-nums leading-none">{sideStat}</p>
-                        {sideLabel && <p className="text-[10px] text-muted-foreground mt-1">{sideLabel}</p>}
                     </div>
                 )}
             </div>
-            {subText && (
-                subHref ? (
-                    <Link href={subHref} className="text-[11px] text-muted-foreground mt-2 inline-block hover:text-foreground underline-offset-2 hover:underline">
-                        {subText}
-                    </Link>
-                ) : (
-                    <p className="text-[11px] text-muted-foreground mt-2">{subText}</p>
-                )
+
+            {(subText || sideLabel) && (
+                <div className="mt-1.5 flex items-end justify-between gap-2">
+                    {subText ? (
+                        subHref ? (
+                            <Link href={subHref} className="text-[11px] text-muted-foreground inline-block hover:text-foreground underline-offset-2 hover:underline truncate">
+                                {subText}
+                            </Link>
+                        ) : (
+                            <p className="text-[11px] text-muted-foreground truncate">{subText}</p>
+                        )
+                    ) : <span />}
+                    {sideLabel && <p className="text-[10px] text-muted-foreground text-right whitespace-nowrap">{sideLabel}</p>}
+                </div>
             )}
         </div>
     );
