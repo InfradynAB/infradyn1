@@ -84,3 +84,40 @@ The project is optimized for Vercel.
 
 1. **Environment Variables**: Add all `.env` keys to the project settings in the Vercel dashboard.
 2. **Cron Jobs**: The `vercel.json` file automatically configures crons for chasing and forecasting. Ensure `CRON_SECRET` is set in Vercel to match the one in your environment.
+
+---
+
+## 8. Backup & Disaster Recovery Configuration
+
+For production readiness, configure backup and recovery credentials in your secure CI/CD secret store:
+
+1. **Database Recovery Inputs**
+   - `POSTGRES_URL` (production source)
+   - `RESTORE_DB_URL` (staging/restore target)
+
+2. **Backup Storage (example: AWS S3)**
+   - Dedicated backup bucket (separate from app uploads)
+   - IAM credentials with least privilege for backup write/read lifecycle
+
+3. **Recovery Operations**
+   - Document and enforce Neon restore window in platform settings
+   - Configure scheduled backup and restore-drill jobs
+
+Reference: `docs/technical/handover/DISASTER_RECOVERY.md`
+
+### GitHub Actions secrets for DR automation
+
+Required for `.github/workflows/nightly-db-backup.yml` and `.github/workflows/weekly-restore-drill.yml`:
+
+- `PROD_POSTGRES_URL` (production DB URL for `pg_dump`)
+- `RESTORE_DB_URL` (staging/drill DB URL for restore testing)
+- `BACKUP_S3_BUCKET` (target bucket name)
+- `BACKUP_S3_PREFIX` (optional, default: `infradyn/backups`)
+- `AWS_REGION`
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+
+Optional:
+
+- `DR_SMOKE_URL` (endpoint to validate app behavior post-restore)
+- `DR_SMOKE_TOKEN` (Bearer token for smoke endpoint, if needed)

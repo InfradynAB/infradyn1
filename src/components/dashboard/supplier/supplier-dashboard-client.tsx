@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -23,7 +24,6 @@ import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 // Supplier Charts
 import { POStatusRadial } from "./charts/po-status-radial";
@@ -250,6 +250,7 @@ function mockMilestones(): MilestoneItem[] {
 // MAIN COMPONENT
 // ============================================
 export function SupplierDashboardClient({ initialTab }: { initialTab?: string }) {
+    const router = useRouter();
     const [loading, setLoading] = useState(true);
     const validTab = SECTIONS.find(s => s.id === initialTab)?.id;
     const [activeSection, setActiveSection] = useState<SectionId>(validTab || "overview");
@@ -368,11 +369,6 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
         return items;
     }, [milestones, searchQuery, statusFilter]);
 
-    // ── Export ──
-    const handleExport = useCallback((format: "csv" | "xlsx") => {
-        toast.success(`Exported supplier data as ${format.toUpperCase()}`);
-    }, []);
-
     if (loading) return <DashboardSkeleton />;
 
     const hasActiveFilters = searchQuery || projectFilter !== "all" || statusFilter !== "all";
@@ -431,8 +427,21 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleExport("csv")} className="text-xs gap-2"><FileText className="w-3.5 h-3.5" />CSV</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleExport("xlsx")} className="text-xs gap-2"><FileText className="w-3.5 h-3.5" />Excel</DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    const params = new URLSearchParams({
+                                        source: "supplier",
+                                        timeframe,
+                                    });
+                                    if (projectFilter !== "all") {
+                                        params.set("projectId", projectFilter);
+                                    }
+                                    router.push(`/dashboard/export?${params.toString()}`);
+                                }}
+                                className="text-xs gap-2"
+                            >
+                                <FileText className="w-3.5 h-3.5" />Open Export Center
+                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>

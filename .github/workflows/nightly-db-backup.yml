@@ -1,0 +1,72 @@
+name: Nightly DB Backup
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PROD_POSTGRES_URL: ${{ secrets.PROD_POSTGRES_URL }}
+      BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+      BACKUP_S3_PREFIX: ${{ secrets.BACKUP_S3_PREFIX }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          test -n "$PROD_POSTGRES_URL"
+          test -n "$BACKUP_S3_BUCKET"
+          test -n "$AWS_REGION"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Create backup artifact
+        run: |
+          set -euo pipefail
+          ts=$(date -u +"%Y-%m-%dT%H-%M-%SZ")
+          mkdir -p backups
+          dump_file="backups/infradyn-prod-${ts}.dump"
+          pg_dump "$PROD_POSTGRES_URL" \
+            --format=custom \
+            --no-owner \
+            --no-privileges \
+            --file "$dump_file"
+          sha256sum "$dump_file" > "${dump_file}.sha256"
+          echo "DUMP_FILE=$dump_file" >> "$GITHUB_ENV"
+          echo "TIMESTAMP=$ts" >> "$GITHUB_ENV"
+
+      - name: Upload backup to S3
+        run: |
+          set -euo pipefail
+          prefix="${BACKUP_S3_PREFIX:-infradyn/backups}"
+          aws s3 cp "$DUMP_FILE" "s3://${BACKUP_S3_BUCKET}/${prefix}/${TIMESTAMP}/"
+          aws s3 cp "${DUMP_FILE}.sha256" "s3://${BACKUP_S3_BUCKET}/${prefix}/${TIMESTAMP}/"
+
+      - name: Upload GitHub artifact copy
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-db-backup-${{ github.run_number }}
+          path: |
+            backups/*.dump
+            backups/*.sha256
+          retention-days: 7

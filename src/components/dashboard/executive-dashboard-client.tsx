@@ -16,12 +16,6 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
     Table,
     TableBody,
     TableCell,
@@ -41,9 +35,6 @@ import {
     TrendDown,
     CaretRight,
     Bell,
-    FileCsv,
-    FileXls,
-    ListBullets,
     ChartBar,
     MagnifyingGlass,
     Funnel,
@@ -53,7 +44,6 @@ import {
     Truck,
     Receipt,
     ArrowUp,
-    CaretDown,
     Lightning,
     Rows,
     Faders,
@@ -165,7 +155,7 @@ export function ExecutiveDashboardClient() {
     const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
     const [alerts, setAlerts] = useState<ComplianceAlert[]>([]);
     const [loading, setLoading] = useState(true);
-    const [exporting, setExporting] = useState(false);
+    const [, setExporting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [timeframe, setTimeframe] = useState("all");
     const [projectFilter, setProjectFilter] = useState("all");
@@ -390,19 +380,24 @@ export function ExecutiveDashboardClient() {
                         <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl" onClick={fetchDashboard}>
                             <ArrowsClockwise className={cn("w-4 h-4", loading && "animate-spin")} />
                         </Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-9 rounded-xl text-xs gap-1.5 px-3.5 bg-card" disabled={exporting}>
-                                    {exporting ? <ArrowsClockwise className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                                    Export <CaretDown className="w-3 h-3 text-muted-foreground" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="rounded-xl">
-                                <DropdownMenuItem onClick={() => handleExport("xlsx")}><FileXls className="w-4 h-4 mr-2" />Excel</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleExport("csv")}><FileCsv className="w-4 h-4 mr-2" />CSV</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleExport("json")}><ListBullets className="w-4 h-4 mr-2" />JSON</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 rounded-xl text-xs gap-1.5 px-3.5 bg-card"
+                            onClick={() => {
+                                const params = new URLSearchParams({
+                                    source: "executive",
+                                    timeframe,
+                                });
+                                if (projectFilter !== "all") {
+                                    params.set("projectId", projectFilter);
+                                }
+                                router.push(`/dashboard/export?${params.toString()}`);
+                            }}
+                        >
+                            <Download className="w-3.5 h-3.5" />
+                            Export
+                        </Button>
                     </div>
                 </div>
 

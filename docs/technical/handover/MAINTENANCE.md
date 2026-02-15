@@ -71,3 +71,29 @@ If automated forecasting or chasing isn't working:
 2. Ensure the `CRON_SECRET` header is being sent correctly by Vercel.
 3. Manually trigger the endpoint with the secret:
    `GET /api/cron/forecast?secret=YOUR_CRON_SECRET`
+
+---
+
+## 6. Disaster Recovery & Backups
+
+Use the dedicated DR runbook for database recovery procedures, ownership, and restore drills:
+
+- `docs/technical/handover/DISASTER_RECOVERY.md`
+
+Minimum operational requirements:
+
+1. Verify Neon restore window is set appropriately for production RPO.
+2. Run nightly logical backups (`pg_dump`) to independent storage.
+3. Run weekly restore drills into staging and record outcomes.
+4. Alert on backup or restore drill failures.
+
+Automation workflows included in repo:
+
+- `.github/workflows/nightly-db-backup.yml`
+- `.github/workflows/weekly-restore-drill.yml`
+
+Manual trigger path:
+
+1. GitHub → Actions → select workflow.
+2. Click **Run workflow**.
+3. Verify artifact upload + successful completion logs.

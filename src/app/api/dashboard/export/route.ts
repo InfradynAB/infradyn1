@@ -14,7 +14,35 @@ import {
 import { getMilestoneTrackerData, getSupplierProgressData } from "@/lib/services/report-engine";
 import { generateExcelReport, generateCSVReport, type DashboardExportData } from "@/lib/utils/excel-export";
 import db from "@/db/drizzle";
-import { auditLog } from "@/db/schema";
+import { auditLog, supplier } from "@/db/schema";
+import { eq } from "drizzle-orm";
+
+type ExportSource = "executive" | "pm" | "supplier";
+
+function resolveTimeframeDates(timeframe: string | null): { dateFrom?: Date } {
+    if (!timeframe || timeframe === "all") return {};
+    const now = new Date();
+    if (timeframe === "30d") return { dateFrom: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) };
+    if (timeframe === "90d") return { dateFrom: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) };
+    if (timeframe === "ytd") return { dateFrom: new Date(now.getFullYear(), 0, 1) };
+    return {};
+}
+
+function assertSourceAccess(role: string | undefined, source: ExportSource): boolean {
+    if (role === "SUPER_ADMIN" || role === "ADMIN") return true;
+    if (role === "PM") return source === "pm";
+    if (role === "SUPPLIER") return source === "supplier";
+    return source === "pm";
+}
+
+async function resolveSupplierIdForUser(userId: string, fallbackSupplierId?: string | null): Promise<string | undefined> {
+    if (fallbackSupplierId) return fallbackSupplierId;
+    const sup = await db.query.supplier.findFirst({
+        where: eq(supplier.userId, userId),
+        columns: { id: true },
+    });
+    return sup?.id;
+}
 
 export async function GET(request: NextRequest) {
     try {
@@ -30,11 +58,28 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url);
         const format = searchParams.get("format") || "xlsx";
+        const source = (searchParams.get("source") || "executive") as ExportSource;
         const reportType = (searchParams.get("type") || "detailed") as "summary" | "detailed";
         const projectId = searchParams.get("projectId") || undefined;
+        const timeframe = searchParams.get("timeframe");
+        const { dateFrom } = resolveTimeframeDates(timeframe);
+
+        if (!assertSourceAccess(session.user.role, source)) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+
+        const requestedSupplierId = searchParams.get("supplierId") || undefined;
+        const sessionSupplierId = await resolveSupplierIdForUser(session.user.id, session.user.supplierId || undefined);
+        const supplierId = source === "supplier"
+            ? (session.user.role === "SUPPLIER" ? sessionSupplierId : requestedSupplierId)
+            : undefined;
+
+        if (source === "supplier" && session.user.role === "SUPPLIER" && !supplierId) {
+            return NextResponse.json({ error: "Supplier context not found" }, { status: 400 });
+        }
 
         // Get all dashboard data
-        const filters = { organizationId: orgId, projectId };
+        const filters = { organizationId: orgId, projectId, supplierId, dateFrom };
         const [kpis, sCurve, coBreakdown, milestones, supplierProgress] = await Promise.all([
             getDashboardKPIs(filters),
             getSCurveData(filters),
@@ -43,13 +88,25 @@ export async function GET(request: NextRequest) {
             getSupplierProgressData(filters),
         ]);
 
+        const normalizedSupplierProgress = supplierId
+            ? supplierProgress.filter((row) => row.supplierId === supplierId)
+            : supplierProgress;
+
         // Log export action
         await db.insert(auditLog).values({
             userId: session.user.id,
             action: "DASHBOARD_EXPORT",
             entityType: "REPORT",
             entityId: orgId,
-            metadata: JSON.stringify({ format, reportType, projectId, organizationId: orgId }),
+            metadata: JSON.stringify({
+                format,
+                reportType,
+                source,
+                timeframe,
+                projectId,
+                supplierId,
+                organizationId: orgId,
+            }),
         });
 
         // Prepare export data
@@ -58,7 +115,7 @@ export async function GET(request: NextRequest) {
             sCurve,
             coBreakdown,
             milestones,
-            supplierProgress,
+            supplierProgress: normalizedSupplierProgress,
         };
 
         // Generate export based on format
@@ -70,7 +127,7 @@ export async function GET(request: NextRequest) {
             return new NextResponse(new Uint8Array(buffer), {
                 headers: {
                     "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    "Content-Disposition": `attachment; filename="dashboard-report-${new Date().toISOString().slice(0, 10)}.xlsx"`,
+                    "Content-Disposition": `attachment; filename="${source}-dashboard-report-${new Date().toISOString().slice(0, 10)}.xlsx"`,
                 },
             });
         }
@@ -80,7 +137,7 @@ export async function GET(request: NextRequest) {
             return new NextResponse(csv, {
                 headers: {
                     "Content-Type": "text/csv",
-                    "Content-Disposition": `attachment; filename="dashboard-${reportType}-${new Date().toISOString().slice(0, 10)}.csv"`,
+                    "Content-Disposition": `attachment; filename="${source}-dashboard-${reportType}-${new Date().toISOString().slice(0, 10)}.csv"`,
                 },
             });
         }
@@ -101,6 +158,7 @@ export async function GET(request: NextRequest) {
                 generatedAt: new Date().toISOString(),
                 generatedBy: session.user.name || session.user.email,
                 reportType,
+                source,
                 format,
             },
         });

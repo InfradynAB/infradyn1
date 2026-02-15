@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import {
     Select,
@@ -39,9 +39,7 @@ import {
     Warning,
     TrendUp,
     TrendDown,
-    FileCsv,
     FileXls,
-    ListBullets,
     Funnel,
     ShieldWarning,
     Package,
@@ -64,7 +62,6 @@ import {
     Faders,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import { PMOnboardingTour } from "./onboarding-tour";
 
 // PM Charts
@@ -147,6 +144,7 @@ const pct = (v: number | undefined | null, d = 1) => `${(Number(v) || 0).toFixed
 // MAIN COMPONENT
 // ============================================
 export function PMDashboardClient() {
+    const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const [data, setData] = useState<DashboardData | null>(null);
@@ -155,7 +153,6 @@ export function PMDashboardClient() {
     const [timeframe, setTimeframe] = useState("all");
     const [projectFilter, setProjectFilter] = useState("all");
     const [activeSection, setActiveSection] = useState<SectionId>("overview");
-    const [exporting, setExporting] = useState(false);
 
     // Filters & view modes
     const [searchQuery, setSearchQuery] = useState("");
@@ -360,21 +357,6 @@ export function PMDashboardClient() {
 
     useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
-    const handleExport = async (format: "xlsx" | "csv" | "json") => {
-        setExporting(true);
-        try {
-            const res = await fetch(`/api/dashboard/export?format=${format}&type=pm-detailed`);
-            if (!res.ok) throw new Error("Export failed");
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement("a"); a.href = url;
-            a.download = `pm-dashboard-${new Date().toISOString().slice(0, 10)}.${format}`;
-            a.click(); window.URL.revokeObjectURL(url);
-            toast.success(`${format.toUpperCase()} exported`);
-        } catch { toast.error("Export failed"); }
-        finally { setExporting(false); }
-    };
-
     const healthScore = data ? calcHealthScore(data.kpis) : 0;
     const healthBreakdown = data ? calcHealthBreakdown(data.kpis) : [];
     const overdueDeliveries = deliveries.filter(d => d.status === "delayed").length;
@@ -466,15 +448,26 @@ export function PMDashboardClient() {
                         </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs gap-1.5 px-3 bg-[#0E7490]/10 text-[#0E7490] hover:bg-[#0E7490]/15 border-[#0E7490]/35" disabled={exporting}>
-                                    {exporting ? <ArrowsClockwise className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                                <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs gap-1.5 px-3 bg-[#0E7490]/10 text-[#0E7490] hover:bg-[#0E7490]/15 border-[#0E7490]/35">
+                                    <Download className="w-3.5 h-3.5" />
                                     Export <CaretDown className="w-3 h-3 text-[#0E7490]/70" />
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="rounded-xl">
-                                <DropdownMenuItem onClick={() => handleExport("xlsx")}><FileXls className="w-4 h-4 mr-2" />Excel</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleExport("csv")}><FileCsv className="w-4 h-4 mr-2" />CSV</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleExport("json")}><ListBullets className="w-4 h-4 mr-2" />JSON</DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => {
+                                        const params = new URLSearchParams({
+                                            source: "pm",
+                                            timeframe,
+                                        });
+                                        if (projectFilter !== "all") {
+                                            params.set("projectId", projectFilter);
+                                        }
+                                        router.push(`/dashboard/export?${params.toString()}`);
+                                    }}
+                                >
+                                    <FileXls className="w-4 h-4 mr-2" />Open Export Center
+                                </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
@@ -1141,16 +1134,6 @@ function NCRStatCard({ label, value, color, alert }: { label: string; value: num
     return (
         <div className={cn("rounded-2xl border border-border/60 bg-card p-5 text-center", alert && "border-red-200/80 dark:border-red-800/40")}>
             <p className={cn("text-2xl font-semibold font-mono tabular-nums", palette)}>{value}</p>
-            <p className="text-xs text-muted-foreground mt-1 font-medium">{label}</p>
-        </div>
-    );
-}
-
-function MatStatCard({ label, value, color }: { label: string; value: string; color: "blue" | "emerald" | "amber" }) {
-    const palette = { blue: "text-blue-600 dark:text-blue-400", emerald: "text-emerald-600 dark:text-emerald-400", amber: "text-amber-600 dark:text-amber-400" }[color];
-    return (
-        <div className="rounded-2xl border border-border/60 bg-card p-5 text-center">
-            <p className={cn("text-xl font-semibold font-mono tabular-nums", palette)}>{value}</p>
             <p className="text-xs text-muted-foreground mt-1 font-medium">{label}</p>
         </div>
     );

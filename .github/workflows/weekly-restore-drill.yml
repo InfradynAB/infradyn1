@@ -1,0 +1,98 @@
+name: Weekly Restore Drill
+
+on:
+  schedule:
+    - cron: "0 2 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  restore-drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RESTORE_DB_URL: ${{ secrets.RESTORE_DB_URL }}
+      BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+      BACKUP_S3_PREFIX: ${{ secrets.BACKUP_S3_PREFIX }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      DR_SMOKE_URL: ${{ secrets.DR_SMOKE_URL }}
+      DR_SMOKE_TOKEN: ${{ secrets.DR_SMOKE_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          test -n "$RESTORE_DB_URL"
+          test -n "$BACKUP_S3_BUCKET"
+          test -n "$AWS_REGION"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Download latest backup from S3
+        run: |
+          set -euo pipefail
+          mkdir -p backups
+          prefix="${BACKUP_S3_PREFIX:-infradyn/backups}"
+          latest_key=$(aws s3 ls "s3://${BACKUP_S3_BUCKET}/${prefix}/" --recursive \
+            | awk '{print $4}' \
+            | grep '\.dump$' \
+            | sort \
+            | tail -n 1)
+          if [ -z "$latest_key" ]; then
+            echo "No backup dump files found in s3://${BACKUP_S3_BUCKET}/${prefix}/"
+            exit 1
+          fi
+          aws s3 cp "s3://${BACKUP_S3_BUCKET}/${latest_key}" "backups/latest.dump"
+          echo "LATEST_KEY=$latest_key" >> "$GITHUB_ENV"
+
+      - name: Restore backup into drill database
+        run: |
+          set -euo pipefail
+          pg_restore \
+            --clean \
+            --if-exists \
+            --no-owner \
+            --no-privileges \
+            --dbname "$RESTORE_DB_URL" \
+            backups/latest.dump
+
+      - name: Run restore sanity checks
+        run: |
+          set -euo pipefail
+          psql "$RESTORE_DB_URL" -f scripts/dr/restore-sanity.sql
+
+      - name: Optional API smoke check
+        if: ${{ env.DR_SMOKE_URL != '' }}
+        run: |
+          set -euo pipefail
+          if [ -n "$DR_SMOKE_TOKEN" ]; then
+            curl -fsS -H "Authorization: Bearer ${DR_SMOKE_TOKEN}" "$DR_SMOKE_URL"
+          else
+            curl -fsS "$DR_SMOKE_URL"
+          fi
+
+      - name: Upload drill metadata artifact
+        run: |
+          mkdir -p backups
+          printf "latest_backup_key=%s\nrun_utc=%s\n" "$LATEST_KEY" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" > backups/restore-drill.txt
+
+      - name: Upload drill report
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-restore-drill-${{ github.run_number }}
+          path: backups/restore-drill.txt
+          retention-days: 14
