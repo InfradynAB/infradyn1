@@ -117,12 +117,10 @@ export async function updateOrganization(formData: FormData) {
     }
 
     const orgId = formData.get("orgId") as string;
-    const name = formData.get("name") as string;
-    const slug = formData.get("slug") as string;
     const retentionPolicyDays = formData.get("retentionPolicyDays") as string;
     const contactEmail = formData.get("contactEmail") as string | null;
 
-    if (!orgId || !name || !slug) {
+    if (!orgId) {
         return { error: "Missing required fields" };
     }
 
@@ -142,8 +140,6 @@ export async function updateOrganization(formData: FormData) {
     try {
         await db.update(organization)
             .set({
-                name,
-                slug,
                 retentionPolicyDays: retentionPolicyDays ? parseInt(retentionPolicyDays) : 365,
                 contactEmail: contactEmail || null,
                 updatedAt: new Date(),
@@ -154,9 +150,6 @@ export async function updateOrganization(formData: FormData) {
         revalidatePath("/dashboard");
         return { success: true };
     } catch (error: any) {
-        if (error.code === "23505") {
-            return { error: "Slug already taken." };
-        }
         return { error: "Failed to update organization." };
     }
 }

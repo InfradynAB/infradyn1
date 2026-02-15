@@ -52,18 +52,16 @@ export default async function AdminDashboardPage() {
                     name: true,
                     email: true,
                     image: true,
+                    isDeleted: true,
                 }
             }
         },
         orderBy: (member, { desc }) => [desc(member.createdAt)]
     });
 
-    // Fetch pending invitations
-    const pendingInvites = await db.query.invitation.findMany({
-        where: and(
-            eq(invitation.organizationId, activeOrgId),
-            eq(invitation.status, "PENDING")
-        ),
+    // Fetch invitations (all statuses)
+    const invites = await db.query.invitation.findMany({
+        where: eq(invitation.organizationId, activeOrgId),
         orderBy: (invitation, { desc }) => [desc(invitation.createdAt)]
     });
 
@@ -85,7 +83,7 @@ export default async function AdminDashboardPage() {
 
     const stats = {
         totalMembers: members.length,
-        pendingInvites: pendingInvites.length,
+        pendingInvites: invites.filter((invite) => invite.status === "PENDING").length,
         activeProjects: projectCount[0]?.count || 0,
         activePOs: poCount[0]?.count || 0,
     };
@@ -97,9 +95,15 @@ export default async function AdminDashboardPage() {
                 name: org.name,
                 slug: org.slug,
                 logo: org.logo,
+                contactEmail: org.contactEmail,
+                phone: org.phone,
+                website: org.website,
+                industry: org.industry,
+                size: org.size,
+                description: org.description,
             }}
             members={members}
-            pendingInvites={pendingInvites}
+            pendingInvites={invites}
             stats={stats}
         />
     );

@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { InviteMemberDialog } from "@/components/invite-member-dialog"; // Extracting client logic
 import { getSuppliers } from "@/lib/actions/supplier";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default async function TeamSettingsPage() {
     const suppliers = await getSuppliers();
@@ -23,14 +24,44 @@ export default async function TeamSettingsPage() {
                 </div>
             </div>
 
-            <Suspense fallback={<p>Loading team...</p>}>
+            <Suspense fallback={<TeamListSkeleton />}>
                 <TeamList />
             </Suspense>
 
-            <Suspense fallback={<p>Loading invites...</p>}>
+            <Suspense fallback={<InvitationListSkeleton />}>
                 <InvitationList />
             </Suspense>
         </div>
+    );
+}
+
+function TeamListSkeleton() {
+    return (
+        <Card>
+            <CardHeader>
+                <Skeleton className="h-6 w-28" />
+                <Skeleton className="h-4 w-64" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+            </CardContent>
+        </Card>
+    );
+}
+
+function InvitationListSkeleton() {
+    return (
+        <Card>
+            <CardHeader>
+                <Skeleton className="h-6 w-40" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+            </CardContent>
+        </Card>
     );
 }
 

@@ -40,13 +40,16 @@ function OrgEditForm({ org }: { org: Organization }) {
             <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                     <Label htmlFor={`name-${org.id}`}>Organization Name</Label>
-                    <Input id={`name-${org.id}`} name="name" defaultValue={org.name} required />
+                    <Input id={`name-${org.id}`} value={org.name} disabled />
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor={`slug-${org.id}`}>Slug (URL Identifier)</Label>
-                    <Input id={`slug-${org.id}`} name="slug" defaultValue={org.slug} required />
+                    <Input id={`slug-${org.id}`} value={org.slug} disabled />
                 </div>
             </div>
+            <p className="text-xs text-muted-foreground">
+                Organization name and slug are locked and cannot be changed.
+            </p>
 
             <div className="space-y-2">
                 <Label htmlFor={`contactEmail-${org.id}`}>Contact Email (for notifications)</Label>
