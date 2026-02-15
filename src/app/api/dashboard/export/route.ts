@@ -16,6 +16,7 @@ import { generateExcelReport, generateCSVReport, type DashboardExportData } from
 import db from "@/db/drizzle";
 import { auditLog, supplier } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { buildTrafficCacheKey, getOrSetTrafficCache } from "@/lib/services/traffic-cache";
 
 type ExportSource = "executive" | "pm" | "supplier";
 
@@ -78,22 +79,43 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Supplier context not found" }, { status: 400 });
         }
 
-        // Get all dashboard data
-        const filters = { organizationId: orgId, projectId, supplierId, dateFrom };
-        const [kpis, sCurve, coBreakdown, milestones, supplierProgress] = await Promise.all([
-            getDashboardKPIs(filters),
-            getSCurveData(filters),
-            getCOBreakdown(filters),
-            getMilestoneTrackerData(filters),
-            getSupplierProgressData(filters),
+        const cacheKey = buildTrafficCacheKey("dashboard:export-data", [
+            orgId,
+            source,
+            reportType,
+            projectId,
+            supplierId,
+            dateFrom?.toISOString(),
         ]);
 
-        const normalizedSupplierProgress = supplierId
-            ? supplierProgress.filter((row) => row.supplierId === supplierId)
-            : supplierProgress;
+        const cached = await getOrSetTrafficCache(cacheKey, 30, async () => {
+            const filters = { organizationId: orgId, projectId, supplierId, dateFrom };
+            const [kpis, sCurve, coBreakdown, milestones, supplierProgress] = await Promise.all([
+                getDashboardKPIs(filters),
+                getSCurveData(filters),
+                getCOBreakdown(filters),
+                getMilestoneTrackerData(filters),
+                getSupplierProgressData(filters),
+            ]);
 
-        // Log export action
-        await db.insert(auditLog).values({
+            const normalizedSupplierProgress = supplierId
+                ? supplierProgress.filter((row) => row.supplierId === supplierId)
+                : supplierProgress;
+
+            const exportData: DashboardExportData = {
+                kpis,
+                sCurve,
+                coBreakdown,
+                milestones,
+                supplierProgress: normalizedSupplierProgress,
+            };
+
+            return exportData;
+        });
+
+        const exportData = cached.value;
+
+        void db.insert(auditLog).values({
             userId: session.user.id,
             action: "DASHBOARD_EXPORT",
             entityType: "REPORT",
@@ -106,17 +128,11 @@ export async function GET(request: NextRequest) {
                 projectId,
                 supplierId,
                 organizationId: orgId,
+                cache: `${cached.cache}:${cached.layer}`,
             }),
+        }).catch((error) => {
+            console.error("Dashboard export audit log error:", error);
         });
-
-        // Prepare export data
-        const exportData: DashboardExportData = {
-            kpis,
-            sCurve,
-            coBreakdown,
-            milestones,
-            supplierProgress: normalizedSupplierProgress,
-        };
 
         // Generate export based on format
         if (format === "xlsx" || format === "excel") {
@@ -147,6 +163,10 @@ export async function GET(request: NextRequest) {
                 success: true,
                 data: exportData,
                 exportedAt: new Date().toISOString(),
+            }, {
+                headers: {
+                    "x-infradyn-cache": `${cached.cache}:${cached.layer}`,
+                },
             });
         }
 

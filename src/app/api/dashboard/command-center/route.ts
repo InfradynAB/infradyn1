@@ -15,6 +15,7 @@ import {
 } from "@/db/schema";
 import { eq, and, desc, inArray, lt, gte, sql, not } from "drizzle-orm";
 import { getFinancialKPIs, getProgressKPIs } from "@/lib/services/kpi-engine";
+import { buildTrafficCacheKey, getOrSetTrafficCache } from "@/lib/services/traffic-cache";
 
 /**
  * Command Center API
@@ -44,30 +45,37 @@ export async function GET() {
             });
         }
 
-        // Fetch all data in parallel for efficiency
-        const [
-            projectsData,
-            alertsData,
-            activityData,
-            quickStatsData,
-        ] = await Promise.all([
-            fetchProjects(organizationId),
-            fetchAlerts(organizationId),
-            fetchRecentActivity(organizationId),
-            fetchQuickStats(organizationId),
-        ]);
+        const cacheKey = buildTrafficCacheKey("dashboard:command-center", [organizationId]);
+        const cached = await getOrSetTrafficCache(cacheKey, 20, async () => {
+            const [
+                projectsData,
+                alertsData,
+                activityData,
+                quickStatsData,
+            ] = await Promise.all([
+                fetchProjects(organizationId),
+                fetchAlerts(organizationId),
+                fetchRecentActivity(organizationId),
+                fetchQuickStats(organizationId),
+            ]);
 
-        // Generate AI summary based on data
-        const aiSummary = generateAISummary(projectsData, alertsData, quickStatsData);
+            const aiSummary = generateAISummary(projectsData, alertsData, quickStatsData);
 
-        return NextResponse.json({
-            success: true,
-            data: {
+            return {
                 projects: projectsData,
                 alerts: alertsData,
                 activity: activityData,
                 aiSummary,
                 quickStats: quickStatsData,
+            };
+        });
+
+        return NextResponse.json({
+            success: true,
+            data: cached.value,
+        }, {
+            headers: {
+                "x-infradyn-cache": `${cached.cache}:${cached.layer}`,
             },
         });
     } catch (error) {

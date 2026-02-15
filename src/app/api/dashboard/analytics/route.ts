@@ -11,6 +11,7 @@ import {
     getSCurveData,
     getCOBreakdown,
 } from "@/lib/services/kpi-engine";
+import { buildTrafficCacheKey, getOrSetTrafficCache } from "@/lib/services/traffic-cache";
 
 export async function GET(request: NextRequest) {
     try {
@@ -49,21 +50,36 @@ export async function GET(request: NextRequest) {
             dateTo,
         };
 
-        // Fetch all data in parallel
-        const [kpis, sCurve, coBreakdown] = await Promise.all([
-            getDashboardKPIs(filters),
-            getSCurveData(filters),
-            getCOBreakdown(filters),
+        const cacheKey = buildTrafficCacheKey("dashboard:analytics", [
+            organizationId,
+            projectId,
+            supplierId,
+            dateFrom?.toISOString(),
+            dateTo?.toISOString(),
         ]);
 
-        return NextResponse.json({
-            success: true,
-            data: {
+        const cached = await getOrSetTrafficCache(cacheKey, 30, async () => {
+            const [kpis, sCurve, coBreakdown] = await Promise.all([
+                getDashboardKPIs(filters),
+                getSCurveData(filters),
+                getCOBreakdown(filters),
+            ]);
+
+            return {
                 kpis,
                 charts: {
                     sCurve,
                     coBreakdown,
                 },
+            };
+        });
+
+        return NextResponse.json({
+            success: true,
+            data: cached.value,
+        }, {
+            headers: {
+                "x-infradyn-cache": `${cached.cache}:${cached.layer}`,
             },
         });
     } catch (error) {

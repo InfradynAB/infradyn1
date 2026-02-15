@@ -9,6 +9,7 @@ import { XCircle, Buildings, ShieldCheck } from "@phosphor-icons/react/dist/ssr"
 import { InviteClient } from "@/components/invite/invite-client";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
+import { ModeToggle } from "@/components/themes/mode-toggle";
 
 // This is a public page, but validation happens in server action
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
@@ -40,7 +41,11 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
 
     if (isInvalid) {
         return (
-            <div className="flex min-h-screen">
+            <div className="flex min-h-screen relative">
+                {/* Theme Toggle */}
+                <div className="absolute top-4 right-4 z-50">
+                    <ModeToggle />
+                </div>
                 {/* Left Panel - Branding */}
                 <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-destructive/5 via-background to-destructive/10 flex-col justify-center items-center p-12">
                     <div className="max-w-md text-center space-y-6">
@@ -86,7 +91,11 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
 
     // Pass serializable data to client component
     return (
-        <div className="flex min-h-screen">
+        <div className="flex min-h-screen relative">
+            {/* Theme Toggle */}
+            <div className="absolute top-4 right-4 z-50">
+                <ModeToggle />
+            </div>
             {/* Left Panel - Branding & Welcome */}
             <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/5 via-background to-primary/10 flex-col justify-center items-center p-12 relative overflow-hidden">
                 {/* Background decoration */}
