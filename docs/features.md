@@ -248,3 +248,14 @@ This allows weekly demos and prevents bottlenecks.
 - **Includes:** Decoupled FastAPI extraction service, circuit-breaking health checks, async document queues.
 - **Independent**
 - **Test:** Upload 10+ documents simultaneously → UI remains responsive.
+
+---
+
+## Phase 14 — AI Assistant
+
+### Feature 38 — AI Procurement Copilot
+- **Goal:** Provide a context-aware AI assistant embedded in the dashboard to help users query data and navigate features.
+- **Includes:** Floating chat widget, GPT-4o with tool calling, role-scoped tools (10 tools), SSE streaming, role-aware system prompts, multi-tenancy scoping, guardrails against off-topic usage.
+- **Independent:** Fully functional read-only assistant; no dependency on other unreleased features.
+- **Test:** PM asks "What's my project status?" → AI calls `get_project_overview` tool → returns live data. Supplier asks "How do I respond to an NCR?" → AI gives supplier-specific instructions. User asks "Make me a to-do app" → AI refuses.
+- **Docs:** See `docs/technical/ai-assistant.md` for full architecture.

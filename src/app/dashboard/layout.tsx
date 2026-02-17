@@ -1,4 +1,5 @@
 import { SidebarWrapper } from "@/components/dashboard/sidebar-wrapper"
+import { AIAssistantWidget } from "@/components/ai-assistant/ai-assistant-widget"
 import { UserMenu } from "@/components/user-menu"
 import { ModeToggle } from "@/components/themes/mode-toggle"
 import {
@@ -217,6 +218,11 @@ export default async function DashboardLayout({
                     {children}
                 </div>
             </SidebarInset>
+            <AIAssistantWidget
+                user={user}
+                activeOrgId={activeOrgId}
+                activeProjectId={activeProjectId}
+            />
         </SidebarProvider>
     )
 }
