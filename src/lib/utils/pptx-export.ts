@@ -283,6 +283,69 @@ function safeIso(date: Date): string {
     }
 }
 
+function hasAnyNonZero(values: number[]): boolean {
+    return values.some((v) => Number.isFinite(v) && Math.abs(v) > 1e-9);
+}
+
+function looksLikePercent01(maxValue: number): boolean {
+    // If series values are 0..1-ish, treat as normalized percent and scale.
+    return Number.isFinite(maxValue) && maxValue > 0 && maxValue <= 1.5;
+}
+
+function formatCategoryLabel(raw: string): string {
+    // Common formats we emit: YYYY-MM, YYYY-MM-DD
+    const m1 = raw.match(/^(\d{4})-(\d{2})$/);
+    if (m1) {
+        const year = m1[1].slice(2);
+        const monthNum = Number(m1[2]);
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const mon = monthNames[Math.min(12, Math.max(1, monthNum)) - 1] ?? m1[2];
+        return `${mon} '${year}`;
+    }
+
+    const m2 = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m2) {
+        return `${m2[2]}/${m2[3]}`;
+    }
+
+    return raw.length > 12 ? `${raw.slice(0, 10)}…` : raw;
+}
+
+function addEmptyChartState(slide: PptxSlide, message: string) {
+    // Matches chart area in our templates.
+    slide.addShape("roundRect" as PptxShapeType, {
+        x: 0.6,
+        y: 1.35,
+        w: 12.1,
+        h: 5.7,
+        fill: { color: THEME.surface },
+        line: { color: THEME.border, pt: 1 },
+    });
+
+    slide.addText(message, {
+        x: 0.6,
+        y: 3.7,
+        w: 12.1,
+        h: 0.6,
+        fontFace: "Calibri",
+        fontSize: 16,
+        bold: true,
+        align: "center",
+        color: THEME.muted,
+    });
+
+    slide.addText("Try a wider timeframe or confirm data exists for this scope.", {
+        x: 0.6,
+        y: 4.15,
+        w: 12.1,
+        h: 0.4,
+        fontFace: "Calibri",
+        fontSize: 12,
+        align: "center",
+        color: THEME.muted2,
+    });
+}
+
 function buildWeeklyConclusion(kpis: DashboardExportData["kpis"]): string[] {
     const onTime = Number(kpis.logistics.onTimeRate) || 0;
     const progress = Number(kpis.progress.physicalProgress) || 0;
@@ -631,25 +694,34 @@ export async function generatePptxReport(
             const slide = nextSlide(options.timeframeLabel);
             addHeader(slide, "S-Curve", options.timeframeLabel);
 
-            const labels = exportData.sCurve.map((p) => p.month);
-            const planned = exportData.sCurve.map((p) => p.plannedCumulative);
-            const actual = exportData.sCurve.map((p) => p.actualCumulative);
+            const labels = exportData.sCurve.map((p) => formatCategoryLabel(p.month));
+            const plannedRaw = exportData.sCurve.map((p) => Number(p.plannedCumulative ?? 0));
+            const actualRaw = exportData.sCurve.map((p) => Number(p.actualCumulative ?? 0));
 
-            const chartData = [
-                { name: "Planned", labels, values: planned },
-                { name: "Actual", labels, values: actual },
-            ] satisfies PptxChartData;
+            const maxVal = Math.max(0, ...plannedRaw, ...actualRaw);
+            const scaleToPct = looksLikePercent01(maxVal);
+            const planned = scaleToPct ? plannedRaw.map((v) => v * 100) : plannedRaw;
+            const actual = scaleToPct ? actualRaw.map((v) => v * 100) : actualRaw;
 
-            const chartOpts: PptxChartOpts = {
-                x: 0.6,
-                y: 1.35,
-                w: 12.1,
-                h: 5.7,
-                showLegend: true,
-                legendPos: "t",
-            };
+            if (!hasAnyNonZero(planned) && !hasAnyNonZero(actual)) {
+                addEmptyChartState(slide, "No S-curve data for this timeframe");
+            } else {
+                const chartData = [
+                    { name: "Planned", labels, values: planned },
+                    { name: "Actual", labels, values: actual },
+                ] satisfies PptxChartData;
 
-            slide.addChart(pptx.ChartType.line, chartData, chartOpts);
+                const chartOpts: PptxChartOpts = {
+                    x: 0.6,
+                    y: 1.35,
+                    w: 12.1,
+                    h: 5.7,
+                    showLegend: true,
+                    legendPos: "t",
+                };
+
+                slide.addChart(pptx.ChartType.line, chartData, chartOpts);
+            }
         }
 
         // Change order breakdown
@@ -661,43 +733,74 @@ export async function generatePptxReport(
             const labels = ["Scope", "Rate", "Quantity", "Schedule"];
             const values = [co.scope, co.rate, co.quantity, co.schedule];
 
-            const chartData = [{ name: "CO", labels, values }] satisfies PptxChartData;
+            const total = Number(co.total ?? 0);
+            const hasData = total > 0 || hasAnyNonZero(values.map((v) => Number(v ?? 0)));
+            if (!hasData) {
+                addEmptyChartState(slide, "No approved change orders in this timeframe");
 
-            const chartOpts: PptxChartOpts = {
-                x: 0.6,
-                y: 1.35,
-                w: 6.1,
-                h: 5.7,
-                showLegend: true,
-                legendPos: "r",
-                dataLabelPosition: "bestFit",
-            };
-
-            slide.addChart(pptx.ChartType.pie, chartData, chartOpts);
-
-            slide.addText(`Total: ${fmtNumber(co.total)}`, {
-                x: 7.0,
-                y: 2.2,
-                w: 5.7,
-                h: 0.5,
-                fontFace: "Calibri",
-                fontSize: 18,
-                bold: true,
-                color: THEME.text,
-            });
-
-            slide.addText(
-                "Breakdown of approved change order value by category.",
-                {
+                // Keep the explanatory text on the right so the slide isn't empty.
+                slide.addText("Total: 0", {
                     x: 7.0,
-                    y: 2.75,
+                    y: 2.2,
                     w: 5.7,
-                    h: 1.0,
+                    h: 0.5,
                     fontFace: "Calibri",
-                    fontSize: 12,
-                    color: THEME.muted,
-                },
-            );
+                    fontSize: 18,
+                    bold: true,
+                    color: THEME.text,
+                });
+
+                slide.addText(
+                    "Breakdown of approved change order value by category.",
+                    {
+                        x: 7.0,
+                        y: 2.75,
+                        w: 5.7,
+                        h: 1.0,
+                        fontFace: "Calibri",
+                        fontSize: 12,
+                        color: THEME.muted,
+                    },
+                );
+            } else {
+                const chartData = [{ name: "CO", labels, values }] satisfies PptxChartData;
+
+                const chartOpts: PptxChartOpts = {
+                    x: 0.6,
+                    y: 1.35,
+                    w: 6.1,
+                    h: 5.7,
+                    showLegend: true,
+                    legendPos: "r",
+                    dataLabelPosition: "bestFit",
+                };
+
+                slide.addChart(pptx.ChartType.pie, chartData, chartOpts);
+
+                slide.addText(`Total: ${fmtNumber(co.total)}`, {
+                    x: 7.0,
+                    y: 2.2,
+                    w: 5.7,
+                    h: 0.5,
+                    fontFace: "Calibri",
+                    fontSize: 18,
+                    bold: true,
+                    color: THEME.text,
+                });
+
+                slide.addText(
+                    "Breakdown of approved change order value by category.",
+                    {
+                        x: 7.0,
+                        y: 2.75,
+                        w: 5.7,
+                        h: 1.0,
+                        fontFace: "Calibri",
+                        fontSize: 12,
+                        color: THEME.muted,
+                    },
+                );
+            }
         }
     }
 
