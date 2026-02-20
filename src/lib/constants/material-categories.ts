@@ -122,6 +122,132 @@ export function isValidMaterialClass(
     return classes?.includes(materialClass) ?? false;
 }
 
+function normalizeText(value: string): string {
+    return value
+        .toLowerCase()
+        .trim()
+        .replace(/&/g, ' and ')
+        .replace(/\//g, ' / ')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function levenshteinDistance(a: string, b: string): number {
+    if (a === b) return 0;
+    if (!a) return b.length;
+    if (!b) return a.length;
+
+    const prev = new Array<number>(b.length + 1);
+    const curr = new Array<number>(b.length + 1);
+
+    for (let j = 0; j <= b.length; j++) prev[j] = j;
+
+    for (let i = 1; i <= a.length; i++) {
+        curr[0] = i;
+        const aChar = a.charCodeAt(i - 1);
+        for (let j = 1; j <= b.length; j++) {
+            const cost = aChar === b.charCodeAt(j - 1) ? 0 : 1;
+            curr[j] = Math.min(
+                prev[j] + 1,
+                curr[j - 1] + 1,
+                prev[j - 1] + cost,
+            );
+        }
+        for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+    }
+
+    return prev[b.length];
+}
+
+/**
+ * Best-effort coercion of a stored/AI/user-provided value into a valid Discipline key.
+ * Returns null for empty/uncategorised/unknown values.
+ */
+export function normalizeDisciplineKey(value: unknown): Discipline | null {
+    if (typeof value !== 'string') return null;
+    const raw = value.trim();
+    if (!raw) return null;
+
+    const upper = raw.toUpperCase();
+    if (upper === 'UNCATEGORISED' || upper === 'UNCATEGORIZED') return null;
+    if (isDiscipline(upper)) return upper;
+
+    const rawNorm = normalizeText(raw);
+    for (const discipline of DISCIPLINES) {
+        const keyNorm = normalizeText(discipline);
+        const labelNorm = normalizeText(DISCIPLINE_LABELS[discipline]);
+
+        if (rawNorm === keyNorm || rawNorm === labelNorm) return discipline;
+
+        // Common case: partial labels like "Groundworks" should map to
+        // "Groundworks & Substructure".
+        if (labelNorm.startsWith(rawNorm) && rawNorm.length >= 4) return discipline;
+    }
+
+    return null;
+}
+
+/**
+ * Coerces a stored/AI/user-provided materialClass into a valid canonical class string
+ * for the given discipline. Returns null when discipline is invalid or no match found.
+ */
+export function normalizeMaterialClass(
+    discipline: unknown,
+    materialClass: unknown,
+): string | null {
+    const normalizedDiscipline = normalizeDisciplineKey(discipline);
+    if (!normalizedDiscipline) return null;
+    if (typeof materialClass !== 'string') return null;
+
+    const raw = materialClass.trim();
+    if (!raw) return null;
+
+    const classes = MATERIAL_CLASS_MAP[normalizedDiscipline];
+    if (classes.includes(raw)) return raw;
+
+    const rawNorm = normalizeText(raw);
+    const exact = classes.find((mc) => normalizeText(mc) === rawNorm);
+    if (exact) return exact;
+
+    // Fuzzy match for truncations/typos (e.g. "Facades / Cladc" → "Facades / Cladding")
+    if (rawNorm.length >= 4) {
+        const containsMatches = classes.filter((mc) => {
+            const mcNorm = normalizeText(mc);
+            return mcNorm.includes(rawNorm) || rawNorm.includes(mcNorm);
+        });
+
+        if (containsMatches.length === 1) return containsMatches[0];
+
+        const prefixMatches = classes.filter((mc) => {
+            const mcNorm = normalizeText(mc);
+            return mcNorm.startsWith(rawNorm) || rawNorm.startsWith(mcNorm);
+        });
+        if (prefixMatches.length === 1) return prefixMatches[0];
+
+        // Edit-distance fallback: pick the single closest match if it's "close enough".
+        const scored = classes
+            .map((mc) => ({ mc, score: levenshteinDistance(normalizeText(mc), rawNorm) }))
+            .sort((a, b) => a.score - b.score);
+
+        const best = scored[0];
+        const second = scored[1];
+
+        // Threshold scales slightly with string length; also require separation from runner-up
+        // to avoid random matches.
+        const threshold = Math.max(2, Math.floor(rawNorm.length * 0.25));
+        if (
+            best &&
+            best.score <= threshold &&
+            (!second || second.score - best.score >= 2)
+        ) {
+            return best.mc;
+        }
+    }
+
+    return null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GPT PROMPT SNIPPET  (imported by ai-extraction.ts to keep prompts in sync)
 // ─────────────────────────────────────────────────────────────────────────────

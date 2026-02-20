@@ -161,10 +161,10 @@ async function extractTextWithTextractAsync(
 
         console.log(`[Textract] Job started: ${jobId}`);
 
-        // Poll for completion (max 3 minutes for large multi-page PDFs)
+        // Poll for completion (large multi-page PDFs/BOQs can take several minutes)
         let status = "IN_PROGRESS";
         let attempts = 0;
-        const maxAttempts = 90; // 90 attempts * 2 seconds = 180 seconds (3 min) max
+        const maxAttempts = 240; // 240 attempts * 2 seconds = 480 seconds (8 min) max
         let allBlocks: any[] = [];
 
         while (status === "IN_PROGRESS" && attempts < maxAttempts) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { extractPOFromS3 } from "@/lib/services/ai-extraction";
+import { categorizeBOQItemsWithOptions } from "@/lib/services/boq-categorization";
 
 export async function POST(request: NextRequest) {
     try {
@@ -34,9 +35,18 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        const data = result.data;
+        if (data?.boqItems?.length) {
+            try {
+                data.boqItems = await categorizeBOQItemsWithOptions(data.boqItems, { requireAll: true });
+            } catch (e) {
+                console.warn("[PO Extract] BOQ categorization failed; returning uncategorized BOQ items", e);
+            }
+        }
+
         return NextResponse.json({
             success: true,
-            data: result.data,
+            data,
         });
     } catch (error) {
         console.error("[API /api/po/extract] Error:", error);

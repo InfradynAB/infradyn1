@@ -4,6 +4,10 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { importFromExcel, generateBOQTemplate } from "@/lib/services/excel-importer";
 import { getDownloadPresignedUrl } from "@/lib/services/s3";
+import { categorizeBOQItemsWithOptions } from "@/lib/services/boq-categorization";
+import type { BOQLikeItem } from "@/lib/services/boq-categorization";
+import { extractTextWithTextract } from "@/lib/services/ai-extraction";
+import { parseBOQWithGPT } from "@/lib/services/boq-extraction";
 import * as XLSX from "xlsx";
 
 const requestSchema = z.object({
@@ -82,11 +86,40 @@ export async function POST(request: NextRequest) {
             const result = await importFromExcel(Buffer.from(buffer));
 
             if (result.success && result.structure.type === "BOQ") {
+                const rawItems: unknown[] = Array.isArray(result.data) ? (result.data as unknown[]) : [];
+                const itemsForCategorization: BOQLikeItem[] = [];
+                for (const it of rawItems) {
+                    if (typeof it !== "object" || it === null) continue;
+                    const obj = it as Record<string, unknown>;
+                    itemsForCategorization.push({
+                        itemNumber: typeof obj.itemNumber === "string" ? obj.itemNumber : undefined,
+                        description: typeof obj.description === "string" ? obj.description : "",
+                        unit: typeof obj.unit === "string" ? obj.unit : undefined,
+                        quantity: typeof obj.quantity === "number" ? obj.quantity : undefined,
+                        unitPrice: typeof obj.unitPrice === "number" ? obj.unitPrice : undefined,
+                        totalPrice: typeof obj.totalPrice === "number" ? obj.totalPrice : undefined,
+                        discipline:
+                            typeof obj.discipline === "string" || obj.discipline === null
+                                ? (obj.discipline as string | null)
+                                : undefined,
+                        materialClass:
+                            typeof obj.materialClass === "string" || obj.materialClass === null
+                                ? (obj.materialClass as string | null)
+                                : undefined,
+                    });
+                }
+
+                let categorized: unknown[] = rawItems;
+                try {
+                    categorized = await categorizeBOQItemsWithOptions(itemsForCategorization, { requireAll: true });
+                } catch (e) {
+                    console.warn("[BOQ Extract] Categorization failed; returning uncategorized items", e);
+                }
                 return NextResponse.json({
                     success: true,
-                    items: result.data,
+                    items: categorized,
                     source: "excel",
-                    rowCount: (result.data as any[]).length,
+                    rowCount: categorized.length,
                     confidence: result.structure.confidence,
                 });
             }
@@ -95,24 +128,51 @@ export async function POST(request: NextRequest) {
             const workbook = XLSX.read(buffer, { type: "buffer" });
             const sheetName = workbook.SheetNames[0];
             const sheet = workbook.Sheets[sheetName];
-            const rows = XLSX.utils.sheet_to_json(sheet);
+            const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
 
             // Manual parsing for common BOQ columns
-            const items = rows.map((row: any, index: number) => ({
-                itemNumber: row["Item"] || row["Item #"] || row["No."] || row["No"] || String(index + 1),
-                description: row["Description"] || row["Item Description"] || row["Material"] || "",
-                quantity: parseFloat(row["Quantity"] || row["Qty"] || row["QTY"] || 1),
-                unit: row["Unit"] || row["UOM"] || "pcs",
-                unitPrice: parseFloat(row["Unit Price"] || row["Price"] || row["Rate"] || 0),
-                totalPrice: parseFloat(row["Total"] || row["Amount"] || row["Total Price"] || 0) ||
-                    (parseFloat(row["Quantity"] || 1) * parseFloat(row["Unit Price"] || 0)),
-            })).filter((item: any) => item.description);
+            const num = (v: unknown, fallback: number) => {
+                const n = typeof v === "number" ? v : Number(String(v ?? "").replace(/[^0-9.-]/g, ""));
+                return Number.isFinite(n) ? n : fallback;
+            };
+            const str = (v: unknown, fallback: string) => {
+                const s = typeof v === "string" ? v : String(v ?? "");
+                const t = s.trim();
+                return t ? t : fallback;
+            };
+
+            const items = rows
+                .map((row, index) => {
+                    const quantity = num(row["Quantity"] ?? row["Qty"] ?? row["QTY"], 1);
+                    const unitPrice = num(row["Unit Price"] ?? row["Price"] ?? row["Rate"], 0);
+                    const totalPrice = num(
+                        row["Total"] ?? row["Amount"] ?? row["Total Price"],
+                        quantity * unitPrice,
+                    );
+
+                    return {
+                        itemNumber: str(row["Item"] ?? row["Item #"] ?? row["No."] ?? row["No"], String(index + 1)),
+                        description: str(row["Description"] ?? row["Item Description"] ?? row["Material"], ""),
+                        quantity,
+                        unit: str(row["Unit"] ?? row["UOM"], "pcs"),
+                        unitPrice,
+                        totalPrice,
+                    };
+                })
+                .filter((item) => item.description);
+
+            let categorized = items;
+            try {
+                categorized = await categorizeBOQItemsWithOptions(items, { requireAll: true });
+            } catch (e) {
+                console.warn("[BOQ Extract] Categorization failed; returning uncategorized items", e);
+            }
 
             return NextResponse.json({
                 success: true,
-                items,
+                items: categorized,
                 source: "excel-manual",
-                rowCount: items.length,
+                rowCount: categorized.length,
             });
         }
 
@@ -127,37 +187,48 @@ export async function POST(request: NextRequest) {
         ) {
             console.log("[BOQ Extract] Processing PDF/Word for BOQ extraction");
 
-            // Get incoming headers to forward auth cookies
-            const reqHeaders = await headers();
-            const cookie = reqHeaders.get("cookie") || "";
-
-            // Call the existing PO extraction which includes BOQ
-            const extractResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ""}/api/po/extract`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Cookie": cookie, // Forward auth cookies
-                },
-                body: JSON.stringify({ fileUrl }),
-            });
-
-            const extractResult = await extractResponse.json();
-            console.log("[BOQ Extract] PO extraction result:", extractResult.success, "BOQ items:", extractResult.data?.boqItems?.length || 0);
-
-            if (extractResult.success && extractResult.data?.boqItems && extractResult.data.boqItems.length > 0) {
+            const s3KeyForTextract = extractS3Key(fileUrl);
+            if (!s3KeyForTextract) {
                 return NextResponse.json({
-                    success: true,
-                    items: extractResult.data.boqItems,
-                    source: "ai-pdf",
-                    rowCount: extractResult.data.boqItems.length,
-                });
+                    success: false,
+                    error: "Could not determine S3 key for BOQ document",
+                    items: [],
+                }, { status: 200 });
             }
 
-            // Return empty but success to not block other extractions
+            const bucket = process.env.AWS_S3_BUCKET || "infradyn-storage";
+            const textract = await extractTextWithTextract(bucket, s3KeyForTextract);
+
+            if (!textract.success || !textract.text) {
+                return NextResponse.json({
+                    success: false,
+                    error: textract.error || "Textract extraction failed",
+                    items: [],
+                }, { status: 200 });
+            }
+
+            const parsed = await parseBOQWithGPT(textract.text);
+            if (!parsed.success) {
+                return NextResponse.json({
+                    success: false,
+                    error: parsed.error || "Failed to parse BOQ items",
+                    items: [],
+                }, { status: 200 });
+            }
+
+            // Final pass: coerce to canonical taxonomy keys/classes and ensure fully categorized.
+            let categorized = parsed.items;
+            try {
+                categorized = await categorizeBOQItemsWithOptions(categorized, { requireAll: true });
+            } catch (e) {
+                console.warn("[BOQ Extract] Categorization failed; returning GPT-extracted items", e);
+            }
+
             return NextResponse.json({
-                success: false,
-                error: "No BOQ items found in PDF",
-                items: [],
+                success: true,
+                items: categorized,
+                source: "boq-ai-pdf",
+                rowCount: categorized.length,
             });
         }
 

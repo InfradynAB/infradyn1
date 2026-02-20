@@ -8,6 +8,7 @@ import {
     testGoogleSheetConnection,
     listSheetsInSpreadsheet
 } from "@/lib/services/google-sheets";
+import { categorizeBOQItemsWithOptions } from "@/lib/services/boq-categorization";
 
 const importSchema = z.object({
     spreadsheetUrl: z.string().url().optional(),
@@ -60,9 +61,16 @@ export async function POST(request: NextRequest) {
             sheetName: validated.sheetName,
         });
 
+        let categorized = result.items;
+        try {
+            categorized = await categorizeBOQItemsWithOptions(result.items, { requireAll: true });
+        } catch (e) {
+            console.warn("[Google Sheets Import] Categorization failed; returning uncategorized items", e);
+        }
+
         return NextResponse.json({
             success: true,
-            items: result.items,
+            items: categorized,
             sheetName: result.sheetName,
             rowsProcessed: result.rowsProcessed,
             warnings: result.warnings,

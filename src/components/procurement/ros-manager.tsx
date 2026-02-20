@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -52,6 +52,8 @@ import {
     DISCIPLINES,
     DISCIPLINE_LABELS,
     MATERIAL_CLASS_MAP,
+    normalizeDisciplineKey,
+    normalizeMaterialClass,
 } from "@/lib/constants/material-categories";
 
 export interface BOQItemWithROS {
@@ -105,6 +107,29 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
     // Calculate totals
     const boqTotal = boqItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
 
+    // Normalize legacy/dirty discipline/materialClass values so cascaded selects always work.
+    // This prevents cases where discipline was stored as a label (e.g. "Envelope") or the
+    // materialClass doesn't exactly match the canonical taxonomy.
+    useEffect(() => {
+        let changed = false;
+        const normalized = boqItems.map((item) => {
+            const discipline = normalizeDisciplineKey(item.discipline ?? null);
+            const materialClass = normalizeMaterialClass(discipline, item.materialClass ?? null);
+
+            const prevDiscipline = item.discipline ?? null;
+            const prevMaterialClass = item.materialClass ?? null;
+
+            if (discipline !== prevDiscipline || materialClass !== prevMaterialClass) {
+                changed = true;
+                return { ...item, discipline, materialClass };
+            }
+
+            return item;
+        });
+
+        if (changed) onChange(normalized);
+    }, [boqItems, onChange]);
+
     // Handle Excel/PDF file upload
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -156,6 +181,8 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
                     totalPrice: item.totalPrice || (item.quantity * item.unitPrice) || 0,
                     isCritical: false,
                     rosStatus: "NOT_SET" as const,
+                    discipline: item.discipline ?? null,
+                    materialClass: item.materialClass ?? null,
                 }));
 
                 if (boqItems.length > 0) {
@@ -204,6 +231,8 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
                     totalPrice: item.totalPrice || (item.quantity * item.unitPrice) || 0,
                     isCritical: false,
                     rosStatus: "NOT_SET" as const,
+                    discipline: item.discipline ?? null,
+                    materialClass: item.materialClass ?? null,
                 }));
 
                 if (boqItems.length > 0) {
@@ -242,7 +271,19 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
 
     const updateItem = (index: number, updates: Partial<BOQItemWithROS>) => {
         const updated = [...boqItems];
-        updated[index] = { ...updated[index], ...updates };
+
+        const merged = { ...updated[index], ...updates };
+        const normalizedDiscipline = normalizeDisciplineKey(merged.discipline ?? null);
+        const normalizedMaterialClass = normalizeMaterialClass(
+            normalizedDiscipline,
+            merged.materialClass ?? null,
+        );
+
+        updated[index] = {
+            ...merged,
+            discipline: normalizedDiscipline,
+            materialClass: normalizedDiscipline ? normalizedMaterialClass : null,
+        };
 
         // Update ROS status based on rosDate
         if (updates.rosDate !== undefined) {
@@ -553,7 +594,7 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
                                             Item #
                                         </TableHead>
                                         <TableHead>Description</TableHead>
-                                        <TableHead className="w-[80px] text-right">
+                                        <TableHead className="w-20 text-right">
                                             Qty
                                         </TableHead>
                                         <TableHead className="w-[100px] text-right">
@@ -574,7 +615,7 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
                                         <TableHead className="w-[90px]">
                                             Status
                                         </TableHead>
-                                        <TableHead className="w-[80px]"></TableHead>
+                                        <TableHead className="w-20"></TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -694,7 +735,7 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
                                                         }
                                                     }}
                                                 >
-                                                    <SelectTrigger className="h-8 w-[80px]">
+                                                    <SelectTrigger className="h-8 w-20">
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>

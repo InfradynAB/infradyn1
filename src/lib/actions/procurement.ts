@@ -25,6 +25,10 @@ import {
 } from "@/lib/schemas/procurement";
 import { getActiveOrganizationId } from "@/lib/utils/org-context";
 import { getActiveProjectId } from "@/lib/utils/project-context";
+import {
+    normalizeDisciplineKey,
+    normalizeMaterialClass,
+} from "@/lib/constants/material-categories";
 
 // ============================================================================
 // TYPES
@@ -233,6 +237,11 @@ export async function createPurchaseOrder(
         if (inputBoqItems && inputBoqItems.length > 0) {
             await db.insert(boqItem).values(
                 inputBoqItems.map((b) => ({
+                    discipline: normalizeDisciplineKey(b.discipline ?? null),
+                    materialClass: normalizeMaterialClass(
+                        b.discipline ?? null,
+                        b.materialClass ?? null,
+                    ),
                     purchaseOrderId: newPO.id,
                     itemNumber: b.itemNumber,
                     description: b.description,
@@ -243,8 +252,6 @@ export async function createPurchaseOrder(
                     rosDate: b.rosDate ? new Date(b.rosDate) : null,
                     isCritical: b.isCritical ?? false,
                     rosStatus: b.rosStatus ?? "NOT_SET",
-                    discipline: b.discipline ?? null,
-                    materialClass: b.materialClass ?? null,
                 }))
             );
         }
@@ -351,6 +358,11 @@ export async function updatePurchaseOrder(
                 if (boqItems.length > 0) {
                     await tx.insert(boqItem).values(
                         boqItems.map((b) => ({
+                            discipline: normalizeDisciplineKey(b.discipline ?? null),
+                            materialClass: normalizeMaterialClass(
+                                b.discipline ?? null,
+                                b.materialClass ?? null,
+                            ),
                             purchaseOrderId: id,
                             itemNumber: b.itemNumber,
                             description: b.description,
@@ -361,8 +373,6 @@ export async function updatePurchaseOrder(
                             rosDate: b.rosDate ? new Date(b.rosDate) : null,
                             isCritical: b.isCritical,
                             rosStatus: b.rosStatus,
-                            discipline: b.discipline ?? null,
-                            materialClass: b.materialClass ?? null,
                         }))
                     );
                 }
