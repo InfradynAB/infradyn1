@@ -60,6 +60,7 @@ import {
     Eye,
     ArrowSquareOut,
 } from "@phosphor-icons/react";
+import { DeliveryCategoriesShell } from "@/components/dashboard/analytics/delivery-categories/delivery-categories-shell";
 import type { DashboardKPIs, SCurveDataPoint, COBreakdown } from "@/lib/services/kpi-engine";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -112,7 +113,7 @@ interface CashflowForecast {
     cumulativeExposure: number;
 }
 
-type ViewMode = "pulse" | "alerts" | "audit" | "milestones" | "risks";
+type ViewMode = "pulse" | "alerts" | "audit" | "milestones" | "risks" | "deliveries";
 
 // Format currency with proper precision (max 2 decimals)
 const formatCurrency = (value: number | undefined | null, currency = "USD") => {
@@ -174,13 +175,13 @@ export function AnalyticsDashboardClient() {
                 throw new Error(json.error || "Invalid response format");
             }
             setData(json.data);
-            
+
             // Fetch additional data for detailed views
             const [milestonesRes, detailedRes] = await Promise.all([
                 fetch(`/api/dashboard/export?format=json&type=detailed&${params.toString()}`),
                 fetch(`/api/dashboard/risks?${params.toString()}`),
             ]);
-            
+
             if (milestonesRes.ok) {
                 const milestonesJson = await milestonesRes.json();
                 if (milestonesJson.success && milestonesJson.data) {
@@ -188,7 +189,7 @@ export function AnalyticsDashboardClient() {
                     setSupplierProgress(milestonesJson.data.supplierProgress || []);
                 }
             }
-            
+
             if (detailedRes.ok) {
                 const detailedJson = await detailedRes.json();
                 if (detailedJson.success && detailedJson.data) {
@@ -219,10 +220,10 @@ export function AnalyticsDashboardClient() {
             const params = new URLSearchParams();
             params.set("format", format);
             params.set("type", "detailed");
-            
+
             const res = await fetch(`/api/dashboard/export?${params.toString()}`);
             if (!res.ok) throw new Error("Export failed");
-            
+
             if (format === "xlsx") {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -270,7 +271,7 @@ export function AnalyticsDashboardClient() {
     const navigateToPO = (poId: string) => {
         router.push(`/dashboard/procurement/${poId}`);
     };
-    
+
     const navigateToSupplier = (supplierId: string) => {
         router.push(`/dashboard/suppliers/${supplierId}`);
     };
@@ -356,15 +357,15 @@ export function AnalyticsDashboardClient() {
 
                 {/* Three-Tier View Switcher */}
                 <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)} className="w-full">
-                    <TabsList className="grid w-full max-w-2xl grid-cols-5 bg-slate-100 dark:bg-slate-800 p-1">
-                        <TabsTrigger 
-                            value="pulse" 
+                    <TabsList className="grid w-full max-w-3xl grid-cols-6 bg-slate-100 dark:bg-slate-800 p-1">
+                        <TabsTrigger
+                            value="pulse"
                             className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm font-medium"
                         >
                             <TrendUp className="w-4 h-4 mr-2" />
                             Pulse
                         </TabsTrigger>
-                        <TabsTrigger 
+                        <TabsTrigger
                             value="alerts"
                             className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm font-medium relative"
                         >
@@ -374,21 +375,21 @@ export function AnalyticsDashboardClient() {
                                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                             )}
                         </TabsTrigger>
-                        <TabsTrigger 
+                        <TabsTrigger
                             value="audit"
                             className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm font-medium"
                         >
                             <FileText className="w-4 h-4 mr-2" />
                             Audit
                         </TabsTrigger>
-                        <TabsTrigger 
+                        <TabsTrigger
                             value="milestones"
                             className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm font-medium"
                         >
                             <ListBullets className="w-4 h-4 mr-2" />
                             Milestones
                         </TabsTrigger>
-                        <TabsTrigger 
+                        <TabsTrigger
                             value="risks"
                             className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm font-medium relative"
                         >
@@ -397,6 +398,13 @@ export function AnalyticsDashboardClient() {
                             {risks.filter(r => r.riskLevel === "CRITICAL" || r.riskLevel === "HIGH").length > 0 && (
                                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full" />
                             )}
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="deliveries"
+                            className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm font-medium"
+                        >
+                            <Truck className="w-4 h-4 mr-2" />
+                            Deliveries
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>
@@ -416,19 +424,26 @@ export function AnalyticsDashboardClient() {
                         <AuditView data={data} />
                     )}
                     {viewMode === "milestones" && (
-                        <MilestoneTrackerView 
-                            milestones={milestones} 
+                        <MilestoneTrackerView
+                            milestones={milestones}
                             onNavigateToPO={navigateToPO}
                         />
                     )}
                     {viewMode === "risks" && (
-                        <RiskAssessmentView 
-                            risks={risks} 
+                        <RiskAssessmentView
+                            risks={risks}
                             cashflow={cashflow}
                             supplierProgress={supplierProgress}
                             onNavigateToPO={navigateToPO}
                             onNavigateToSupplier={navigateToSupplier}
                         />
+                    )}
+                    {viewMode === "deliveries" && (
+                        <Card>
+                            <CardContent className="pt-6">
+                                <DeliveryCategoriesShell />
+                            </CardContent>
+                        </Card>
                     )}
                 </>
             ) : null}
@@ -513,7 +528,7 @@ export function AnalyticsDashboardClient() {
 // ============================================
 function PulseView({ data, onAlertClick }: { data: DashboardData; onAlertClick: (id: string) => void }) {
     const financial = data.kpis.financial;
-    
+
     return (
         <div className="space-y-6">
             {/* THE BIG THREE - Primary Financial KPIs */}
@@ -608,7 +623,7 @@ function PulseView({ data, onAlertClick }: { data: DashboardData; onAlertClick: 
 // ============================================
 function AlertsView({ data, onAlertClick }: { data: DashboardData; onAlertClick: (id: string) => void }) {
     const alerts = generateAlerts(data);
-    
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -619,7 +634,7 @@ function AlertsView({ data, onAlertClick }: { data: DashboardData; onAlertClick:
                     {alerts.filter(a => a.severity === "critical").length} Critical
                 </Badge>
             </div>
-            
+
             {alerts.length === 0 ? (
                 <Card className="border-dashed">
                     <CardContent className="py-12 text-center">
@@ -669,7 +684,7 @@ function AuditView({ data }: { data: DashboardData }) {
                     </div>
                 </CardContent>
             </Card>
-            
+
             <div className="grid gap-4 lg:grid-cols-2">
                 <Card>
                     <CardHeader>
@@ -682,7 +697,7 @@ function AuditView({ data }: { data: DashboardData }) {
                         <AuditRow label="NCR Rate" value={`${data.kpis.quality.ncrRate.toFixed(2)}%`} />
                     </CardContent>
                 </Card>
-                
+
                 <Card>
                     <CardHeader>
                         <CardTitle>Logistics Performance</CardTitle>
@@ -723,7 +738,7 @@ function PrimaryKPICard({
         emerald: "border-l-emerald-600 bg-linear-to-br from-emerald-50 to-white dark:from-emerald-950 dark:to-slate-950",
         amber: "border-l-amber-500 bg-linear-to-br from-amber-50 to-white dark:from-amber-950 dark:to-slate-950",
     };
-    
+
     const iconColorClasses = {
         slate: "text-slate-600",
         emerald: "text-emerald-600",
@@ -788,7 +803,7 @@ function SecondaryKPICard({
     onClick?: () => void;
 }) {
     return (
-        <Card 
+        <Card
             className={cn(
                 "transition-all duration-200 hover:shadow-md cursor-pointer",
                 alert && "border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-950/30",
@@ -822,7 +837,7 @@ function ProgressCard({
     description: string;
 }) {
     const progressColor = value >= 75 ? "bg-emerald-500" : value >= 50 ? "bg-amber-500" : "bg-slate-400";
-    
+
     return (
         <Card className="hover:shadow-md transition-shadow">
             <CardContent className="pt-5 pb-4">
@@ -849,7 +864,7 @@ function ProgressCard({
 // ============================================
 function AIInsightsCard({ data }: { data: DashboardData }) {
     const topSupplier = data.kpis.suppliers.topExposure?.[0];
-    
+
     return (
         <Card className="border-purple-200 dark:border-purple-800 bg-linear-to-br from-purple-50/50 to-white dark:from-purple-950/30 dark:to-slate-950">
             <CardHeader className="pb-3">
@@ -867,23 +882,23 @@ function AIInsightsCard({ data }: { data: DashboardData }) {
             <CardContent className="space-y-4 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                 <p>
                     <strong className="text-slate-800 dark:text-slate-200">Financial Position:</strong>{" "}
-                    {data.kpis.financial.totalCommitted > 0 
+                    {data.kpis.financial.totalCommitted > 0
                         ? `Your project has ${formatCurrency(data.kpis.financial.totalCommitted)} committed across all purchase orders. Currently, ${((data.kpis.financial.totalPaid / Math.max(data.kpis.financial.totalCommitted, 1)) * 100).toFixed(1)}% has been disbursed to suppliers.`
                         : "No financial commitments recorded yet. Create purchase orders to start tracking project spend."
                     }
                 </p>
-                
+
                 <p>
                     <strong className="text-slate-800 dark:text-slate-200">Supplier Risk:</strong>{" "}
-                    {topSupplier 
+                    {topSupplier
                         ? `Exposure is concentrated with ${topSupplier.supplierName || "your top supplier"} at ${formatCurrency(topSupplier.exposure)}. ${data.kpis.suppliers.activeSuppliers > 1 ? `Diversification across ${data.kpis.suppliers.activeSuppliers} active suppliers helps mitigate single-source risk.` : "Consider diversifying across additional suppliers to reduce dependency."}`
                         : "No supplier exposure data available. Add suppliers and create POs to enable risk analysis."
                     }
                 </p>
-                
+
                 <p>
                     <strong className="text-slate-800 dark:text-slate-200">Quality & Delivery:</strong>{" "}
-                    {data.kpis.quality.totalNCRs > 0 
+                    {data.kpis.quality.totalNCRs > 0
                         ? `${data.kpis.quality.openNCRs} open NCRs require attention${data.kpis.quality.criticalNCRs > 0 ? `, including ${data.kpis.quality.criticalNCRs} critical issues` : ""}. `
                         : "Quality metrics are clean with no NCRs recorded. "
                     }
@@ -915,11 +930,11 @@ function AlertCard({ alert, onClick }: { alert: Alert; onClick: () => void }) {
         warning: "border-l-amber-500 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-950",
         info: "border-l-blue-500 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-950",
     };
-    
+
     const Icon = alert.icon;
 
     return (
-        <Card 
+        <Card
             className={cn(
                 "border-l-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.01]",
                 severityClasses[alert.severity]
@@ -960,14 +975,14 @@ function AlertCard({ alert, onClick }: { alert: Alert; onClick: () => void }) {
 // ============================================
 // COMPONENT: Audit Row
 // ============================================
-function AuditRow({ 
-    label, 
-    value, 
+function AuditRow({
+    label,
+    value,
     highlight,
-    alert 
-}: { 
-    label: string; 
-    value: string; 
+    alert
+}: {
+    label: string;
+    value: string;
     highlight?: boolean;
     alert?: boolean;
 }) {
@@ -999,7 +1014,7 @@ function AuditRow({
 // ============================================
 function generateAlerts(data: DashboardData): Alert[] {
     const alerts: Alert[] = [];
-    
+
     if (data.kpis.payments.overdueInvoiceCount > 0) {
         alerts.push({
             id: "overdue-invoices",
@@ -1010,7 +1025,7 @@ function generateAlerts(data: DashboardData): Alert[] {
             value: formatCurrency(data.kpis.payments.overdueAmount),
         });
     }
-    
+
     if (data.kpis.quality.criticalNCRs > 0) {
         alerts.push({
             id: "critical-ncrs",
@@ -1021,7 +1036,7 @@ function generateAlerts(data: DashboardData): Alert[] {
             value: `${data.kpis.quality.criticalNCRs} NCRs`,
         });
     }
-    
+
     if (data.kpis.logistics.delayedShipments > 0) {
         alerts.push({
             id: "delayed-shipments",
@@ -1032,7 +1047,7 @@ function generateAlerts(data: DashboardData): Alert[] {
             value: `Avg ${data.kpis.logistics.avgDeliveryDelay}d`,
         });
     }
-    
+
     if (data.kpis.quality.openNCRs > 5) {
         alerts.push({
             id: "open-ncrs",
@@ -1043,7 +1058,7 @@ function generateAlerts(data: DashboardData): Alert[] {
             value: `${data.kpis.quality.openNCRs} open`,
         });
     }
-    
+
     if (data.kpis.logistics.onTimeRate < 80 && data.kpis.logistics.totalShipments > 0) {
         alerts.push({
             id: "low-delivery-rate",
@@ -1054,7 +1069,7 @@ function generateAlerts(data: DashboardData): Alert[] {
             value: `${data.kpis.logistics.onTimeRate.toFixed(1)}%`,
         });
     }
-    
+
     // Sort by severity
     return alerts.sort((a, b) => {
         const order = { critical: 0, warning: 1, info: 2 };
@@ -1065,15 +1080,15 @@ function generateAlerts(data: DashboardData): Alert[] {
 // ============================================
 // MILESTONE TRACKER VIEW
 // ============================================
-function MilestoneTrackerView({ 
-    milestones, 
-    onNavigateToPO 
-}: { 
-    milestones: MilestoneRow[]; 
+function MilestoneTrackerView({
+    milestones,
+    onNavigateToPO
+}: {
+    milestones: MilestoneRow[];
     onNavigateToPO: (poId: string) => void;
 }) {
     const [filter, setFilter] = useState<"all" | "delayed" | "at-risk" | "completed">("all");
-    
+
     const filteredMilestones = milestones.filter(m => {
         if (filter === "all") return true;
         if (filter === "delayed") return m.status === "DELAYED" || (m.expectedDate && new Date(m.expectedDate) < new Date() && m.progressPercent < 100);
@@ -1105,7 +1120,7 @@ function MilestoneTrackerView({
                     </SelectContent>
                 </Select>
             </div>
-            
+
             <Card>
                 <CardContent className="p-0">
                     <Table>
@@ -1141,11 +1156,11 @@ function MilestoneTrackerView({
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <div className="w-16 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                                    <div 
+                                                    <div
                                                         className={cn(
                                                             "h-full rounded-full transition-all",
                                                             milestone.progressPercent >= 100 ? "bg-emerald-500" :
-                                                            milestone.progressPercent >= 50 ? "bg-amber-500" : "bg-slate-400"
+                                                                milestone.progressPercent >= 50 ? "bg-amber-500" : "bg-slate-400"
                                                         )}
                                                         style={{ width: `${Math.min(milestone.progressPercent, 100)}%` }}
                                                     />
@@ -1156,8 +1171,8 @@ function MilestoneTrackerView({
                                         <TableCell className="text-center">
                                             <Badge variant={
                                                 milestone.status === "COMPLETED" ? "default" :
-                                                milestone.status === "DELAYED" ? "destructive" :
-                                                milestone.status === "AT_RISK" ? "secondary" : "outline"
+                                                    milestone.status === "DELAYED" ? "destructive" :
+                                                        milestone.status === "AT_RISK" ? "secondary" : "outline"
                                             } className="text-xs">
                                                 {milestone.status}
                                             </Badge>
@@ -1169,7 +1184,7 @@ function MilestoneTrackerView({
                                             {milestone.invoiceStatus ? (
                                                 <Badge variant={
                                                     milestone.invoiceStatus === "PAID" ? "default" :
-                                                    milestone.invoiceStatus === "APPROVED" ? "secondary" : "outline"
+                                                        milestone.invoiceStatus === "APPROVED" ? "secondary" : "outline"
                                                 } className="text-xs">
                                                     {milestone.invoiceStatus}
                                                 </Badge>
@@ -1181,9 +1196,9 @@ function MilestoneTrackerView({
                                             {formatCurrency(milestone.amount)}
                                         </TableCell>
                                         <TableCell>
-                                            <Button 
-                                                variant="ghost" 
-                                                size="icon" 
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
                                                 onClick={() => onNavigateToPO(milestone.poId)}
                                             >
                                                 <ArrowSquareOut className="w-4 h-4" />
@@ -1203,13 +1218,13 @@ function MilestoneTrackerView({
 // ============================================
 // RISK ASSESSMENT VIEW
 // ============================================
-function RiskAssessmentView({ 
-    risks, 
+function RiskAssessmentView({
+    risks,
     cashflow,
     supplierProgress,
     onNavigateToPO,
     onNavigateToSupplier,
-}: { 
+}: {
     risks: RiskAssessment[];
     cashflow: CashflowForecast[];
     supplierProgress: SupplierProgressRow[];
@@ -1287,8 +1302,8 @@ function RiskAssessmentView({
                                             {risk.predictedDelay > 0 ? `+${risk.predictedDelay}d` : "On track"}
                                         </TableCell>
                                         <TableCell>
-                                            <Button 
-                                                variant="ghost" 
+                                            <Button
+                                                variant="ghost"
                                                 size="icon"
                                                 onClick={() => onNavigateToPO(risk.poId)}
                                             >
@@ -1327,11 +1342,11 @@ function RiskAssessmentView({
                                         </div>
                                     </div>
                                     <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden flex">
-                                        <div 
+                                        <div
                                             className="h-full bg-emerald-500"
                                             style={{ width: `${(period.expectedPayments / Math.max(period.cumulativeExposure, 1)) * 100}%` }}
                                         />
-                                        <div 
+                                        <div
                                             className="h-full bg-amber-400"
                                             style={{ width: `${(period.pendingInvoices / Math.max(period.cumulativeExposure, 1)) * 100}%` }}
                                         />
@@ -1371,7 +1386,7 @@ function RiskAssessmentView({
                                     <TableCell>
                                         <div className="flex items-center gap-2 justify-center">
                                             <div className="w-12 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                                <div 
+                                                <div
                                                     className="h-full bg-blue-500 rounded-full"
                                                     style={{ width: `${Math.min(supplier.physicalProgress, 100)}%` }}
                                                 />
@@ -1382,7 +1397,7 @@ function RiskAssessmentView({
                                     <TableCell>
                                         <div className="flex items-center gap-2 justify-center">
                                             <div className="w-12 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                                <div 
+                                                <div
                                                     className="h-full bg-emerald-500 rounded-full"
                                                     style={{ width: `${Math.min(supplier.financialProgress, 100)}%` }}
                                                 />
@@ -1395,16 +1410,16 @@ function RiskAssessmentView({
                                     <TableCell className="text-center">
                                         <Badge className={
                                             supplier.riskScore >= 60 ? "bg-red-100 text-red-700" :
-                                            supplier.riskScore >= 40 ? "bg-orange-100 text-orange-700" :
-                                            supplier.riskScore >= 20 ? "bg-amber-100 text-amber-700" :
-                                            "bg-emerald-100 text-emerald-700"
+                                                supplier.riskScore >= 40 ? "bg-orange-100 text-orange-700" :
+                                                    supplier.riskScore >= 20 ? "bg-amber-100 text-amber-700" :
+                                                        "bg-emerald-100 text-emerald-700"
                                         }>
                                             {supplier.riskScore}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
-                                        <Button 
-                                            variant="ghost" 
+                                        <Button
+                                            variant="ghost"
                                             size="icon"
                                             onClick={() => onNavigateToSupplier(supplier.supplierId)}
                                         >

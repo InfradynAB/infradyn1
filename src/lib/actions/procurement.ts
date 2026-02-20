@@ -243,6 +243,8 @@ export async function createPurchaseOrder(
                     rosDate: b.rosDate ? new Date(b.rosDate) : null,
                     isCritical: b.isCritical ?? false,
                     rosStatus: b.rosStatus ?? "NOT_SET",
+                    discipline: b.discipline ?? null,
+                    materialClass: b.materialClass ?? null,
                 }))
             );
         }
@@ -359,6 +361,8 @@ export async function updatePurchaseOrder(
                             rosDate: b.rosDate ? new Date(b.rosDate) : null,
                             isCritical: b.isCritical,
                             rosStatus: b.rosStatus,
+                            discipline: b.discipline ?? null,
+                            materialClass: b.materialClass ?? null,
                         }))
                     );
                 }

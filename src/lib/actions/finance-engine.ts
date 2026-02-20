@@ -232,7 +232,7 @@ export async function createInvoice(input: CreateInvoiceInput) {
             for (const pm of orgMembers) {
                 // Skip if this is the same as the org contact email (avoid duplicate)
                 if (pm.email === orgData?.contactEmail) continue;
-                
+
                 const pmEmail = await buildInvoiceCreatedEmail({
                     ...emailData,
                     recipientName: pm.name || "Team Member",
@@ -412,7 +412,7 @@ export async function updatePaymentStatus(input: UpdatePaymentInput) {
             for (const pm of orgMembers) {
                 // Skip if this is the same as the org contact email (avoid duplicate)
                 if (pm.email === orgData?.contactEmail) continue;
-                
+
                 const pmEmail = await buildPaymentUpdateEmail({
                     ...emailData,
                     recipientName: pm.name || "Team Member",

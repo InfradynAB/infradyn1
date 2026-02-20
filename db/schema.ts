@@ -286,6 +286,9 @@ export const boqItem = pgTable('boq_item', {
     originalQuantity: numeric('original_quantity'), // Original before de-scope
     revisedQuantity: numeric('revised_quantity'), // After de-scope (null = use quantity)
     lockedForDeScope: boolean('locked_for_de_scope').default(false), // True if cannot reduce further
+    // Delivery Analytics Categorization — Phase: Material Delivery Categories
+    discipline: text('discipline'),      // L1: GROUNDWORKS | STRUCTURAL | ENVELOPE | ARCHITECTURAL | MEP | EXTERNAL
+    materialClass: text('material_class'), // L2: e.g. 'Reinforcement', 'HVAC', 'Roofing'
 });
 
 
@@ -875,7 +878,7 @@ export const changeOrder = pgTable('change_order', {
     changeOrderType: text('change_order_type').default('ADDITION'), // ADDITION, OMISSION
     clientInstructionId: uuid('client_instruction_id').references(() => clientInstruction.id),
     affectedBoqItemIds: jsonb('affected_boq_item_ids').$type<string[]>(), // BOQ items affected
-    
+
     // CO Category for KPI breakdown (scope/rate/quantity/schedule)
     coCategory: text('co_category').default('SCOPE'), // SCOPE, RATE, QUANTITY, SCHEDULE
 });
@@ -1025,29 +1028,29 @@ export const supplierAccuracy = pgTable('supplier_accuracy', {
 export const alertLog = pgTable('alert_log', {
     ...baseColumns,
     organizationId: uuid('organization_id').references(() => organization.id).notNull(),
-    
+
     // Alert details (snapshot at time of action)
     alertType: alertTypeEnum('alert_type').notNull(),
     alertSeverity: alertSeverityEnum('alert_severity').notNull(),
     alertTitle: text('alert_title').notNull(),
     alertDescription: text('alert_description'),
-    
+
     // Reference to the source entity (e.g., PO, NCR, Invoice, etc.)
     entityType: text('entity_type'), // 'PO', 'NCR', 'INVOICE', 'SHIPMENT', etc.
     entityId: uuid('entity_id'),
     entityReference: text('entity_reference'), // Human-readable reference like PO number
-    
+
     // Who responded
     respondedBy: text('responded_by').references(() => user.id).notNull(),
-    
+
     // Action taken
     action: alertActionEnum('action').notNull(),
     actionNotes: text('action_notes'), // Optional notes from the user
-    
+
     // Timing
     alertGeneratedAt: timestamp('alert_generated_at'), // When the alert first appeared
     respondedAt: timestamp('responded_at').defaultNow().notNull(),
-    
+
     // Additional context
     metadata: jsonb('metadata').$type<Record<string, unknown>>(),
 }, (table) => [

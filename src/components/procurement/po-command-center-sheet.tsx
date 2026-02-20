@@ -36,6 +36,18 @@ function sanitizeTab(tab?: string): SectionTab {
     return "overview";
 }
 
+const WIDTH_BY_TAB: Record<SectionTab, string> = {
+    overview: "w-full sm:max-w-[540px]",
+    financials: "w-full sm:max-w-[55vw]",
+    progress: "w-full sm:max-w-[55vw]",
+    boq: "w-full sm:max-w-[55vw]",
+    "change-orders": "w-full sm:max-w-[55vw]",
+    gallery: "w-full sm:max-w-[55vw]",
+    quality: "w-full sm:max-w-[55vw]",
+    history: "w-full sm:max-w-[55vw]",
+    conflicts: "w-full sm:max-w-[55vw]",
+};
+
 export function POCommandCenterSheet({
     children,
     defaultTab = "overview",
@@ -60,7 +72,7 @@ export function POCommandCenterSheet({
             />
 
             <Sheet open={open} onOpenChange={setOpen}>
-                <SheetContent side="right" className="w-[94vw] sm:max-w-[92vw] lg:max-w-[78vw] p-0">
+                <SheetContent side="right" className={`${WIDTH_BY_TAB[activeTab]} p-0 transition-all duration-300 ease-in-out`}>
                     <SheetHeader className="border-b border-border/60 px-5 py-4">
                         <SheetTitle>{activeLabel}</SheetTitle>
                         <SheetDescription>

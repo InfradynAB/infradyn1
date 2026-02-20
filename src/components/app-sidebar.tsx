@@ -66,6 +66,14 @@ const items: MenuItem[] = [
         title: "Analytics",
         url: "/dashboard/analytics",
         icon: ChartLineUp,
+        subItems: [
+            { title: "Overview", url: "/dashboard/analytics", icon: Gauge },
+            { title: "Delivery Categories", url: "/dashboard/analytics/delivery-categories", icon: TruckIcon },
+            { title: "Supplier Scorecards", url: "/dashboard/analytics/suppliers", icon: UsersThreeIcon },
+            { title: "Quality & NCR", url: "/dashboard/analytics/quality", icon: ShieldCheckIcon },
+            { title: "Logistics", url: "/dashboard/analytics/logistics", icon: MapTrifoldIcon },
+            { title: "Finance", url: "/dashboard/analytics/finance", icon: CurrencyDollarIcon },
+        ],
     },
     {
         title: "My PM Dashboard",

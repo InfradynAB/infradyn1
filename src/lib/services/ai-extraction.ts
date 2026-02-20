@@ -8,6 +8,7 @@ import OpenAI from "openai";
 import * as XLSX from "xlsx";
 import mammoth from "mammoth";
 import { getFileBuffer, extractS3KeyFromUrl } from "./s3";
+import { buildClassificationPromptSection } from "@/lib/constants/material-categories";
 
 // Initialize clients
 const textractClient = new TextractClient({
@@ -37,6 +38,9 @@ export interface ExtractedBOQItem {
     quantity: number;
     unitPrice: number;
     totalPrice: number;
+    // AI-auto-classified fields (null = ambiguous, PM will classify manually)
+    discipline?: string | null;
+    materialClass?: string | null;
 }
 
 export interface ExtractedPOData {
@@ -299,6 +303,8 @@ Extract Bill of Quantities or line items. Each item should have:
 - quantity: Quantity (number)
 - unitPrice: Price per unit (number)
 - totalPrice: Total price for this line (number)
+- Categorization — classify each item using ONLY these values:
+${buildClassificationPromptSection()}
 
 Respond ONLY with valid JSON in this exact format:
 {
@@ -315,7 +321,7 @@ Respond ONLY with valid JSON in this exact format:
     {"title": "string", "description": "string or null", "expectedDate": "YYYY-MM-DD or null", "paymentPercentage": number}
   ],
   "boqItems": [
-    {"itemNumber": "string", "description": "string", "unit": "string", "quantity": number, "unitPrice": number, "totalPrice": number}
+    {"itemNumber": "string", "description": "string", "unit": "string", "quantity": number, "unitPrice": number, "totalPrice": number, "discipline": "string or null", "materialClass": "string or null"}
   ],
   "confidence": 0.0-1.0
 }

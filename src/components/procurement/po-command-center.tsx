@@ -363,32 +363,33 @@ function QuickLink({
     label: string;
     value: string;
 }) {
+    const content = (
+        <>
+            <span className="flex items-center gap-2 text-[#0E7490] min-w-0">
+                <Icon className="h-4 w-4 flex-shrink-0" weight="duotone" />
+                <span className="text-sm font-semibold truncate">{label}</span>
+            </span>
+            <span className="flex items-center gap-1 text-xs text-muted-foreground ml-2 flex-shrink-0">
+                <span className="whitespace-nowrap">{value}</span>
+                <ArrowRight className="h-3.5 w-3.5 flex-shrink-0" weight="bold" />
+            </span>
+        </>
+    );
+
+    const commonClasses = "h-auto w-full justify-between rounded-xl border-[#0E7490]/30 bg-[#0E7490]/5 px-3 py-2.5 text-left hover:bg-[#0E7490]/10 whitespace-normal";
+
     if (onClick) {
         return (
-            <Button type="button" variant="outline" className="h-auto justify-between rounded-xl border-[#0E7490]/30 bg-[#0E7490]/5 px-3 py-2.5 text-left hover:bg-[#0E7490]/10" onClick={onClick}>
-                <span className="flex items-center gap-2 text-[#0E7490]">
-                    <Icon className="h-4 w-4" weight="duotone" />
-                    <span className="text-sm font-semibold">{label}</span>
-                </span>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    {value}
-                    <ArrowRight className="h-3.5 w-3.5" weight="bold" />
-                </span>
+            <Button type="button" variant="outline" className={commonClasses} onClick={onClick}>
+                {content}
             </Button>
         );
     }
 
     return (
-        <Button asChild variant="outline" className="h-auto justify-between rounded-xl border-[#0E7490]/30 bg-[#0E7490]/5 px-3 py-2.5 text-left hover:bg-[#0E7490]/10">
+        <Button asChild variant="outline" className={commonClasses}>
             <Link href={href}>
-            <span className="flex items-center gap-2 text-[#0E7490]">
-                    <Icon className="h-4 w-4" weight="duotone" />
-                    <span className="text-sm font-semibold">{label}</span>
-                </span>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    {value}
-                    <ArrowRight className="h-3.5 w-3.5" weight="bold" />
-                </span>
+                {content}
             </Link>
         </Button>
     );

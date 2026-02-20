@@ -48,6 +48,11 @@ import {
     DownloadSimpleIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { toast } from "sonner";
+import {
+    DISCIPLINES,
+    DISCIPLINE_LABELS,
+    MATERIAL_CLASS_MAP,
+} from "@/lib/constants/material-categories";
 
 export interface BOQItemWithROS {
     id?: string;
@@ -60,6 +65,8 @@ export interface BOQItemWithROS {
     rosDate?: string;
     isCritical: boolean;
     rosStatus: "NOT_SET" | "SET" | "TBD";
+    discipline?: string | null;
+    materialClass?: string | null;
 }
 
 interface ROSManagerProps {
@@ -533,9 +540,9 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
 
                 {/* BOQ Table */}
                 {boqItems.length > 0 ? (
-                    <div className="border rounded-lg overflow-hidden">
-                        <div className="max-h-[400px] overflow-y-auto">
-                            <Table>
+                    <div className="border rounded-lg">
+                        <div className="max-h-[400px] overflow-auto">
+                            <Table className="min-w-[1100px]">
 
                                 <TableHeader>
                                     <TableRow>
@@ -554,6 +561,12 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
                                         </TableHead>
                                         <TableHead className="w-[100px] text-right">
                                             Total
+                                        </TableHead>
+                                        <TableHead className="w-[130px]">
+                                            Discipline
+                                        </TableHead>
+                                        <TableHead className="w-[140px]">
+                                            Material Class
                                         </TableHead>
                                         <TableHead className="w-[130px]">
                                             ROS Date
@@ -600,6 +613,52 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
                                             </TableCell>
                                             <TableCell className="text-right font-mono text-sm font-medium">
                                                 {(item.totalPrice ?? 0).toLocaleString()}
+                                            </TableCell>
+                                            {/* Discipline inline select */}
+                                            <TableCell>
+                                                <Select
+                                                    value={item.discipline ?? "__none"}
+                                                    onValueChange={(v) =>
+                                                        updateItem(index, {
+                                                            discipline: v === "__none" ? null : v,
+                                                            materialClass: null,
+                                                        })
+                                                    }
+                                                >
+                                                    <SelectTrigger className="h-8 w-[120px] text-xs">
+                                                        <SelectValue placeholder="— none —" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="__none">— none —</SelectItem>
+                                                        {DISCIPLINES.map((d) => (
+                                                            <SelectItem key={d} value={d}>
+                                                                {DISCIPLINE_LABELS[d]}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </TableCell>
+                                            {/* Material Class inline select (cascades on discipline) */}
+                                            <TableCell>
+                                                <Select
+                                                    value={item.materialClass ?? "__none"}
+                                                    disabled={!item.discipline}
+                                                    onValueChange={(v) =>
+                                                        updateItem(index, {
+                                                            materialClass: v === "__none" ? null : v,
+                                                        })
+                                                    }
+                                                >
+                                                    <SelectTrigger className="h-8 w-[130px] text-xs">
+                                                        <SelectValue placeholder="— select —" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="__none">— none —</SelectItem>
+                                                        {(item.discipline ? (MATERIAL_CLASS_MAP[item.discipline as keyof typeof MATERIAL_CLASS_MAP] ?? []) : []).map((mc: string) => (
+                                                            <SelectItem key={mc} value={mc}>{mc}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                             </TableCell>
                                             <TableCell>
                                                 <Input
@@ -781,6 +840,51 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
                                         }
                                         className="font-mono font-bold"
                                     />
+                                </div>
+                            </div>
+                            {/* Categorisation */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Discipline</Label>
+                                    <Select
+                                        value={editForm.discipline ?? "__none"}
+                                        onValueChange={(v) => {
+                                            handleFormChange('discipline', v === '__none' ? null : v);
+                                            handleFormChange('materialClass', null);
+                                        }}
+                                    >
+                                        <SelectTrigger className="mt-1">
+                                            <SelectValue placeholder="— none —" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="__none">— none —</SelectItem>
+                                            {DISCIPLINES.map((d) => (
+                                                <SelectItem key={d} value={d}>
+                                                    {DISCIPLINE_LABELS[d]}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label>Material Class</Label>
+                                    <Select
+                                        value={editForm.materialClass ?? "__none"}
+                                        disabled={!editForm.discipline}
+                                        onValueChange={(v) =>
+                                            handleFormChange('materialClass', v === '__none' ? null : v)
+                                        }
+                                    >
+                                        <SelectTrigger className="mt-1">
+                                            <SelectValue placeholder="— select discipline first —" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="__none">— none —</SelectItem>
+                                            {(editForm.discipline ? (MATERIAL_CLASS_MAP[editForm.discipline as keyof typeof MATERIAL_CLASS_MAP] ?? []) : []).map((mc: string) => (
+                                                <SelectItem key={mc} value={mc}>{mc}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
                         </div>

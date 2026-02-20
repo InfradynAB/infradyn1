@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -123,8 +123,22 @@ export default function POWizard({
     mode?: "create" | "edit";
 }) {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [currentStep, setCurrentStep] = useState<WizardStep>(mode === "edit" ? "details" : "upload");
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Optional deep-link: /edit?step=boq (or any WizardStep id)
+    useEffect(() => {
+        const step = searchParams.get("step");
+        if (!step) return;
+        const allowed = STEPS.some((s) => s.id === step);
+        if (!allowed) return;
+
+        // Prevent skipping analysis step when creating a new PO.
+        if (mode !== "edit" && step !== "upload" && uploadProgress !== "done") return;
+        setCurrentStep(step as WizardStep);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mode, searchParams]);
 
     // File upload state
     const [fileUrl, setFileUrl] = useState<string | null>(null);
@@ -489,6 +503,16 @@ export default function POWizard({
 
     // Submit
     const onSubmit = async (data: FormData) => {
+        // Enforce delivery taxonomy mapping rules (L1/L2 required on every BOQ line)
+        const missingCategoryCount = boqItems.filter((b: any) => !b?.discipline || !b?.materialClass).length;
+        if (missingCategoryCount > 0) {
+            toast.error("Categorize all BOQ items before publishing", {
+                description: `${missingCategoryCount} BOQ line item${missingCategoryCount !== 1 ? "s" : ""} missing Discipline and/or Material Class.`,
+            });
+            setCurrentStep("boq");
+            return;
+        }
+
         setIsSubmitting(true);
         setSubmitError(null);
         const submitToast = toast.loading(mode === "edit" ? "Updating purchase order..." : "Creating purchase order...");
@@ -540,7 +564,10 @@ export default function POWizard({
         projectCurrency: selectedProject?.currency,
     };
     const complianceRules = runValidation(complianceData);
-    const canPublish = !complianceRules.some(r => r.severity === "critical" && r.status === "fail");
+    const hasAllCategories = useMemo(() => boqItems.every((b: any) => !!b?.discipline && !!b?.materialClass), [boqItems]);
+    const canPublish =
+        !complianceRules.some((r) => r.severity === "critical" && r.status === "fail") &&
+        hasAllCategories;
 
     return (
         <div className="max-w-4xl mx-auto space-y-6">

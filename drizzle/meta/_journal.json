@@ -22,6 +22,13 @@
       "when": 1765640000000,
       "tag": "0002_add_ncr_comment_read_by",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1771528528161,
+      "tag": "0003_next_sphinx",
+      "breakpoints": true
     }
   ]
 }

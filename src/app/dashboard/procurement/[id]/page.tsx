@@ -305,7 +305,7 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                 {po.currency} {Number(po.totalValue ?? 0).toLocaleString()}
                             </p>
                         </div>
-                        
+
                         {/* PO Number + Status */}
                         <div className="flex items-center gap-3">
                             <h2 className="text-2xl font-semibold tracking-tight text-[#1E293B]">
@@ -342,7 +342,13 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                 <div className="flex gap-2">
                     {/* Submit PO Button - Only shows for DRAFT status */}
                     <SubmitPOButton poId={po.id} poNumber={po.poNumber} status={po.status} />
-                    
+
+                    <Button variant="outline" asChild>
+                        <Link href={`/dashboard/procurement/${po.id}/edit?step=boq`}>
+                            Categorize Materials
+                        </Link>
+                    </Button>
+
 
                     {downloadUrl && (
                         <Button variant="outline" asChild>
@@ -401,235 +407,81 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                     }}
                 >
 
-                {/* Overview Tab */}
-                <TabsContent value="overview">
-                    <div className="grid gap-4">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>PO Snapshot</CardTitle>
-                                <CardDescription>At-a-glance details and ownership</CardDescription>
-                            </CardHeader>
-                            <CardContent className="grid gap-3 text-sm md:grid-cols-2">
-                                <InfoRow label="PO Number" value={po.poNumber} />
-                                <InfoRow label="Status" value={po.status} />
-                                <InfoRow label="Project" value={(po as any).project?.name || "—"} />
-                                <InfoRow label="Supplier" value={(po as any).supplier?.name || "—"} />
-                                <InfoRow label="Currency" value={po.currency} />
-                                <InfoRow label="Total Value" value={`${po.currency} ${Number(po.totalValue ?? 0).toLocaleString()}`} mono />
-                                <InfoRow label="Created" value={format(new Date(po.createdAt), "MMM d, yyyy 'at' h:mm a")} />
-                                <InfoRow label="Last Version" value={latestVersion ? `v${latestVersion.versionNumber}` : "v1"} />
-                            </CardContent>
-                        </Card>
-                    </div>
-                </TabsContent>
-
-                {/* Financials Tab - Phase 5 */}
-                <TabsContent value="financials" className="h-[calc(100vh-230px)] min-h-[520px]">
-                    <div className="grid h-full gap-6 lg:grid-cols-2">
-                        {/* Left Column: Invoices */}
-                        <div className="space-y-6 min-h-0 overflow-y-auto pr-1">
+                    {/* Overview Tab */}
+                    <TabsContent value="overview">
+                        <div className="grid gap-4">
                             <Card>
                                 <CardHeader>
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <CardTitle className="flex items-center gap-2">
-                                                <Receipt className="h-5 w-5" />
-                                                Invoices
-                                            </CardTitle>
-                                            <CardDescription>
-                                                Review and approve invoices submitted by supplier
-                                            </CardDescription>
-                                        </div>
-                                        {/* PM doesn't upload invoices - suppliers do */}
-                                    </div>
+                                    <CardTitle>PO Snapshot</CardTitle>
+                                    <CardDescription>At-a-glance details and ownership</CardDescription>
                                 </CardHeader>
-                                <CardContent>
-                                    {pendingInvoices.length > 0 ? (
-                                        <div className="space-y-3">
-                                            {pendingInvoices.map((inv: any) => (
-                                                <div
-                                                    key={inv.id}
-                                                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
-                                                            <Receipt className="h-5 w-5 text-amber-600" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-medium">{inv.invoiceNumber}</p>
-                                                            <p className="text-sm text-muted-foreground">
-                                                                {inv.milestone?.title || "No milestone"}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="text-right">
-                                                            <p className="font-mono font-medium">
-                                                                {po.currency} {Number(inv.amount).toLocaleString()}
-                                                            </p>
-                                                            <PaymentStatusBadge status={inv.status} />
-                                                        </div>
-                                                        <InvoiceActions
-                                                            invoiceId={inv.id}
-                                                            invoiceNumber={inv.invoiceNumber}
-                                                            amount={Number(inv.amount)}
-                                                            paidAmount={Number(inv.paidAmount || 0)}
-                                                            status={inv.status}
-                                                            currency={po.currency}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-8 text-muted-foreground">
-                                            <Receipt className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                                            <p>No invoices submitted yet</p>
-                                            <p className="text-sm">Invoices will appear here when submitted by supplier</p>
-                                        </div>
-                                    )}
+                                <CardContent className="grid gap-3 text-sm md:grid-cols-2">
+                                    <InfoRow label="PO Number" value={po.poNumber} />
+                                    <InfoRow label="Status" value={po.status} />
+                                    <InfoRow label="Project" value={(po as any).project?.name || "—"} />
+                                    <InfoRow label="Supplier" value={(po as any).supplier?.name || "—"} />
+                                    <InfoRow label="Currency" value={po.currency} />
+                                    <InfoRow label="Total Value" value={`${po.currency} ${Number(po.totalValue ?? 0).toLocaleString()}`} mono />
+                                    <InfoRow label="Created" value={format(new Date(po.createdAt), "MMM d, yyyy 'at' h:mm a")} />
+                                    <InfoRow label="Last Version" value={latestVersion ? `v${latestVersion.versionNumber}` : "v1"} />
                                 </CardContent>
                             </Card>
-
-                            {/* Ready to Invoice Milestones */}
-                            {(() => {
-                                const milestones = (po as any).milestones || [];
-                                const readyMilestones = milestones.filter((m: any) => {
-                                    const progress = m.progressRecords?.[0]?.percentComplete || 0;
-                                    const hasInvoice = pendingInvoices.some((inv: any) => inv.milestoneId === m.id);
-                                    return Number(progress) >= 100 && !hasInvoice;
-                                });
-
-                                if (readyMilestones.length === 0) return null;
-
-                                return (
-                                    <Card className="border-emerald-200 bg-emerald-50/30">
-                                        <CardHeader className="pb-3">
-                                            <CardTitle className="text-base flex items-center gap-2 text-emerald-700">
-                                                <CheckCircle className="h-5 w-5" />
-                                                Ready to Invoice ({readyMilestones.length})
-                                            </CardTitle>
-                                            <CardDescription>
-                                                Milestones at 100% completion without invoices
-                                            </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="space-y-2">
-                                            {readyMilestones.map((m: any) => (
-                                                <div
-                                                    key={m.id}
-                                                    className="flex items-center justify-between p-2 bg-white rounded border"
-                                                >
-                                                    <div>
-                                                        <p className="font-medium text-sm">{m.title}</p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {po.currency} {Number(m.amount || (Number(po.totalValue) * Number(m.paymentPercentage) / 100)).toLocaleString()}
-                                                        </p>
-                                                    </div>
-                                                    <MilestoneInvoiceStatus
-                                                        percentComplete={100}
-                                                        hasInvoice={false}
-                                                    />
-                                                </div>
-                                            ))}
-                                        </CardContent>
-                                    </Card>
-                                );
-                            })()}
                         </div>
+                    </TabsContent>
 
-                        {/* Right Column: Change Orders */}
-                        <div className="space-y-6 min-h-0 overflow-y-auto pr-1">
-                            <Card>
-                                <CardHeader>
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <CardTitle className="flex items-center gap-2">
-                                                <ArrowsClockwise className="h-5 w-5" />
-                                                Change Orders
-                                            </CardTitle>
-                                            <CardDescription>
-                                            </CardDescription>
+                    {/* Financials Tab - Phase 5 */}
+                    <TabsContent value="financials" className="h-[calc(100vh-230px)] min-h-[520px]">
+                        <div className="grid h-full gap-6 grid-cols-1">
+                            {/* Left Column: Invoices */}
+                            <div className="space-y-6 min-h-0 overflow-y-auto pr-1">
+                                <Card>
+                                    <CardHeader>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <CardTitle className="flex items-center gap-2">
+                                                    <Receipt className="h-5 w-5" />
+                                                    Invoices
+                                                </CardTitle>
+                                                <CardDescription>
+                                                    Review and approve invoices submitted by supplier
+                                                </CardDescription>
+                                            </div>
+                                            {/* PM doesn't upload invoices - suppliers do */}
                                         </div>
-                                        <div className="flex gap-2">
-                                            <ClientInstructionUpload
-                                                projectId={(po as any).projectId}
-                                            />
-                                            <ChangeOrderSheet
-                                                purchaseOrderId={po.id}
-                                                currentPOValue={Number(po.totalValue)}
-                                                milestones={(po as any).milestones?.map((m: any) => ({
-                                                    id: m.id,
-                                                    title: m.title,
-                                                    status: m.status,
-                                                })) || []}
-                                                boqItems={(po as any).boqItems || []}
-                                            />
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="space-y-6">
-                                    <ClientInstructionList
-                                        projectId={(po as any).projectId}
-                                        purchaseOrderId={po.id}
-                                        currentPOValue={Number(po.totalValue)}
-                                        milestones={(po as any).milestones || []}
-                                        boqItems={(po as any).boqItems || []}
-                                    />
-
-                                    <div>
-                                        <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
-                                            <ArrowsClockwise size={16} className="text-muted-foreground" />
-                                            Processed Change Orders
-                                        </h3>
-                                        {changeOrders.length > 0 ? (
+                                    </CardHeader>
+                                    <CardContent>
+                                        {pendingInvoices.length > 0 ? (
                                             <div className="space-y-3">
-                                                {changeOrders.map((co: any) => (
+                                                {pendingInvoices.map((inv: any) => (
                                                     <div
-                                                        key={co.id}
+                                                        key={inv.id}
                                                         className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
                                                     >
                                                         <div className="flex items-center gap-3">
-                                                            <div className={`h-10 w-10 rounded-full flex items-center justify-center ${co.status === "APPROVED" ? "bg-green-100" :
-                                                                co.status === "REJECTED" ? "bg-red-100" : "bg-blue-100"
-                                                                }`}>
-                                                                <ArrowsClockwise className={`h-5 w-5 ${co.status === "APPROVED" ? "text-green-600" :
-                                                                    co.status === "REJECTED" ? "text-red-600" : "text-blue-600"
-                                                                    }`} />
+                                                            <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                                                                <Receipt className="h-5 w-5 text-amber-600" />
                                                             </div>
                                                             <div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <p className="font-medium">{co.changeNumber}</p>
-                                                                    {co.changeOrderType === "ADDITION" && (
-                                                                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
-                                                                            Variation
-                                                                        </Badge>
-                                                                    )}
-                                                                    {co.changeOrderType === "OMISSION" && (
-                                                                        <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300">
-                                                                            De-Scope
-                                                                        </Badge>
-                                                                    )}
-                                                                </div>
-                                                                <p className="text-sm text-muted-foreground truncate max-w-[200px]">
-                                                                    {co.reason}
+                                                                <p className="font-medium">{inv.invoiceNumber}</p>
+                                                                <p className="text-sm text-muted-foreground">
+                                                                    {inv.milestone?.title || "No milestone"}
                                                                 </p>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-3">
                                                             <div className="text-right">
-                                                                <p className={`font-mono font-medium ${Number(co.amountDelta) > 0 ? "text-amber-600" :
-                                                                    Number(co.amountDelta) < 0 ? "text-green-600" : ""
-                                                                    }`}>
-                                                                    {Number(co.amountDelta) >= 0 ? "+" : ""}
-                                                                    {po.currency} {Number(co.amountDelta).toLocaleString()}
+                                                                <p className="font-mono font-medium">
+                                                                    {po.currency} {Number(inv.amount).toLocaleString()}
                                                                 </p>
-                                                                <COStatusBadge status={co.status} />
+                                                                <PaymentStatusBadge status={inv.status} />
                                                             </div>
-                                                            <COActions
-                                                                changeOrderId={co.id}
-                                                                changeNumber={co.changeNumber}
-                                                                status={co.status}
-                                                                amountDelta={Number(co.amountDelta)}
+                                                            <InvoiceActions
+                                                                invoiceId={inv.id}
+                                                                invoiceNumber={inv.invoiceNumber}
+                                                                amount={Number(inv.amount)}
+                                                                paidAmount={Number(inv.paidAmount || 0)}
+                                                                status={inv.status}
+                                                                currency={po.currency}
                                                             />
                                                         </div>
                                                     </div>
@@ -637,303 +489,457 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                                             </div>
                                         ) : (
                                             <div className="text-center py-8 text-muted-foreground">
-                                                <ArrowsClockwise className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                                                <p>No change orders</p>
-                                                <p className="text-sm">Submit a CO to request changes</p>
+                                                <Receipt className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                                                <p>No invoices submitted yet</p>
+                                                <p className="text-sm">Invoices will appear here when submitted by supplier</p>
                                             </div>
                                         )}
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                    </CardContent>
+                                </Card>
 
-                            {/* CO Impact Summary */}
-                            {coImpact.totalCOs > 0 && (
+                                {/* Ready to Invoice Milestones */}
+                                {(() => {
+                                    const milestones = (po as any).milestones || [];
+                                    const readyMilestones = milestones.filter((m: any) => {
+                                        const progress = m.progressRecords?.[0]?.percentComplete || 0;
+                                        const hasInvoice = pendingInvoices.some((inv: any) => inv.milestoneId === m.id);
+                                        return Number(progress) >= 100 && !hasInvoice;
+                                    });
+
+                                    if (readyMilestones.length === 0) return null;
+
+                                    return (
+                                        <Card className="border-emerald-200 bg-emerald-50/30">
+                                            <CardHeader className="pb-3">
+                                                <CardTitle className="text-base flex items-center gap-2 text-emerald-700">
+                                                    <CheckCircle className="h-5 w-5" />
+                                                    Ready to Invoice ({readyMilestones.length})
+                                                </CardTitle>
+                                                <CardDescription>
+                                                    Milestones at 100% completion without invoices
+                                                </CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="space-y-2">
+                                                {readyMilestones.map((m: any) => (
+                                                    <div
+                                                        key={m.id}
+                                                        className="flex items-center justify-between p-2 bg-white rounded border"
+                                                    >
+                                                        <div>
+                                                            <p className="font-medium text-sm">{m.title}</p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {po.currency} {Number(m.amount || (Number(po.totalValue) * Number(m.paymentPercentage) / 100)).toLocaleString()}
+                                                            </p>
+                                                        </div>
+                                                        <MilestoneInvoiceStatus
+                                                            percentComplete={100}
+                                                            hasInvoice={false}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })()}
+                            </div>
+
+                            {/* Right Column: Change Orders */}
+                            <div className="space-y-6 min-h-0 overflow-y-auto pr-1">
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle className="text-base">CO Impact Summary</CardTitle>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <CardTitle className="flex items-center gap-2">
+                                                    <ArrowsClockwise className="h-5 w-5" />
+                                                    Change Orders
+                                                </CardTitle>
+                                                <CardDescription>
+                                                </CardDescription>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <ClientInstructionUpload
+                                                    projectId={(po as any).projectId}
+                                                />
+                                                <ChangeOrderSheet
+                                                    purchaseOrderId={po.id}
+                                                    currentPOValue={Number(po.totalValue)}
+                                                    milestones={(po as any).milestones?.map((m: any) => ({
+                                                        id: m.id,
+                                                        title: m.title,
+                                                        status: m.status,
+                                                    })) || []}
+                                                    boqItems={(po as any).boqItems || []}
+                                                />
+                                            </div>
+                                        </div>
                                     </CardHeader>
-                                    <CardContent>
-                                        <div className="grid grid-cols-3 gap-4 text-center">
-                                            <div>
-                                                <p className="text-2xl font-bold text-green-600">{coImpact.approvedCOs}</p>
-                                                <p className="text-xs text-muted-foreground">Approved</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-2xl font-bold text-amber-600">{coImpact.pendingCOs}</p>
-                                                <p className="text-xs text-muted-foreground">Pending</p>
-                                            </div>
-                                            <div>
-                                                <p className={`text-2xl font-bold ${coImpact.totalCostImpact >= 0 ? "text-amber-600" : "text-green-600"}`}>
-                                                    {coImpact.totalCostImpact >= 0 ? "+" : ""}{po.currency}{coImpact.totalCostImpact.toLocaleString()}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">Cost Impact</p>
-                                            </div>
+                                    <CardContent className="space-y-6">
+                                        <ClientInstructionList
+                                            projectId={(po as any).projectId}
+                                            purchaseOrderId={po.id}
+                                            currentPOValue={Number(po.totalValue)}
+                                            milestones={(po as any).milestones || []}
+                                            boqItems={(po as any).boqItems || []}
+                                        />
+
+                                        <div>
+                                            <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                                                <ArrowsClockwise size={16} className="text-muted-foreground" />
+                                                Processed Change Orders
+                                            </h3>
+                                            {changeOrders.length > 0 ? (
+                                                <div className="space-y-3">
+                                                    {changeOrders.map((co: any) => (
+                                                        <div
+                                                            key={co.id}
+                                                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`h-10 w-10 rounded-full flex items-center justify-center ${co.status === "APPROVED" ? "bg-green-100" :
+                                                                    co.status === "REJECTED" ? "bg-red-100" : "bg-blue-100"
+                                                                    }`}>
+                                                                    <ArrowsClockwise className={`h-5 w-5 ${co.status === "APPROVED" ? "text-green-600" :
+                                                                        co.status === "REJECTED" ? "text-red-600" : "text-blue-600"
+                                                                        }`} />
+                                                                </div>
+                                                                <div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <p className="font-medium">{co.changeNumber}</p>
+                                                                        {co.changeOrderType === "ADDITION" && (
+                                                                            <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                                                                                Variation
+                                                                            </Badge>
+                                                                        )}
+                                                                        {co.changeOrderType === "OMISSION" && (
+                                                                            <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300">
+                                                                                De-Scope
+                                                                            </Badge>
+                                                                        )}
+                                                                    </div>
+                                                                    <p className="text-sm text-muted-foreground truncate max-w-[200px]">
+                                                                        {co.reason}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="text-right">
+                                                                    <p className={`font-mono font-medium ${Number(co.amountDelta) > 0 ? "text-amber-600" :
+                                                                        Number(co.amountDelta) < 0 ? "text-green-600" : ""
+                                                                        }`}>
+                                                                        {Number(co.amountDelta) >= 0 ? "+" : ""}
+                                                                        {po.currency} {Number(co.amountDelta).toLocaleString()}
+                                                                    </p>
+                                                                    <COStatusBadge status={co.status} />
+                                                                </div>
+                                                                <COActions
+                                                                    changeOrderId={co.id}
+                                                                    changeNumber={co.changeNumber}
+                                                                    status={co.status}
+                                                                    amountDelta={Number(co.amountDelta)}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-8 text-muted-foreground">
+                                                    <ArrowsClockwise className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                                                    <p>No change orders</p>
+                                                    <p className="text-sm">Submit a CO to request changes</p>
+                                                </div>
+                                            )}
                                         </div>
                                     </CardContent>
                                 </Card>
-                            )}
-                        </div>
-                    </div>
-                </TabsContent>
 
-                {/* Progress Tab - Phase 4 */}
-                <TabsContent value="progress" className="h-[calc(100vh-230px)] min-h-[520px]">
-                    <div className="grid h-full gap-6 lg:grid-cols-2">
-                        {/* Internal Progress Form */}
-                        <InternalProgressForm
-                            purchaseOrderId={po.id}
-                            poNumber={po.poNumber}
-                            milestones={(po as any).milestones?.map((m: any) => ({
-                                id: m.id,
-                                title: m.title,
-                                paymentPercentage: m.paymentPercentage,
-                                currentProgress: m.progressRecords?.[0]?.percentComplete ? Number(m.progressRecords[0].percentComplete) : 0,
-                            })) || []}
-                            supplierName={(po as any).supplier?.name || "Supplier"}
-                        />
-
-                        {/* Progress History */}
-                        <Card className="h-full flex flex-col">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <ChartLineUpIcon className="h-5 w-5" />
-                                    Progress History
-                                </CardTitle>
-                                <CardDescription>Recent updates from supplier and internal teams</CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex-1 min-h-0">
-                                <div className="h-full space-y-4 overflow-y-auto pr-2">
-                                    {(po as any).milestones?.flatMap((m: any) =>
-                                        m.progressRecords?.map((pr: any) => ({
-                                            ...pr,
-                                            milestoneTitle: m.title,
-                                        })) || []
-                                    ).slice(0, 20).map((record: any, index: number) => (
-                                        <div key={record.id || index} className="flex items-center gap-4 p-3 rounded-lg border">
-                                            <TrustIndicator level={record.trustLevel || "INTERNAL"} size="sm" showLabel={false} />
-                                            <div className="flex-1">
-                                                <p className="text-sm font-medium">{record.milestoneTitle}: {record.percentComplete}%</p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {record.source} • {format(new Date(record.reportedDate), "MMM d, yyyy")}
-                                                </p>
+                                {/* CO Impact Summary */}
+                                {coImpact.totalCOs > 0 && (
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle className="text-base">CO Impact Summary</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="grid grid-cols-3 gap-4 text-center">
+                                                <div>
+                                                    <p className="text-2xl font-bold text-green-600">{coImpact.approvedCOs}</p>
+                                                    <p className="text-xs text-muted-foreground">Approved</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-2xl font-bold text-amber-600">{coImpact.pendingCOs}</p>
+                                                    <p className="text-xs text-muted-foreground">Pending</p>
+                                                </div>
+                                                <div>
+                                                    <p className={`text-2xl font-bold ${coImpact.totalCostImpact >= 0 ? "text-amber-600" : "text-green-600"}`}>
+                                                        {coImpact.totalCostImpact >= 0 ? "+" : ""}{po.currency}{coImpact.totalCostImpact.toLocaleString()}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">Cost Impact</p>
+                                                </div>
                                             </div>
-                                            {record.isForecast && (
-                                                <Badge variant="secondary">⚠ Forecast</Badge>
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </div>
+                        </div>
+                    </TabsContent>
+
+                    {/* Progress Tab - Phase 4 */}
+                    <TabsContent value="progress" className="h-[calc(100vh-230px)] min-h-[520px]">
+                        <div className="grid h-full gap-6 grid-cols-1">
+                            {/* Internal Progress Form */}
+                            <InternalProgressForm
+                                purchaseOrderId={po.id}
+                                poNumber={po.poNumber}
+                                milestones={(po as any).milestones?.map((m: any) => ({
+                                    id: m.id,
+                                    title: m.title,
+                                    paymentPercentage: m.paymentPercentage,
+                                    currentProgress: m.progressRecords?.[0]?.percentComplete ? Number(m.progressRecords[0].percentComplete) : 0,
+                                })) || []}
+                                supplierName={(po as any).supplier?.name || "Supplier"}
+                            />
+
+                            {/* Progress History */}
+                            <Card className="h-full flex flex-col">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <ChartLineUpIcon className="h-5 w-5" />
+                                        Progress History
+                                    </CardTitle>
+                                    <CardDescription>Recent updates from supplier and internal teams</CardDescription>
+                                </CardHeader>
+                                <CardContent className="flex-1 min-h-0">
+                                    <div className="h-full space-y-4 overflow-y-auto pr-2">
+                                        {(po as any).milestones?.flatMap((m: any) =>
+                                            m.progressRecords?.map((pr: any) => ({
+                                                ...pr,
+                                                milestoneTitle: m.title,
+                                            })) || []
+                                        ).slice(0, 20).map((record: any, index: number) => (
+                                            <div key={record.id || index} className="flex items-center gap-4 p-3 rounded-lg border">
+                                                <TrustIndicator level={record.trustLevel || "INTERNAL"} size="sm" showLabel={false} />
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium">{record.milestoneTitle}: {record.percentComplete}%</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {record.source} • {format(new Date(record.reportedDate), "MMM d, yyyy")}
+                                                    </p>
+                                                </div>
+                                                {record.isForecast && (
+                                                    <Badge variant="secondary">⚠ Forecast</Badge>
+                                                )}
+                                            </div>
+                                        )) || (
+                                                <p className="text-center text-muted-foreground py-8">No progress records yet</p>
                                             )}
-                                        </div>
-                                    )) || (
-                                            <p className="text-center text-muted-foreground py-8">No progress records yet</p>
-                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </TabsContent>
+
+                    {/* Gallery Tab - Phase 4 */}
+                    <TabsContent value="gallery" className="h-[calc(100vh-230px)] min-h-[520px]">
+                        <Card className="h-full flex flex-col">
+                            <CardContent className="pt-6 flex-1 min-h-0">
+                                <div className="h-full overflow-y-auto">
+                                    <POGallery
+                                        purchaseOrderId={po.id}
+                                        poNumber={po.poNumber}
+                                        media={poDocuments.map((doc: any) => ({
+                                            id: doc.id,
+                                            fileName: doc.fileName,
+                                            fileUrl: doc.fileUrl,
+                                            mimeType: doc.mimeType,
+                                            documentType: doc.documentType,
+                                            uploadedAt: new Date(doc.createdAt),
+                                        }))}
+                                    />
                                 </div>
                             </CardContent>
                         </Card>
-                    </div>
-                </TabsContent>
+                    </TabsContent>
 
-                {/* Gallery Tab - Phase 4 */}
-                <TabsContent value="gallery" className="h-[calc(100vh-230px)] min-h-[520px]">
-                    <Card className="h-full flex flex-col">
-                        <CardContent className="pt-6 flex-1 min-h-0">
-                            <div className="h-full overflow-y-auto">
-                                <POGallery
-                                    purchaseOrderId={po.id}
-                                    poNumber={po.poNumber}
-                                    media={poDocuments.map((doc: any) => ({
-                                        id: doc.id,
-                                        fileName: doc.fileName,
-                                        fileUrl: doc.fileUrl,
-                                        mimeType: doc.mimeType,
-                                        documentType: doc.documentType,
-                                        uploadedAt: new Date(doc.createdAt),
-                                    }))}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+                    {/* Conflicts Tab - Phase 4 */}
+                    <TabsContent value="conflicts">
+                        <ConflictQueue
+                            conflicts={(po as any).conflicts?.map((c: any) => ({
+                                id: c.id,
+                                type: c.type,
+                                state: c.state,
+                                deviationPercent: Number(c.deviationPercent),
+                                description: c.description,
+                                slaDeadline: c.slaDeadline ? new Date(c.slaDeadline) : undefined,
+                                createdAt: new Date(c.createdAt),
+                                escalationLevel: c.escalationLevel || 0,
+                                isCriticalPath: c.isCriticalPath || false,
+                                isFinancialMilestone: c.isFinancialMilestone || false,
+                                purchaseOrder: {
+                                    id: po.id,
+                                    poNumber: po.poNumber,
+                                },
+                                milestone: c.milestone ? {
+                                    id: c.milestone.id,
+                                    title: c.milestone.title,
+                                } : undefined,
+                            })) || []}
+                        />
+                    </TabsContent>
 
-                {/* Conflicts Tab - Phase 4 */}
-                <TabsContent value="conflicts">
-                    <ConflictQueue
-                        conflicts={(po as any).conflicts?.map((c: any) => ({
-                            id: c.id,
-                            type: c.type,
-                            state: c.state,
-                            deviationPercent: Number(c.deviationPercent),
-                            description: c.description,
-                            slaDeadline: c.slaDeadline ? new Date(c.slaDeadline) : undefined,
-                            createdAt: new Date(c.createdAt),
-                            escalationLevel: c.escalationLevel || 0,
-                            isCriticalPath: c.isCriticalPath || false,
-                            isFinancialMilestone: c.isFinancialMilestone || false,
-                            purchaseOrder: {
-                                id: po.id,
-                                poNumber: po.poNumber,
-                            },
-                            milestone: c.milestone ? {
-                                id: c.milestone.id,
-                                title: c.milestone.title,
-                            } : undefined,
-                        })) || []}
-                    />
-                </TabsContent>
-
-                {/* BOQ Tab */}
-                <TabsContent value="boq">
-                    <Card className="h-[calc(100vh-230px)] min-h-[520px] flex flex-col">
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <CardTitle>Bill of Quantities</CardTitle>
-                                    <CardDescription>
-                                        Line items from uploaded BOQ
-                                    </CardDescription>
+                    {/* BOQ Tab */}
+                    <TabsContent value="boq">
+                        <Card className="h-[calc(100vh-230px)] min-h-[520px] flex flex-col">
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle>Bill of Quantities</CardTitle>
+                                        <CardDescription>
+                                            Line items from uploaded BOQ
+                                        </CardDescription>
+                                    </div>
+                                    <ImportBOQDialog purchaseOrderId={po.id} />
                                 </div>
-                                <ImportBOQDialog purchaseOrderId={po.id} />
-                            </div>
-                        </CardHeader>
-                        <CardContent className="flex-1 min-h-0">
-                            {(po as any).boqItems?.length > 0 ? (
-                                <div className="h-full overflow-y-auto border rounded-lg">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Item #</TableHead>
-                                                <TableHead>Description</TableHead>
-                                                <TableHead>Unit</TableHead>
-                                                <TableHead className="text-right">
-                                                    Qty
-                                                </TableHead>
-                                                <TableHead className="text-right">
-                                                    Unit Price
-                                                </TableHead>
-                                                <TableHead className="text-right">
-                                                    Total
-                                                </TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {(po as any).boqItems.map((item: any) => (
-                                                <TableRow key={item.id}>
-                                                    <TableCell>
-                                                        {item.itemNumber}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {item.description}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {item.unit}
-                                                    </TableCell>
-                                                    <TableCell className="text-right font-mono">
-                                                        {Number(
-                                                            item.quantity ?? 0
-                                                        ).toLocaleString()}
-                                                    </TableCell>
-                                                    <TableCell className="text-right font-mono">
-                                                        {Number(
-                                                            item.unitPrice ?? 0
-                                                        ).toLocaleString()}
-                                                    </TableCell>
-                                                    <TableCell className="text-right font-mono">
-                                                        {Number(
-                                                            item.totalPrice ?? 0
-                                                        ).toLocaleString()}
-                                                    </TableCell>
+                            </CardHeader>
+                            <CardContent className="flex-1 min-h-0">
+                                {(po as any).boqItems?.length > 0 ? (
+                                    <div className="h-full overflow-y-auto border rounded-lg">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Item #</TableHead>
+                                                    <TableHead>Description</TableHead>
+                                                    <TableHead>Unit</TableHead>
+                                                    <TableHead className="text-right">
+                                                        Qty
+                                                    </TableHead>
+                                                    <TableHead className="text-right">
+                                                        Unit Price
+                                                    </TableHead>
+                                                    <TableHead className="text-right">
+                                                        Total
+                                                    </TableHead>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            ) : (
-                                <div className="text-center py-12 text-muted-foreground">
-                                    <FileTextIcon className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                                    <p>No BOQ items yet.</p>
-                                    <p className="text-sm">
-                                        Upload an Excel file to import line
-                                        items.
-                                    </p>
-                                </div>
-                            )}
+                                            </TableHeader>
+                                            <TableBody>
+                                                {(po as any).boqItems.map((item: any) => (
+                                                    <TableRow key={item.id}>
+                                                        <TableCell>
+                                                            {item.itemNumber}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {item.description}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {item.unit}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono">
+                                                            {Number(
+                                                                item.quantity ?? 0
+                                                            ).toLocaleString()}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono">
+                                                            {Number(
+                                                                item.unitPrice ?? 0
+                                                            ).toLocaleString()}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono">
+                                                            {Number(
+                                                                item.totalPrice ?? 0
+                                                            ).toLocaleString()}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12 text-muted-foreground">
+                                        <FileTextIcon className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                                        <p>No BOQ items yet.</p>
+                                        <p className="text-sm">
+                                            Upload an Excel file to import line
+                                            items.
+                                        </p>
+                                    </div>
+                                )}
 
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
 
-                {/* Versions Tab */}
-                <TabsContent value="versions">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Version History</CardTitle>
-                            <CardDescription>
-                                All uploaded versions of this PO
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-4">
-                                {versionsWithUrls.map((version: any) => (
-                                    <div
-                                        key={version.id}
-                                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                                <FileTextIcon className="h-5 w-5 text-primary" />
+                    {/* Versions Tab */}
+                    <TabsContent value="versions">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Version History</CardTitle>
+                                <CardDescription>
+                                    All uploaded versions of this PO
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    {versionsWithUrls.map((version: any) => (
+                                        <div
+                                            key={version.id}
+                                            className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                                    <FileTextIcon className="h-5 w-5 text-primary" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium">
+                                                        Version {version.versionNumber}
+                                                    </p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {version.changeDescription ||
+                                                            "No description"}
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="font-medium">
-                                                    Version {version.versionNumber}
-                                                </p>
-                                                <p className="text-sm text-muted-foreground">
-                                                    {version.changeDescription ||
-                                                        "No description"}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="text-right text-sm text-muted-foreground">
-                                                <ClockIcon className="h-4 w-4 inline mr-1" />
-                                                {format(
-                                                    new Date(version.createdAt),
-                                                    "MMM d, yyyy"
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-right text-sm text-muted-foreground">
+                                                    <ClockIcon className="h-4 w-4 inline mr-1" />
+                                                    {format(
+                                                        new Date(version.createdAt),
+                                                        "MMM d, yyyy"
+                                                    )}
+                                                </div>
+                                                {version.downloadUrl && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        asChild
+                                                    >
+                                                        <a
+                                                            href={version.downloadUrl}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                        >
+                                                            <DownloadSimpleIcon className="h-4 w-4" />
+                                                        </a>
+                                                    </Button>
                                                 )}
                                             </div>
-                                            {version.downloadUrl && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    asChild
-                                                >
-                                                    <a
-                                                        href={version.downloadUrl}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                    >
-                                                        <DownloadSimpleIcon className="h-4 w-4" />
-                                                    </a>
-                                                </Button>
-                                            )}
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
 
-                {/* Quality/NCR Tab */}
-                <TabsContent value="quality">
-                    <POQualityTab
-                        purchaseOrderId={po.id}
-                        organizationId={po.organizationId}
-                        projectId={po.projectId}
-                        supplierId={po.supplierId}
-                    />
-                </TabsContent>
+                    {/* Quality/NCR Tab */}
+                    <TabsContent value="quality">
+                        <POQualityTab
+                            purchaseOrderId={po.id}
+                            organizationId={po.organizationId}
+                            projectId={po.projectId}
+                            supplierId={po.supplierId}
+                        />
+                    </TabsContent>
 
-                {/* Activity Log Tab */}
-                <TabsContent value="history">
-                    <AuditLogTimeline purchaseOrderId={po.id} />
-                </TabsContent>
+                    {/* Activity Log Tab */}
+                    <TabsContent value="history">
+                        <AuditLogTimeline purchaseOrderId={po.id} />
+                    </TabsContent>
                 </POCommandCenterSheet>
             </PODetailWorkspace>
             <ConflictResolver

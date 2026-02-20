@@ -32,6 +32,9 @@ export const createPOSchema = z.object({
         rosDate: z.string().optional().nullable(),
         isCritical: z.boolean().optional().nullable(),
         rosStatus: z.enum(["NOT_SET", "SET", "TBD"]).optional().nullable(),
+        // Categorization fields (AI-auto-classified or manually assigned)
+        discipline: z.string().optional().nullable(),
+        materialClass: z.string().optional().nullable(),
     })).optional(),
 });
 
@@ -65,6 +68,9 @@ export const updatePOSchema = z.object({
         rosDate: z.string().optional().nullable(),
         isCritical: z.boolean().optional().nullable(),
         rosStatus: z.enum(["NOT_SET", "SET", "TBD"]).optional().nullable(),
+        // Categorization fields (AI-auto-classified or manually assigned)
+        discipline: z.string().optional().nullable(),
+        materialClass: z.string().optional().nullable(),
     })).optional(),
 });
 

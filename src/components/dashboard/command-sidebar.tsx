@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
     SquaresFour,
     Bell,
@@ -27,7 +27,6 @@ import {
     ShieldWarning,
     Target,
     CurrencyDollar,
-    CalendarCheck,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import {
@@ -104,19 +103,72 @@ interface SidebarNavItem {
 const dailyOpsNav: SidebarNavItem[] = [
     { title: "Home", url: "/dashboard", icon: SquaresFour },
     { title: "Alerts", url: "/dashboard/alerts", icon: Bell, badge: true },
-    { title: "Analytics", url: "/dashboard/analytics", icon: ChartLineUp },
+    {
+        title: "Analytics",
+        url: "/dashboard/analytics",
+        icon: ChartLineUp,
+        subItems: [
+            { title: "Overview", url: "/dashboard/analytics", icon: Gauge },
+            { title: "Delivery Categories", url: "/dashboard/analytics/delivery-categories", icon: Truck },
+            { title: "Quality", url: "/dashboard/analytics/quality", icon: ShieldWarning },
+            { title: "Logistics", url: "/dashboard/analytics/logistics", icon: Package },
+            { title: "Finance", url: "/dashboard/analytics/finance", icon: CurrencyDollar },
+            { title: "Suppliers", url: "/dashboard/analytics/suppliers", icon: UsersThree },
+        ],
+    },
 ];
 
 const financialsNav = [
-    { title: "Procurement", url: "/dashboard/procurement", icon: FileText },
-    { title: "Invoices", url: "/dashboard/procurement?tab=invoices", icon: Receipt },
-    { title: "Change Orders", url: "/dashboard/procurement?tab=change-orders", icon: FileArrowUp },
+    {
+        title: "Procurement",
+        url: "/dashboard/procurement",
+        icon: FileText,
+        subItems: [
+            { title: "Purchase Orders", url: "/dashboard/procurement", icon: FileText },
+            { title: "New Purchase Order", url: "/dashboard/procurement/new", icon: FileText },
+            { title: "Upload Document", url: "/dashboard/procurement/new?step=upload", icon: FileArrowUp },
+        ],
+    },
+    {
+        title: "Invoices",
+        url: "/dashboard/procurement?tab=invoices",
+        icon: Receipt,
+        subItems: [
+            { title: "Invoices Overview", url: "/dashboard/procurement?tab=invoices", icon: Receipt },
+            { title: "Finance Dashboard", url: "/dashboard/analytics/finance", icon: CurrencyDollar },
+        ],
+    },
+    {
+        title: "Change Orders",
+        url: "/dashboard/procurement?tab=change-orders",
+        icon: FileArrowUp,
+        subItems: [
+            { title: "Change Orders Overview", url: "/dashboard/procurement?tab=change-orders", icon: FileArrowUp },
+            { title: "Purchase Orders", url: "/dashboard/procurement", icon: FileText },
+        ],
+    },
 ];
 
 const qualityLogisticsNav = [
-    { title: "Materials Tracker", url: "/dashboard/procurement", icon: Package },
+    {
+        title: "Materials Tracker",
+        url: "/dashboard/procurement?tab=material-tracker",
+        icon: Package,
+        subItems: [
+            { title: "Materials Overview", url: "/dashboard/procurement?tab=material-tracker", icon: Package },
+            { title: "Purchase Orders", url: "/dashboard/procurement", icon: FileText },
+        ],
+    },
     { title: "Quality Alerts", url: "/dashboard/alerts", icon: Warning },
-    { title: "Deliveries", url: "/dashboard/procurement?tab=deliveries", icon: Truck },
+    {
+        title: "Deliveries",
+        url: "/dashboard/procurement?tab=deliveries",
+        icon: Truck,
+        subItems: [
+            { title: "Deliveries Overview", url: "/dashboard/procurement?tab=deliveries", icon: Truck },
+            { title: "Purchase Orders", url: "/dashboard/procurement", icon: FileText },
+        ],
+    },
 ];
 
 const managementNav = [
@@ -164,17 +216,6 @@ const supplierNav: SupplierNavItem[] = [
     { title: "Compliance", url: "/dashboard/supplier/onboarding", icon: Truck },
 ];
 
-const pmAnalyticsSubItems: { title: string; url: string; icon: React.ElementType }[] = [
-    { title: "Overview", url: "/dashboard/pm/overview", icon: Gauge },
-    { title: "Deliveries", url: "/dashboard/pm/deliveries", icon: Truck },
-    { title: "Materials", url: "/dashboard/pm/materials", icon: Package },
-    { title: "Quality", url: "/dashboard/pm/quality", icon: ShieldWarning },
-    { title: "Milestones", url: "/dashboard/pm/milestones", icon: Target },
-    { title: "Suppliers", url: "/dashboard/pm/suppliers", icon: UsersThree },
-    { title: "Cost & Budget", url: "/dashboard/pm/financials", icon: CurrencyDollar },
-    { title: "Inspections", url: "/dashboard/pm/inspections", icon: CalendarCheck },
-];
-
 export function CommandSidebar({
     user,
     projects = [],
@@ -185,24 +226,32 @@ export function CommandSidebar({
     activeSupplierProjectId,
 }: CommandSidebarProps) {
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const { state } = useSidebar();
     const isCollapsed = state === "collapsed";
     const isSupplier = user?.role === "SUPPLIER";
-    const isPM = user?.role === "PM" || user?.role === "PROJECT_MANAGER";
 
     const activeProject = projects.find((p) => p.id === activeProjectId);
-    const dailyOpsItems: SidebarNavItem[] = isPM
-        ? dailyOpsNav.map((item) =>
-            item.title === "Analytics"
-                ? { ...item, url: "/dashboard/pm/overview", subItems: pmAnalyticsSubItems }
-                : item
-        )
-        : dailyOpsNav;
+    // Keep Analytics consistent: always routes to /dashboard/analytics (hub).
+    const dailyOpsItems: SidebarNavItem[] = dailyOpsNav;
 
     // Helper to check if link is active
     const isActive = (url: string) => {
         if (url === "/dashboard") return pathname === "/dashboard";
-        return pathname.startsWith(url.split("?")[0]);
+
+        const [basePath, queryString] = url.split("?");
+        if (!pathname.startsWith(basePath)) return false;
+
+        if (queryString) {
+            const expected = new URLSearchParams(queryString);
+            const expectedTab = expected.get("tab");
+            if (expectedTab) {
+                // When a nav item encodes a `tab`, only mark it active if the current URL has the same tab.
+                return searchParams.get("tab") === expectedTab;
+            }
+        }
+
+        return true;
     };
 
     const navButtonClass = (active: boolean) =>
@@ -262,24 +311,35 @@ export function CommandSidebar({
                             ) : (
                                 <Collapsible key={item.title} asChild defaultOpen={pathname.startsWith(item.url.split("?")[0])} className="group/collapsible">
                                     <SidebarMenuItem>
-                                        <CollapsibleTrigger asChild>
+                                        <div className="flex items-center gap-1">
                                             <SidebarMenuButton
+                                                asChild
                                                 tooltip={item.title}
                                                 isActive={isActive(item.url)}
-                                                className={navButtonClass(isActive(item.url))}
+                                                className={cn(navButtonClass(isActive(item.url)), "flex-1")}
                                             >
-                                                <item.icon className="h-4 w-4" />
-                                                <span>{item.title}</span>
-                                                <CaretRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                                                <Link href={item.url} className="flex items-center gap-3">
+                                                    <item.icon className="h-4 w-4" />
+                                                    <span>{item.title}</span>
+                                                </Link>
                                             </SidebarMenuButton>
-                                        </CollapsibleTrigger>
+                                            <CollapsibleTrigger asChild>
+                                                <button
+                                                    type="button"
+                                                    aria-label={`Toggle ${item.title}`}
+                                                    className="flex h-10 w-10 items-center justify-center rounded-xl text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                                                >
+                                                    <CaretRight className="h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                                                </button>
+                                            </CollapsibleTrigger>
+                                        </div>
                                         <CollapsibleContent>
                                             <SidebarMenuSub className="mx-4 mt-1 border-sidebar-border/70 px-2 py-1">
                                                 {item.subItems.map((sub) => (
                                                     <SidebarMenuSubItem key={sub.title}>
                                                         <SidebarMenuSubButton
                                                             asChild
-                                                            isActive={pathname === sub.url}
+                                                            isActive={isActive(sub.url)}
                                                             className="h-8 rounded-lg text-xs data-[active=true]:bg-[#0E7490]! data-[active=true]:text-white!"
                                                         >
                                                             <Link href={sub.url} className="flex items-center gap-2">

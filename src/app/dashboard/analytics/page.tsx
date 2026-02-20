@@ -26,6 +26,11 @@ const pages = [
     href: "/dashboard/analytics/logistics",
   },
   {
+    title: "Delivery Categories",
+    description: "Discipline & material class breakdown with ROS-based status tracking",
+    href: "/dashboard/analytics/delivery-categories",
+  },
+  {
     title: "Finance",
     description: "Cash flow, budget variance, and payment cycles",
     href: "/dashboard/analytics/finance",
@@ -49,8 +54,8 @@ export default async function AnalyticsHubPage() {
 
       {/* Executive Dashboard - Only for Admins */}
       {isAdmin && (
-        <Link 
-          href="/dashboard/executive" 
+        <Link
+          href="/dashboard/executive"
           className="group flex items-center justify-between p-4 mb-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
         >
           <div>
@@ -63,8 +68,8 @@ export default async function AnalyticsHubPage() {
 
       {/* Admin Dashboard - Only for Admins */}
       {isAdmin && (
-        <Link 
-          href="/dashboard/admin" 
+        <Link
+          href="/dashboard/admin"
           className="group flex items-center justify-between p-4 mb-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
         >
           <div>
@@ -77,8 +82,8 @@ export default async function AnalyticsHubPage() {
 
       {/* PM Dashboard - Only for Project Managers */}
       {isPM && (
-        <Link 
-          href="/dashboard/pm" 
+        <Link
+          href="/dashboard/pm"
           className="group flex items-center justify-between p-4 mb-6 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
         >
           <div>
@@ -95,9 +100,9 @@ export default async function AnalyticsHubPage() {
 
       <div className="rounded-lg border bg-card divide-y">
         {pages.map((p) => (
-          <Link 
-            key={p.href} 
-            href={p.href} 
+          <Link
+            key={p.href}
+            href={p.href}
             className="group flex items-center justify-between p-4 hover:bg-accent/50 transition-colors first:rounded-t-lg last:rounded-b-lg"
           >
             <div>
