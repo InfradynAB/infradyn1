@@ -23,6 +23,7 @@ import {
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 
 // Supplier Charts
@@ -273,6 +274,8 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
     const [projectFilter, setProjectFilter] = useState("all");
     const [statusFilter, setStatusFilter] = useState("all");
     const [timeframe, setTimeframe] = useState("all");
+    const [customFrom, setCustomFrom] = useState<Date | undefined>(undefined);
+    const [customTo, setCustomTo] = useState<Date | undefined>(undefined);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [viewModes, setViewModes] = useState<Record<string, "chart" | "table">>({
         orders: "chart", deliveries: "chart", invoices: "chart",
@@ -281,6 +284,16 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
     const toggleView = useCallback((section: string, mode: "chart" | "table") => {
         setViewModes(prev => ({ ...prev, [section]: mode }));
     }, []);
+
+    useEffect(() => {
+        if (timeframe !== "custom") {
+            setCustomFrom(undefined);
+            setCustomTo(undefined);
+            return;
+        }
+
+        if (!customFrom) setCustomFrom(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    }, [timeframe, customFrom]);
 
     // Real projects from API
     const [projectList, setProjectList] = useState<Array<{ id: string; name: string }>>([]);
@@ -406,11 +419,28 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Time</SelectItem>
+                            <SelectItem value="7d">Last 7 Days</SelectItem>
                             <SelectItem value="30d">Last 30 Days</SelectItem>
                             <SelectItem value="90d">Last 90 Days</SelectItem>
-                            <SelectItem value="ytd">Year to Date</SelectItem>
+                            <SelectItem value="custom">Custom</SelectItem>
                         </SelectContent>
                     </Select>
+                    {timeframe === "custom" && (
+                        <div className="hidden lg:flex items-center gap-2">
+                            <DatePicker
+                                value={customFrom}
+                                onChange={setCustomFrom}
+                                placeholder="From"
+                                className="w-[150px] h-9 text-xs rounded-xl"
+                            />
+                            <DatePicker
+                                value={customTo}
+                                onChange={setCustomTo}
+                                placeholder="To"
+                                className="w-[150px] h-9 text-xs rounded-xl"
+                            />
+                        </div>
+                    )}
                     <Button
                         variant={showAdvancedFilters ? "default" : "outline"}
                         size="sm"
@@ -433,6 +463,10 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
                                         source: "supplier",
                                         timeframe,
                                     });
+                                    if (timeframe === "custom" && customFrom) {
+                                        params.set("dateFrom", customFrom.toISOString());
+                                        params.set("dateTo", (customTo ?? new Date()).toISOString());
+                                    }
                                     if (projectFilter !== "all") {
                                         params.set("projectId", projectFilter);
                                     }

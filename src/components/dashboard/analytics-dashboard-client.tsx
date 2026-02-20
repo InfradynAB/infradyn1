@@ -64,6 +64,7 @@ import { DeliveryCategoriesShell } from "@/components/dashboard/analytics/delive
 import type { DashboardKPIs, SCurveDataPoint, COBreakdown } from "@/lib/services/kpi-engine";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface DashboardData {
     kpis: DashboardKPIs;
@@ -138,9 +139,21 @@ export function AnalyticsDashboardClient() {
     const [exporting, setExporting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [timeframe, setTimeframe] = useState("all");
+    const [customFrom, setCustomFrom] = useState<Date | undefined>(undefined);
+    const [customTo, setCustomTo] = useState<Date | undefined>(undefined);
     const [viewMode, setViewMode] = useState<ViewMode>("pulse");
     const [selectedAlert, setSelectedAlert] = useState<string | null>(null);
     const [sheetOpen, setSheetOpen] = useState(false);
+
+    useEffect(() => {
+        if (timeframe !== "custom") {
+            setCustomFrom(undefined);
+            setCustomTo(undefined);
+            return;
+        }
+
+        if (!customFrom) setCustomFrom(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    }, [timeframe, customFrom]);
 
     const fetchDashboard = useCallback(async () => {
         setLoading(true);
@@ -149,21 +162,39 @@ export function AnalyticsDashboardClient() {
             const params = new URLSearchParams();
             if (timeframe !== "all") {
                 const now = new Date();
-                let dateFrom: Date;
+                let from: Date | null = null;
+                let to: Date | null = null;
+
                 switch (timeframe) {
+                    case "7d":
+                        from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        to = now;
+                        break;
                     case "30d":
-                        dateFrom = new Date(now.setDate(now.getDate() - 30));
+                        from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                        to = now;
                         break;
                     case "90d":
-                        dateFrom = new Date(now.setDate(now.getDate() - 90));
+                        from = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+                        to = now;
                         break;
                     case "ytd":
-                        dateFrom = new Date(now.getFullYear(), 0, 1);
+                        from = new Date(now.getFullYear(), 0, 1);
+                        to = now;
+                        break;
+                    case "custom":
+                        if (customFrom) {
+                            from = customFrom;
+                            to = customTo ?? now;
+                        }
                         break;
                     default:
-                        dateFrom = new Date(0);
+                        from = new Date(0);
+                        to = now;
                 }
-                params.set("dateFrom", dateFrom.toISOString());
+
+                if (from) params.set("dateFrom", from.toISOString());
+                if (to) params.set("dateTo", to.toISOString());
             }
 
             const res = await fetch(`/api/dashboard/analytics?${params.toString()}`);
@@ -202,7 +233,7 @@ export function AnalyticsDashboardClient() {
         } finally {
             setLoading(false);
         }
-    }, [timeframe]);
+    }, [timeframe, customFrom, customTo]);
 
     useEffect(() => {
         fetchDashboard();
@@ -314,11 +345,29 @@ export function AnalyticsDashboardClient() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Time</SelectItem>
+                                <SelectItem value="7d">Last 7 Days</SelectItem>
                                 <SelectItem value="30d">Last 30 Days</SelectItem>
                                 <SelectItem value="90d">Last 90 Days</SelectItem>
-                                <SelectItem value="ytd">Year to Date</SelectItem>
+                                <SelectItem value="custom">Custom</SelectItem>
                             </SelectContent>
                         </Select>
+
+                        {timeframe === "custom" && (
+                            <div className="hidden lg:flex items-center gap-2">
+                                <DatePicker
+                                    value={customFrom}
+                                    onChange={setCustomFrom}
+                                    placeholder="From"
+                                    className="w-[150px]"
+                                />
+                                <DatePicker
+                                    value={customTo}
+                                    onChange={setCustomTo}
+                                    placeholder="To"
+                                    className="w-[150px]"
+                                />
+                            </div>
+                        )}
 
                         <Button variant="outline" size="icon" onClick={fetchDashboard}>
                             <ArrowsClockwise

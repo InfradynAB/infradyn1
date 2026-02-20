@@ -110,6 +110,7 @@ async function fetchLevel3(
 export function DeliveryCategoriesShell() {
     const searchParams = useSearchParams();
     const projectId = searchParams.get("projectId");
+    const hasProject = Boolean(projectId);
     const [drill, setDrill] = useState<DrillState>({
         level: 1,
         discipline: null,
@@ -121,6 +122,16 @@ export function DeliveryCategoriesShell() {
     const [l3Data, setL3Data] = useState<MaterialClassDetailRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Reset drilldown + cached data when switching projects to avoid stale L2/L3 state.
+    useEffect(() => {
+        setDrill({ level: 1, discipline: null, materialClass: null });
+        setL1Data([]);
+        setL2Data([]);
+        setL3Data([]);
+        setError(null);
+        setLoading(false);
+    }, [projectId]);
 
     // ── Load data whenever drill state changes ──
     const loadData = useCallback(async () => {
@@ -154,16 +165,6 @@ export function DeliveryCategoriesShell() {
         if (!projectId) return;
         loadData();
     }, [loadData, projectId]);
-
-    // ── Empty state if no project selected ──
-    if (!projectId) {
-        return (
-            <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
-                <p className="text-sm">No project selected.</p>
-                <p className="text-xs opacity-60">Select a project to view delivery analytics.</p>
-            </div>
-        );
-    }
 
     // ── Navigation handlers ──
     const handleDisciplineClick = useCallback((discipline: string) => {
@@ -201,7 +202,7 @@ export function DeliveryCategoriesShell() {
 
                 <button
                     className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-40"
-                    disabled={loading}
+                    disabled={loading || !hasProject}
                     onClick={loadData}
                 >
                     <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -209,15 +210,23 @@ export function DeliveryCategoriesShell() {
                 </button>
             </div>
 
+            {/* Empty state if no project selected */}
+            {!hasProject && (
+                <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
+                    <p className="text-sm">No project selected.</p>
+                    <p className="text-xs opacity-60">Select a project to view delivery analytics.</p>
+                </div>
+            )}
+
             {/* Error state */}
-            {error && (
+            {hasProject && error && (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                     {error}
                 </div>
             )}
 
             {/* Loading skeleton */}
-            {loading && (
+            {hasProject && loading && (
                 <div className="space-y-2">
                     {[...Array(4)].map((_, i) => (
                         <div
@@ -229,7 +238,7 @@ export function DeliveryCategoriesShell() {
             )}
 
             {/* Content */}
-            {!loading && !error && (
+            {hasProject && !loading && !error && (
                 <>
                     {drill.level === 1 && (
                         <DisciplineSummaryTable

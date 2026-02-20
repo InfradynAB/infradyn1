@@ -29,6 +29,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
     ArrowsClockwise,
     Download,
@@ -151,6 +152,8 @@ export function PMDashboardClient() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [timeframe, setTimeframe] = useState("all");
+    const [customFrom, setCustomFrom] = useState<Date | undefined>(undefined);
+    const [customTo, setCustomTo] = useState<Date | undefined>(undefined);
     const [projectFilter, setProjectFilter] = useState("all");
     const [activeSection, setActiveSection] = useState<SectionId>("overview");
 
@@ -310,6 +313,17 @@ export function PMDashboardClient() {
 
     const scrollTo = (id: SectionId) => sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
 
+    useEffect(() => {
+        if (timeframe !== "custom") {
+            setCustomFrom(undefined);
+            setCustomTo(undefined);
+            return;
+        }
+
+        // Default Custom range to last 7 days.
+        if (!customFrom) setCustomFrom(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    }, [timeframe, customFrom]);
+
     // ── Fetch ──
     const fetchDashboard = useCallback(async () => {
         setLoading(true);
@@ -318,17 +332,41 @@ export function PMDashboardClient() {
             const params = new URLSearchParams();
             if (timeframe !== "all") {
                 const now = new Date();
-                let from: Date;
+                let from: Date | null = null;
+                let to: Date | null = null;
+
                 switch (timeframe) {
-                    case "30d": from = new Date(now.setDate(now.getDate() - 30)); break;
-                    case "90d": from = new Date(now.setDate(now.getDate() - 90)); break;
-                    case "ytd": from = new Date(now.getFullYear(), 0, 1); break;
-                    default: from = new Date(0);
+                    case "7d":
+                        from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        to = now;
+                        break;
+                    case "30d":
+                        from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                        to = now;
+                        break;
+                    case "90d":
+                        from = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+                        to = now;
+                        break;
+                    case "ytd":
+                        from = new Date(now.getFullYear(), 0, 1);
+                        to = now;
+                        break;
+                    case "custom":
+                        if (customFrom) {
+                            from = customFrom;
+                            to = customTo ?? now;
+                        }
+                        break;
+                    default:
+                        from = new Date(0);
+                        to = now;
                 }
-                params.set("dateFrom", from.toISOString());
+
+                if (from) params.set("dateFrom", from.toISOString());
+                if (to) params.set("dateTo", to.toISOString());
             }
             if (projectFilter !== "all") params.set("projectId", projectFilter);
-
             const res = await fetch(`/api/dashboard/analytics?${params.toString()}`);
             if (!res.ok) throw new Error("Failed to fetch dashboard data");
             const json = await res.json();
@@ -353,7 +391,7 @@ export function PMDashboardClient() {
         } finally {
             setLoading(false);
         }
-    }, [timeframe, projectFilter]);
+    }, [timeframe, projectFilter, customFrom, customTo]);
 
     useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
@@ -417,11 +455,28 @@ export function PMDashboardClient() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Time</SelectItem>
+                                <SelectItem value="7d">Last 7 Days</SelectItem>
                                 <SelectItem value="30d">Last 30 Days</SelectItem>
                                 <SelectItem value="90d">Last 90 Days</SelectItem>
-                                <SelectItem value="ytd">Year to Date</SelectItem>
+                                <SelectItem value="custom">Custom</SelectItem>
                             </SelectContent>
                         </Select>
+                        {timeframe === "custom" && (
+                            <div className="hidden lg:flex items-center gap-2">
+                                <DatePicker
+                                    value={customFrom}
+                                    onChange={setCustomFrom}
+                                    placeholder="From"
+                                    className="w-[150px] h-8 text-xs rounded-lg"
+                                />
+                                <DatePicker
+                                    value={customTo}
+                                    onChange={setCustomTo}
+                                    placeholder="To"
+                                    className="w-[150px] h-8 text-xs rounded-lg"
+                                />
+                            </div>
+                        )}
                         <Button
                             variant={showAdvancedFilters ? "default" : "outline"}
                             size="sm"
@@ -460,6 +515,10 @@ export function PMDashboardClient() {
                                             source: "pm",
                                             timeframe,
                                         });
+                                        if (timeframe === "custom" && customFrom) {
+                                            params.set("dateFrom", customFrom.toISOString());
+                                            params.set("dateTo", (customTo ?? new Date()).toISOString());
+                                        }
                                         if (projectFilter !== "all") {
                                             params.set("projectId", projectFilter);
                                         }

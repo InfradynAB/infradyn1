@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DeliveryCategoriesShell } from "@/components/dashboard/analytics/delivery-categories/delivery-categories-shell";
 import {
     Select,
@@ -18,6 +18,7 @@ interface Project {
 
 export default function DeliveryCategoriesContent() {
     const router = useRouter();
+    const pathname = usePathname();
     const searchParams = useSearchParams();
     const projectId = searchParams.get("projectId");
 
@@ -33,10 +34,23 @@ export default function DeliveryCategoriesContent() {
             .finally(() => setLoadingProjects(false));
     }, []);
 
+    // Default to the first project to avoid an empty/invalid state and reduce UI errors.
+    useEffect(() => {
+        if (loadingProjects) return;
+        if (projectId) return;
+        const firstProjectId = projects[0]?.id;
+        if (!firstProjectId) return;
+
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("projectId", firstProjectId);
+        router.replace(`${pathname}?${params.toString()}`);
+    }, [loadingProjects, projectId, projects, pathname, router, searchParams]);
+
     function handleProjectChange(id: string) {
+        if (!id) return;
         const params = new URLSearchParams(searchParams.toString());
         params.set("projectId", id);
-        router.replace(`?${params.toString()}`);
+        router.replace(`${pathname}?${params.toString()}`);
     }
 
     return (
@@ -55,11 +69,17 @@ export default function DeliveryCategoriesContent() {
                 <Select
                     value={projectId ?? ""}
                     onValueChange={handleProjectChange}
-                    disabled={loadingProjects}
+                    disabled={loadingProjects || projects.length === 0}
                 >
                     <SelectTrigger className="w-[220px]">
                         <SelectValue
-                            placeholder={loadingProjects ? "Loading…" : "Select a project"}
+                            placeholder={
+                                loadingProjects
+                                    ? "Loading…"
+                                    : projects.length === 0
+                                        ? "No projects"
+                                        : "Select a project"
+                            }
                         />
                     </SelectTrigger>
                     <SelectContent>

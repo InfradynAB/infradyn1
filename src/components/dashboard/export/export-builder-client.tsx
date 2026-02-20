@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { DatePicker } from "@/components/ui/date-picker";
 import { exportTabularData } from "@/lib/export-engine";
 import type { ExportChartImage } from "@/lib/export-engine";
 import type { DashboardExportData } from "@/lib/utils/excel-export";
@@ -300,12 +301,20 @@ export function ExportBuilderClient({ userRole }: ExportBuilderClientProps) {
     const requestedSource = (searchParams.get("source") || "executive") as DashboardSource;
     const initialProjectId = searchParams.get("projectId") || "";
     const initialTimeframe = searchParams.get("timeframe") || "all";
+    const initialCustomFrom = searchParams.get("dateFrom") ? new Date(searchParams.get("dateFrom") as string) : undefined;
+    const initialCustomTo = searchParams.get("dateTo") ? new Date(searchParams.get("dateTo") as string) : undefined;
 
     const [source, setSource] = useState<DashboardSource>(requestedSource);
     const [audience, setAudience] = useState<Audience>("executives");
     const [format, setFormat] = useState<ExportFormat>("xlsx");
     const [reportType, setReportType] = useState<"summary" | "detailed">("detailed");
     const [timeframe, setTimeframe] = useState(initialTimeframe);
+    const [customFrom, setCustomFrom] = useState<Date | undefined>(
+        initialTimeframe === "custom" ? initialCustomFrom : undefined,
+    );
+    const [customTo, setCustomTo] = useState<Date | undefined>(
+        initialTimeframe === "custom" ? initialCustomTo : undefined,
+    );
     const [projectId, setProjectId] = useState(initialProjectId);
     const [includeTables, setIncludeTables] = useState(true);
     const [includeCharts, setIncludeCharts] = useState(true);
@@ -314,6 +323,14 @@ export function ExportBuilderClient({ userRole }: ExportBuilderClientProps) {
     const [selectedSupplierId, setSelectedSupplierId] = useState("");
     const [supplierOptions, setSupplierOptions] = useState<SupplierOption[]>([]);
     const [exporting, setExporting] = useState(false);
+
+    useEffect(() => {
+        if (timeframe !== "custom") return;
+        if (customFrom) return;
+        const now = new Date();
+        setCustomTo((prev) => prev ?? now);
+        setCustomFrom(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
+    }, [customFrom, timeframe]);
 
     const unsupportedSource = !SUPPORTED_EXPORT_SOURCES.includes(source);
     const roleAllowedSources = useMemo(() => {
@@ -409,6 +426,22 @@ export function ExportBuilderClient({ userRole }: ExportBuilderClientProps) {
             params.set("includeTables", String(includeTables));
             params.set("includeCharts", String(includeCharts));
             params.set("sections", selectedModules.join(","));
+
+            if (timeframe === "custom") {
+                if (!customFrom) {
+                    toast.error("Select a start date for Custom timeframe");
+                    return;
+                }
+
+                const effectiveTo = customTo ?? new Date();
+                if (effectiveTo < customFrom) {
+                    toast.error("Custom end date cannot be before start date");
+                    return;
+                }
+
+                params.set("dateFrom", customFrom.toISOString());
+                params.set("dateTo", effectiveTo.toISOString());
+            }
 
             if (source === "supplier" && supplierScope === "single" && selectedSupplierId) {
                 params.set("supplierId", selectedSupplierId);
@@ -553,12 +586,32 @@ export function ExportBuilderClient({ userRole }: ExportBuilderClientProps) {
                                 <SelectTrigger id="timeframe"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">All Time</SelectItem>
+                                    <SelectItem value="7d">Last 7 Days</SelectItem>
                                     <SelectItem value="30d">Last 30 Days</SelectItem>
                                     <SelectItem value="90d">Last 90 Days</SelectItem>
-                                    <SelectItem value="ytd">Year to Date</SelectItem>
+                                    <SelectItem value="custom">Custom</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        {timeframe === "custom" && (
+                            <div className="space-y-2 lg:col-span-3">
+                                <Label>Custom Dates</Label>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <DatePicker
+                                        value={customFrom}
+                                        onChange={setCustomFrom}
+                                        placeholder="From (yyyy/mm/dd)"
+                                    />
+                                    <DatePicker
+                                        value={customTo}
+                                        onChange={setCustomTo}
+                                        placeholder="To (yyyy/mm/dd)"
+                                    />
+                                </div>
+                                <p className="text-xs text-muted-foreground">If To is blank, export runs until today.</p>
+                            </div>
+                        )}
 
                         <div className="space-y-2">
                             <Label htmlFor="projectId">Project ID (optional)</Label>

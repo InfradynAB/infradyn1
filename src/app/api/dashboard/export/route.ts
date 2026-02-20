@@ -20,12 +20,29 @@ import { buildTrafficCacheKey, getOrSetTrafficCache } from "@/lib/services/traff
 
 type ExportSource = "executive" | "pm" | "supplier";
 
-function resolveTimeframeDates(timeframe: string | null): { dateFrom?: Date } {
+function resolveTimeframeDates(
+    timeframe: string | null,
+    searchParams: URLSearchParams,
+): { dateFrom?: Date; dateTo?: Date } {
     if (!timeframe || timeframe === "all") return {};
+
     const now = new Date();
-    if (timeframe === "30d") return { dateFrom: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) };
-    if (timeframe === "90d") return { dateFrom: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) };
-    if (timeframe === "ytd") return { dateFrom: new Date(now.getFullYear(), 0, 1) };
+    if (timeframe === "7d") return { dateFrom: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), dateTo: now };
+    if (timeframe === "30d") return { dateFrom: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000), dateTo: now };
+    if (timeframe === "90d") return { dateFrom: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000), dateTo: now };
+    if (timeframe === "ytd") return { dateFrom: new Date(now.getFullYear(), 0, 1), dateTo: now };
+
+    if (timeframe === "custom") {
+        const fromRaw = searchParams.get("dateFrom");
+        const toRaw = searchParams.get("dateTo");
+        const parsedFrom = fromRaw ? new Date(fromRaw) : null;
+        const parsedTo = toRaw ? new Date(toRaw) : now;
+
+        if (!parsedFrom || Number.isNaN(parsedFrom.getTime())) return {};
+        if (!parsedTo || Number.isNaN(parsedTo.getTime())) return {};
+        return { dateFrom: parsedFrom, dateTo: parsedTo };
+    }
+
     return {};
 }
 
@@ -63,7 +80,7 @@ export async function GET(request: NextRequest) {
         const reportType = (searchParams.get("type") || "detailed") as "summary" | "detailed";
         const projectId = searchParams.get("projectId") || undefined;
         const timeframe = searchParams.get("timeframe");
-        const { dateFrom } = resolveTimeframeDates(timeframe);
+        const { dateFrom, dateTo } = resolveTimeframeDates(timeframe, searchParams);
 
         if (!assertSourceAccess(session.user.role, source)) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -86,10 +103,11 @@ export async function GET(request: NextRequest) {
             projectId,
             supplierId,
             dateFrom?.toISOString(),
+            dateTo?.toISOString(),
         ]);
 
         const cached = await getOrSetTrafficCache(cacheKey, 30, async () => {
-            const filters = { organizationId: orgId, projectId, supplierId, dateFrom };
+            const filters = { organizationId: orgId, projectId, supplierId, dateFrom, dateTo };
             const [kpis, sCurve, coBreakdown, milestones, supplierProgress] = await Promise.all([
                 getDashboardKPIs(filters),
                 getSCurveData(filters),

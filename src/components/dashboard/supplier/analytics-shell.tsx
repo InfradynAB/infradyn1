@@ -15,6 +15,7 @@ import {
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FilterChip, mockPOs } from "./analytics-shared";
@@ -27,6 +28,8 @@ interface FilterState {
     projectFilter: string;
     statusFilter: string;
     timeframe: string;
+    customFrom?: Date;
+    customTo?: Date;
 }
 
 interface FilterContextType extends FilterState {
@@ -34,6 +37,8 @@ interface FilterContextType extends FilterState {
     setProjectFilter: (v: string) => void;
     setStatusFilter: (v: string) => void;
     setTimeframe: (v: string) => void;
+    setCustomFrom: (v: Date | undefined) => void;
+    setCustomTo: (v: Date | undefined) => void;
     clearAll: () => void;
     hasActiveFilters: boolean;
 }
@@ -111,8 +116,22 @@ export function AnalyticsShell({ children }: { children: React.ReactNode }) {
     const [searchQuery, setSearchQuery] = useState("");
     const [projectFilter, setProjectFilter] = useState("all");
     const [statusFilter, setStatusFilter] = useState("all");
-    const [timeframe, setTimeframe] = useState("all");
+    const [timeframe, setTimeframeValue] = useState("all");
+    const [customFrom, setCustomFrom] = useState<Date | undefined>(undefined);
+    const [customTo, setCustomTo] = useState<Date | undefined>(undefined);
     const [showFilters, setShowFilters] = useState(false);
+
+    const setTimeframe = useCallback((value: string) => {
+        setTimeframeValue(value);
+
+        if (value !== "custom") {
+            setCustomFrom(undefined);
+            setCustomTo(undefined);
+            return;
+        }
+
+        setCustomFrom((prev) => prev ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    }, []);
 
     // Get status options for current section and derive effective filter
     const statusOptions = STATUS_OPTIONS[activeSection] || [];
@@ -152,8 +171,18 @@ export function AnalyticsShell({ children }: { children: React.ReactNode }) {
     }, [activeSection]);
 
     const filterCtx: FilterContextType = {
-        searchQuery, projectFilter, statusFilter: effectiveStatusFilter, timeframe,
-        setSearchQuery, setProjectFilter, setStatusFilter, setTimeframe,
+        searchQuery,
+        projectFilter,
+        statusFilter: effectiveStatusFilter,
+        timeframe,
+        customFrom,
+        customTo,
+        setSearchQuery,
+        setProjectFilter,
+        setStatusFilter,
+        setTimeframe,
+        setCustomFrom,
+        setCustomTo,
         clearAll, hasActiveFilters,
     };
 
@@ -191,11 +220,28 @@ export function AnalyticsShell({ children }: { children: React.ReactNode }) {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Time</SelectItem>
+                                <SelectItem value="7d">Last 7 Days</SelectItem>
                                 <SelectItem value="30d">Last 30 Days</SelectItem>
                                 <SelectItem value="90d">Last 90 Days</SelectItem>
-                                <SelectItem value="ytd">Year to Date</SelectItem>
+                                <SelectItem value="custom">Custom</SelectItem>
                             </SelectContent>
                         </Select>
+                        {timeframe === "custom" && (
+                            <div className="hidden lg:flex items-center gap-2">
+                                <DatePicker
+                                    value={customFrom}
+                                    onChange={setCustomFrom}
+                                    placeholder="From"
+                                    className="w-[150px] h-9 text-xs rounded-xl"
+                                />
+                                <DatePicker
+                                    value={customTo}
+                                    onChange={setCustomTo}
+                                    placeholder="To"
+                                    className="w-[150px] h-9 text-xs rounded-xl"
+                                />
+                            </div>
+                        )}
                         <Button
                             variant={showFilters ? "default" : "outline"}
                             size="sm"
