@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray, gte, lt } from "drizzle-orm";
+import { and, eq, inArray, gte, lt, isNull } from "drizzle-orm";
 import db from "@/db/drizzle";
 import { boqItem, delivery, deliveryItem, purchaseOrder, shipment } from "@/db/schema";
 import {
@@ -201,7 +201,7 @@ async function computeTrendByMaterialClass(projectId: string, discipline: string
         .where(
             and(
                 eq(purchaseOrder.projectId, projectId),
-                discipline === "UNCATEGORISED" ? eq(boqItem.discipline, null) : eq(boqItem.discipline, discipline),
+                discipline === "UNCATEGORISED" ? isNull(boqItem.discipline) : eq(boqItem.discipline, discipline),
                 gte(delivery.receivedDate, start14),
                 lt(delivery.receivedDate, end),
             ),

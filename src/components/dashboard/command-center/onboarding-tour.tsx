@@ -12,7 +12,7 @@ const HOME_TOUR_STEPS: TourStep[] = [
     },
     {
         id: "home-search",
-        targetId: "tour-home-search",
+        targetId: "tour-global-search",
         title: "Global Search",
         content: "Search POs, suppliers, and invoices from one place.",
         position: "bottom",

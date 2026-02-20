@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/sidebar"
 import { NotificationCenter } from "@/components/shared/notification-center"
 import { OrgSwitcher } from "@/components/org-switcher"
+import { GlobalSearch } from "@/components/dashboard/command-center/global-search"
 import { auth } from "../../../auth"
 import { headers } from "next/headers"
 import { noIndexMetadata } from "@/lib/seo.config"
@@ -198,7 +199,7 @@ export default async function DashboardLayout({
                 activeSupplierProjectId={activeSupplierProjectId}
             />
             <SidebarInset>
-                <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b px-4">
+                <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60">
                     <div className="flex min-w-0 items-center gap-3">
                         <SidebarTrigger className="-ml-1" />
                         {user.role !== "SUPPLIER" && organizations.length > 0 && (
@@ -208,7 +209,16 @@ export default async function DashboardLayout({
                         )}
                     </div>
 
+                    {/* Global search stays visible across all dashboard sections */}
+                    <div id="tour-global-search" className="hidden flex-1 justify-center px-3 md:flex">
+                        <GlobalSearch className="w-full max-w-2xl" />
+                    </div>
+
                     <div className="flex items-center gap-2">
+                        {/* Mobile: icon-only search trigger (Cmd/Ctrl+K still works too) */}
+                        <div className="md:hidden">
+                            <GlobalSearch variant="icon" />
+                        </div>
                         {user?.id && <NotificationCenter userId={user.id} />}
                         <ModeToggle />
                         <UserMenu user={user} />

@@ -24,6 +24,7 @@ interface SearchResult {
 interface GlobalSearchProps {
     className?: string;
     placeholder?: string;
+    variant?: "bar" | "icon";
 }
 
 const typeConfig = {
@@ -34,7 +35,11 @@ const typeConfig = {
     ncr: { label: "NCR", color: "bg-red-500/10 text-red-500" },
 };
 
-export function GlobalSearch({ className, placeholder = "Search POs, suppliers, invoices..." }: GlobalSearchProps) {
+export function GlobalSearch({
+    className,
+    placeholder = "Search POs, suppliers, invoices...",
+    variant = "bar",
+}: GlobalSearchProps) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState("");
@@ -110,24 +115,42 @@ export function GlobalSearch({ className, placeholder = "Search POs, suppliers, 
     return (
         <>
             {/* Search Trigger Button */}
-            <button
-                onClick={() => setOpen(true)}
-                className={cn(
-                    "flex items-center gap-3 w-full max-w-md",
-                    "rounded-xl border border-border bg-background/50 backdrop-blur-sm",
-                    "px-4 py-3 text-left text-muted-foreground",
-                    "transition-all duration-200",
-                    "hover:bg-background hover:border-primary/30 hover:shadow-sm",
-                    "focus:outline-none focus:ring-2 focus:ring-primary/20",
-                    className
-                )}
-            >
-                <MagnifyingGlass className="h-5 w-5" />
-                <span className="flex-1 text-sm">{placeholder}</span>
-                <kbd className="hidden sm:inline-flex h-6 items-center gap-1 rounded border bg-muted px-2 font-mono text-[10px] font-medium text-muted-foreground">
-                    <Command className="h-3 w-3" />K
-                </kbd>
-            </button>
+            {variant === "icon" ? (
+                <button
+                    onClick={() => setOpen(true)}
+                    aria-label="Search"
+                    className={cn(
+                        "inline-flex h-10 w-10 items-center justify-center",
+                        "rounded-xl border border-border bg-background/50 backdrop-blur-sm",
+                        "text-muted-foreground transition-all duration-200",
+                        "hover:bg-background hover:border-primary/30 hover:text-foreground hover:shadow-sm",
+                        "focus:outline-none focus:ring-2 focus:ring-primary/20",
+                        className
+                    )}
+                >
+                    <MagnifyingGlass className="h-5 w-5" />
+                    <span className="sr-only">Search</span>
+                </button>
+            ) : (
+                <button
+                    onClick={() => setOpen(true)}
+                    className={cn(
+                        "flex items-center gap-3 w-full max-w-md",
+                        "rounded-xl border border-border bg-background/50 backdrop-blur-sm",
+                        "px-4 py-3 text-left text-muted-foreground",
+                        "transition-all duration-200",
+                        "hover:bg-background hover:border-primary/30 hover:shadow-sm",
+                        "focus:outline-none focus:ring-2 focus:ring-primary/20",
+                        className
+                    )}
+                >
+                    <MagnifyingGlass className="h-5 w-5" />
+                    <span className="flex-1 text-sm">{placeholder}</span>
+                    <kbd className="hidden sm:inline-flex h-6 items-center gap-1 rounded border bg-muted px-2 font-mono text-[10px] font-medium text-muted-foreground">
+                        <Command className="h-3 w-3" />K
+                    </kbd>
+                </button>
+            )}
 
             {/* Search Dialog */}
             <Dialog open={open} onOpenChange={setOpen}>

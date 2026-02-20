@@ -166,11 +166,6 @@ export function CommandCenterClient({ userName }: CommandCenterClientProps) {
                 </div>
             </div>
 
-            {/* Global Search Bar */}
-            <div id="tour-home-search" className="flex justify-center">
-                <GlobalSearch className="w-full max-w-2xl" />
-            </div>
-
             {/* AI Summary Card - The 30-second overview */}
             <AISummaryCard data={data?.aiSummary || null} loading={loading} />
 
