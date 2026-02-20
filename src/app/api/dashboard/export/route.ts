@@ -13,6 +13,7 @@ import {
 } from "@/lib/services/kpi-engine";
 import { getMilestoneTrackerData, getSupplierProgressData } from "@/lib/services/report-engine";
 import { generateExcelReport, generateCSVReport, type DashboardExportData } from "@/lib/utils/excel-export";
+import { generatePptxReport } from "@/lib/utils/pptx-export";
 import db from "@/db/drizzle";
 import { auditLog, supplier } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -78,6 +79,10 @@ export async function GET(request: NextRequest) {
         const format = searchParams.get("format") || "xlsx";
         const source = (searchParams.get("source") || "executive") as ExportSource;
         const reportType = (searchParams.get("type") || "detailed") as "summary" | "detailed";
+        const audience = searchParams.get("audience") || undefined;
+        const sections = searchParams.get("sections")?.split(",").map((s) => s.trim()).filter(Boolean);
+        const includeTables = searchParams.get("includeTables") !== "false";
+        const includeCharts = searchParams.get("includeCharts") !== "false";
         const projectId = searchParams.get("projectId") || undefined;
         const timeframe = searchParams.get("timeframe");
         const { dateFrom, dateTo } = resolveTimeframeDates(timeframe, searchParams);
@@ -152,6 +157,20 @@ export async function GET(request: NextRequest) {
             console.error("Dashboard export audit log error:", error);
         });
 
+        const timeframeLabel = (() => {
+            if (!timeframe || timeframe === "all") return "All Time";
+            if (timeframe === "7d") return "Last 7 Days";
+            if (timeframe === "30d") return "Last 30 Days";
+            if (timeframe === "90d") return "Last 90 Days";
+            if (timeframe === "ytd") return "Year to Date";
+            if (timeframe === "custom") {
+                const fromStr = dateFrom ? dateFrom.toISOString().slice(0, 10) : "";
+                const toStr = dateTo ? dateTo.toISOString().slice(0, 10) : "";
+                return `Custom: ${fromStr}${toStr ? ` → ${toStr}` : ""}`;
+            }
+            return "All Time";
+        })();
+
         // Generate export based on format
         if (format === "xlsx" || format === "excel") {
             const buffer = await generateExcelReport(exportData, reportType, {
@@ -184,6 +203,27 @@ export async function GET(request: NextRequest) {
             }, {
                 headers: {
                     "x-infradyn-cache": `${cached.cache}:${cached.layer}`,
+                },
+            });
+        }
+
+        if (format === "pptx" || format === "ppt") {
+            const buffer = await generatePptxReport(exportData as DashboardExportData, {
+                source,
+                audience,
+                reportType,
+                timeframeLabel,
+                projectId,
+                supplierId,
+                sections,
+                includeCharts,
+                includeTables,
+            });
+
+            return new NextResponse(new Uint8Array(buffer), {
+                headers: {
+                    "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    "Content-Disposition": `attachment; filename="${source}-dashboard-${reportType}-${new Date().toISOString().slice(0, 10)}.pptx"`,
                 },
             });
         }

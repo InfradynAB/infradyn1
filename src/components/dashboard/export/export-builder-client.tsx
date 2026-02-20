@@ -18,7 +18,7 @@ import { exportTabularData } from "@/lib/export-engine";
 import type { ExportChartImage } from "@/lib/export-engine";
 import type { DashboardExportData } from "@/lib/utils/excel-export";
 
-type ExportFormat = "xlsx" | "csv" | "json" | "pdf" | "docx";
+type ExportFormat = "xlsx" | "csv" | "json" | "pdf" | "docx" | "pptx";
 type DashboardSource = "executive" | "pm" | "supplier";
 type Audience = "executives" | "clients" | "workmates" | "investors";
 
@@ -451,6 +451,24 @@ export function ExportBuilderClient({ userRole }: ExportBuilderClientProps) {
                 params.set("projectId", projectId.trim());
             }
 
+            if (format === "pptx") {
+                params.set("format", "pptx");
+                const response = await fetch(`/api/dashboard/export?${params.toString()}`);
+                if (!response.ok) throw new Error("Export failed");
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const anchor = document.createElement("a");
+                anchor.href = url;
+                const supplierSuffix = source === "supplier" && supplierScope === "single" && selectedSupplierId ? "-single" : "";
+                anchor.download = `infradyn-${source}${supplierSuffix}-${audience}-${new Date().toISOString().slice(0, 10)}.pptx`;
+                anchor.click();
+                window.URL.revokeObjectURL(url);
+
+                toast.success("PPTX export ready");
+                return;
+            }
+
             if (format === "json") {
                 params.set("format", "json");
                 const response = await fetch(`/api/dashboard/export?${params.toString()}`);
@@ -561,6 +579,7 @@ export function ExportBuilderClient({ userRole }: ExportBuilderClientProps) {
                                     <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
                                     <SelectItem value="csv">CSV</SelectItem>
                                     <SelectItem value="json">JSON</SelectItem>
+                                    <SelectItem value="pptx">PowerPoint (.pptx)</SelectItem>
                                     <SelectItem value="pdf">PDF</SelectItem>
                                     <SelectItem value="docx">Word (.docx)</SelectItem>
                                 </SelectContent>
