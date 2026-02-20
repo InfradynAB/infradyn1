@@ -311,7 +311,7 @@ function formatCategoryLabel(raw: string): string {
     return raw.length > 12 ? `${raw.slice(0, 10)}…` : raw;
 }
 
-function addEmptyChartState(slide: PptxSlide, message: string) {
+function addEmptyChartState(slide: PptxSlide, message: string, coverage?: string[]) {
     // Matches chart area in our templates.
     slide.addShape("roundRect" as PptxShapeType, {
         x: 0.6,
@@ -344,6 +344,40 @@ function addEmptyChartState(slide: PptxSlide, message: string) {
         align: "center",
         color: THEME.muted2,
     });
+
+    if (coverage && coverage.length > 0) {
+        slide.addShape("roundRect" as PptxShapeType, {
+            x: 0.9,
+            y: 5.25,
+            w: 11.5,
+            h: 1.45,
+            fill: { color: THEME.bg },
+            line: { color: THEME.border, pt: 1 },
+        });
+
+        slide.addText("Data Coverage", {
+            x: 1.15,
+            y: 5.35,
+            w: 11.0,
+            h: 0.3,
+            fontFace: "Calibri",
+            fontSize: 11,
+            bold: true,
+            color: THEME.text,
+        });
+
+        slide.addText(coverage.map((line) => `• ${line}`).join("\n"), {
+            x: 1.15,
+            y: 5.62,
+            w: 11.0,
+            h: 1.05,
+            fontFace: "Calibri",
+            fontSize: 10,
+            color: THEME.muted,
+            valign: "top",
+            lineSpacingMultiple: 1.1,
+        });
+    }
 }
 
 function buildWeeklyConclusion(kpis: DashboardExportData["kpis"]): string[] {
@@ -704,7 +738,11 @@ export async function generatePptxReport(
             const actual = scaleToPct ? actualRaw.map((v) => v * 100) : actualRaw;
 
             if (!hasAnyNonZero(planned) && !hasAnyNonZero(actual)) {
-                addEmptyChartState(slide, "No S-curve data for this timeframe");
+                addEmptyChartState(slide, "No S-curve data for this timeframe", [
+                    `S-curve points: ${exportData.sCurve.length}`,
+                    `Milestones: ${(exportData.milestones || []).length}`,
+                    `Shipments: ${fmtNumber(exportData.kpis.logistics.totalShipments)}`,
+                ]);
             } else {
                 const chartData = [
                     { name: "Planned", labels, values: planned },
@@ -736,7 +774,11 @@ export async function generatePptxReport(
             const total = Number(co.total ?? 0);
             const hasData = total > 0 || hasAnyNonZero(values.map((v) => Number(v ?? 0)));
             if (!hasData) {
-                addEmptyChartState(slide, "No approved change orders in this timeframe");
+                addEmptyChartState(slide, "No approved change orders in this timeframe", [
+                    `Approved CO total: ${fmtNumber(total)}`,
+                    `Committed: ${fmtCurrency(exportData.kpis.financial.totalCommitted)}`,
+                    `Unpaid: ${fmtCurrency(exportData.kpis.financial.totalUnpaid)}`,
+                ]);
 
                 // Keep the explanatory text on the right so the slide isn't empty.
                 slide.addText("Total: 0", {
