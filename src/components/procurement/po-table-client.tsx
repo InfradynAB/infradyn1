@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRightIcon, ChartLineUpIcon } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRightIcon, ChartLineUpIcon, DotsSixVertical } from "@phosphor-icons/react/dist/ssr";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { POActions } from "@/components/procurement/po-actions";
@@ -73,11 +74,38 @@ interface POTableClientProps {
     purchaseOrders: any[];
 }
 
+function reorderCols(
+    arr: string[],
+    from: string,
+    to: string,
+    setter: (val: string[]) => void
+) {
+    const next = [...arr];
+    const fi = next.indexOf(from);
+    const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0) return;
+    next.splice(fi, 1);
+    next.splice(ti, 0, from);
+    setter(next);
+}
+
 export function POTableClient({ purchaseOrders }: POTableClientProps) {
     const router = useRouter();
+    const [poCols, setPoCols] = useState(["poNumber", "project", "supplier", "value", "status", "lastActivity"]);
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     const handleRowClick = (poId: string) => {
         router.push(`/dashboard/procurement/${poId}`);
+    };
+
+    const PO_DEF: Record<string, { label: string; hCls?: string; cell: (po: any) => ReactNode }> = {
+        poNumber:     { label: "PO Number",     hCls: "font-semibold",              cell: (po) => <div className="text-primary font-semibold flex items-center gap-2">{po.poNumber}<ArrowRightIcon className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" /></div> },
+        project:      { label: "Project",       hCls: "font-semibold",              cell: (po) => <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full bg-blue-500" /><span className="text-foreground">{po.project?.name || "\u2014"}</span></div> },
+        supplier:     { label: "Supplier",      hCls: "font-semibold",              cell: (po) => <span className="text-foreground">{po.supplier?.name || "\u2014"}</span> },
+        value:        { label: "Value",         hCls: "text-right font-semibold",   cell: (po) => <div className="font-mono font-semibold text-right">{po.currency} {Number(po.totalValue ?? 0).toLocaleString()}</div> },
+        status:       { label: "Status",        hCls: "font-semibold",              cell: (po) => <Badge variant="secondary" className={cn("border", statusColors[po.status] || "")}><span className="mr-1">{statusIcons[po.status]}</span>{statusLabels[po.status] || po.status}</Badge> },
+        lastActivity: { label: "Last Activity", hCls: "font-semibold",              cell: (po) => <span className="text-muted-foreground text-sm">{formatDistanceToNow(new Date(po.updatedAt), { addSuffix: true })}</span> },
     };
 
     return (
@@ -85,12 +113,26 @@ export function POTableClient({ purchaseOrders }: POTableClientProps) {
             <Table>
                 <TableHeader>
                     <TableRow className="bg-muted/50">
-                        <TableHead className="font-semibold">PO Number</TableHead>
-                        <TableHead className="font-semibold">Project</TableHead>
-                        <TableHead className="font-semibold">Supplier</TableHead>
-                        <TableHead className="text-right font-semibold">Value</TableHead>
-                        <TableHead className="font-semibold">Status</TableHead>
-                        <TableHead className="font-semibold">Last Activity</TableHead>
+                        {poCols.map((col) => (
+                            <TableHead
+                                key={col}
+                                draggable
+                                onDragStart={() => setDragCol(col)}
+                                onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                onDragEnd={() => { reorderCols(poCols, dragCol!, dragOverCol!, setPoCols); setDragCol(null); setDragOverCol(null); }}
+                                className={[
+                                    "cursor-grab active:cursor-grabbing select-none",
+                                    PO_DEF[col].hCls ?? "",
+                                    dragCol === col ? "opacity-40 bg-muted/60" : "",
+                                    dragOverCol === col && dragCol !== col ? "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]" : "",
+                                ].join(" ")}
+                            >
+                                <span className="flex items-center gap-1">
+                                    <DotsSixVertical className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                                    {PO_DEF[col].label}
+                                </span>
+                            </TableHead>
+                        ))}
                         <TableHead className="text-right font-semibold">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -101,40 +143,9 @@ export function POTableClient({ purchaseOrders }: POTableClientProps) {
                             className="group hover:bg-muted/50 transition-colors cursor-pointer"
                             onClick={() => handleRowClick(po.id)}
                         >
-                            <TableCell className="font-medium">
-                                <div className="text-primary font-semibold flex items-center gap-2">
-                                    {po.poNumber}
-                                    <ArrowRightIcon className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </div>
-                            </TableCell>
-                            <TableCell>
-                                <div className="flex items-center gap-2">
-                                    <div className="h-2 w-2 rounded-full bg-blue-500" />
-                                    <span className="text-foreground">{po.project?.name || "—"}</span>
-                                </div>
-                            </TableCell>
-                            <TableCell>
-                                <span className="text-foreground">{po.supplier?.name || "—"}</span>
-                            </TableCell>
-                            <TableCell className="text-right">
-                                <div className="font-mono font-semibold">
-                                    {po.currency} {Number(po.totalValue ?? 0).toLocaleString()}
-                                </div>
-                            </TableCell>
-                            <TableCell>
-                                <Badge
-                                    variant="secondary"
-                                    className={cn("border", statusColors[po.status] || "")}
-                                >
-                                    <span className="mr-1">{statusIcons[po.status]}</span>
-                                    {statusLabels[po.status] || po.status}
-                                </Badge>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground text-sm">
-                                {formatDistanceToNow(new Date(po.updatedAt), {
-                                    addSuffix: true,
-                                })}
-                            </TableCell>
+                            {poCols.map((col) => (
+                                <TableCell key={col}>{PO_DEF[col].cell(po)}</TableCell>
+                            ))}
                             <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex items-center justify-end gap-2">
                                     <Button

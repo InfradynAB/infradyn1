@@ -6,7 +6,7 @@
  * Displays logistics and delivery conflicts for PM review and adjudication.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
     Table,
@@ -30,7 +30,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import {
     AlertTriangle, CheckCircle, Clock, Filter,
-    Calendar, Package, FileText, ChevronRight
+    Calendar, Package, FileText, ChevronRight, GripVertical
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -80,6 +80,13 @@ const STATE_CONFIG: Record<string, { label: string; color: string }> = {
     CLOSED: { label: "Closed", color: "bg-gray-500" },
 };
 
+function reorderCols(
+    arr: string[], from: string, to: string, setter: (val: string[]) => void
+) {
+    const next = [...arr]; const fi = next.indexOf(from); const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0) return; next.splice(fi, 1); next.splice(ti, 0, from); setter(next);
+}
+
 export function ConflictQueueTable({
     projectId,
     initialConflicts = [],
@@ -90,6 +97,9 @@ export function ConflictQueueTable({
     const [filterType, setFilterType] = useState<string>("all");
     const [filterSeverity, setFilterSeverity] = useState<string>("all");
     const [filterState, setFilterState] = useState<string>("OPEN");
+    const [conflictCols, setConflictCols] = useState(["type", "po", "description", "severity", "age", "state"]);
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     useEffect(() => {
         if (initialConflicts.length === 0) {
@@ -162,6 +172,15 @@ export function ConflictQueueTable({
         );
     }
 
+    const CONFLICT_DEF: Record<string, { label: string; cell: (conflict: Conflict) => ReactNode }> = {
+        type:        { label: "Type",        cell: (c) => { const cfg = TYPE_CONFIG[c.type] || { label: c.type, icon: <AlertTriangle className="h-4 w-4" /> }; return <div className="flex items-center gap-2">{cfg.icon}<span className="text-sm font-medium">{cfg.label}</span></div>; } },
+        po:          { label: "PO",          cell: (c) => <span className="font-mono text-sm">{c.purchaseOrder?.poNumber || "—"}</span> },
+        description: { label: "Description", cell: (c) => (<><p className="text-sm truncate max-w-[200px]">{c.description || "—"}</p>{(c.supplierValue || c.logisticsValue) && <p className="text-xs text-muted-foreground">Supplier: {c.supplierValue || "—"} | API: {c.logisticsValue || "—"}</p>}</>) },
+        severity:    { label: "Severity",    cell: (c) => { const cfg = SEVERITY_CONFIG[c.severity ?? "MEDIUM"]; return <Badge className={cn("text-white text-xs", cfg?.color)}>{cfg?.label ?? c.severity}</Badge>; } },
+        age:         { label: "Age",         cell: (c) => { const t = typeof c.createdAt === "string" ? new Date(c.createdAt) : c.createdAt; return <span className="text-sm text-muted-foreground">{formatDistanceToNow(t, { addSuffix: true })}</span>; } },
+        state:       { label: "State",       cell: (c) => { const cfg = STATE_CONFIG[c.state] || STATE_CONFIG.OPEN; return <Badge variant="outline" className={cn(cfg.color, "text-white text-xs")}>{cfg.label}</Badge>; } },
+    };
+
     return (
         <Card>
             <CardHeader>
@@ -232,86 +251,42 @@ export function ConflictQueueTable({
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Type</TableHead>
-                                <TableHead>PO</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead>Severity</TableHead>
-                                <TableHead>Age</TableHead>
-                                <TableHead>State</TableHead>
+                                {conflictCols.map((col) => (
+                                    <TableHead key={col} draggable
+                                        onDragStart={() => setDragCol(col)}
+                                        onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                        onDragEnd={() => { reorderCols(conflictCols, dragCol!, dragOverCol!, setConflictCols); setDragCol(null); setDragOverCol(null); }}
+                                        className={["cursor-grab active:cursor-grabbing select-none", dragCol === col ? "opacity-40 bg-muted/60" : "", dragOverCol === col && dragCol !== col ? "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]" : ""].join(" ")}
+                                    >
+                                        <span className="flex items-center gap-1"><GripVertical className="h-3 w-3 text-muted-foreground/60 shrink-0" />{CONFLICT_DEF[col].label}</span>
+                                    </TableHead>
+                                ))}
                                 <TableHead></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredConflicts.map((conflict) => {
-                                const typeConfig = TYPE_CONFIG[conflict.type] || {
-                                    label: conflict.type,
-                                    icon: <AlertTriangle className="h-4 w-4" />,
-                                };
-                                const severityConfig = SEVERITY_CONFIG[conflict.severity || "MEDIUM"];
-                                const stateConfig = STATE_CONFIG[conflict.state] || STATE_CONFIG.OPEN;
-                                const createdAt = typeof conflict.createdAt === "string"
-                                    ? new Date(conflict.createdAt)
-                                    : conflict.createdAt;
-
-                                return (
-                                    <TableRow key={conflict.id} className={cn(
-                                        conflict.severity === "HIGH" && "bg-red-50"
-                                    )}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                {typeConfig.icon}
-                                                <span className="text-sm font-medium">
-                                                    {typeConfig.label}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="font-mono text-sm">
-                                            {conflict.purchaseOrder?.poNumber || "—"}
-                                        </TableCell>
-                                        <TableCell>
-                                            <p className="text-sm truncate max-w-[200px]">
-                                                {conflict.description || "—"}
-                                            </p>
-                                            {(conflict.supplierValue || conflict.logisticsValue) && (
-                                                <p className="text-xs text-muted-foreground">
-                                                    Supplier: {conflict.supplierValue || "—"} |
-                                                    API: {conflict.logisticsValue || "—"}
-                                                </p>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge className={cn("text-white text-xs", severityConfig?.color)}>
-                                                {severityConfig?.label || conflict.severity}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">
-                                            {formatDistanceToNow(createdAt, { addSuffix: true })}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline" className={cn(stateConfig.color, "text-white text-xs")}>
-                                                {stateConfig.label}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex gap-2">
-                                                {conflict.state === "OPEN" && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => handleResolve(conflict.id)}
-                                                    >
-                                                        <CheckCircle className="h-4 w-4 mr-1" />
-                                                        Resolve
-                                                    </Button>
-                                                )}
-                                                <Button variant="ghost" size="sm">
-                                                    <ChevronRight className="h-4 w-4" />
+                            {filteredConflicts.map((conflict) => (
+                                <TableRow key={conflict.id} className={cn(conflict.severity === "HIGH" && "bg-red-50")}>
+                                    {conflictCols.map((col) => (<TableCell key={col}>{CONFLICT_DEF[col].cell(conflict)}</TableCell>))}
+                                    <TableCell>
+                                        <div className="flex gap-2">
+                                            {conflict.state === "OPEN" && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleResolve(conflict.id)}
+                                                >
+                                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                                    Resolve
                                                 </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
+                                            )}
+                                            <Button variant="ghost" size="sm">
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
                         </TableBody>
                     </Table>
                 )}

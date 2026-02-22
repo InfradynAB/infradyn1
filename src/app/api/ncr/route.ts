@@ -18,7 +18,8 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url);
         const purchaseOrderId = searchParams.get("purchaseOrderId");
-        const organizationId = searchParams.get("organizationId");
+        // Always use the session's organizationId (ignore untrusted client-supplied value)
+        const organizationId = session.user.organizationId;
 
         // If purchaseOrderId provided, get NCRs for that PO
         if (purchaseOrderId) {

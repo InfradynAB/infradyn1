@@ -18,7 +18,7 @@ import {
     Clock, Funnel, Truck, Receipt,
     CaretDown, ChartBar, Rows, MagnifyingGlass, X,
     ShieldCheck, FileText, CalendarCheck, Target, Gauge, ShieldWarning,
-    Buildings,
+    Buildings, DotsSixVertical,
 } from "@phosphor-icons/react";
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -124,6 +124,15 @@ const fmt = (value: number | undefined | null, currency = "$") => {
     return `${currency}${num.toFixed(0)}`;
 };
 const pct = (v: number | undefined | null, d = 1) => `${(Number(v) || 0).toFixed(d)}%`;
+function reorderCols(arr: string[], from: string, to: string, set: React.Dispatch<React.SetStateAction<string[]>>) {
+    const next = [...arr];
+    const fi = next.indexOf(from);
+    const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0 || fi === ti) return;
+    next.splice(fi, 1);
+    next.splice(ti, 0, from);
+    set(next);
+}
 
 // ============================================
 // MOCK DATA — replaced by API once wired
@@ -277,6 +286,15 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
     const [customFrom, setCustomFrom] = useState<Date | undefined>(undefined);
     const [customTo, setCustomTo] = useState<Date | undefined>(undefined);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    // ── Drag-to-reorder columns ──
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+    const [poCols, setPoCols] = useState(["poNumber", "project", "value", "status", "progress", "date"]);
+    const [delCols, setDelCols] = useState(["po", "description", "dispatched", "transit", "delivered", "inspected", "status"]);
+    const [invCols, setInvCols] = useState(["invoiceNum", "po", "amount", "submitted", "dueDate", "status", "paid"]);
+    const [ncrCols, setNcrCols] = useState(["ncrNum", "title", "severity", "status", "reported", "slaDue"]);
+    const [msCols, setMsCols] = useState(["milestone", "po", "amount", "paymentPct", "dueDate", "status"]);
+    const [docCols, setDocCols] = useState(["document", "status", "expiry", "uploaded"]);
     const [viewModes, setViewModes] = useState<Record<string, "chart" | "table">>({
         orders: "chart", deliveries: "chart", invoices: "chart",
         ncrs: "chart", milestones: "table", compliance: "chart",
@@ -381,6 +399,56 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
         if (statusFilter !== "all") items = items.filter(m => m.status.toLowerCase() === statusFilter);
         return items;
     }, [milestones, searchQuery, statusFilter]);
+
+    // ── Column definition maps ──
+    const PO_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (po: POItem) => React.ReactNode }> = {
+        poNumber:  { label: "PO Number",  cCls: "font-semibold",        cell: (po) => po.poNumber },
+        project:   { label: "Project",                                   cell: (po) => po.project },
+        value:     { label: "Value",      cCls: "font-mono",             cell: (po) => fmt(po.totalValue) },
+        status:    { label: "Status",                                    cell: (po) => <StatusPill status={po.status.toLowerCase().replace(/_/g, "-")} /> },
+        progress:  { label: "Progress",                                  cell: (po) => <div className="flex items-center gap-1.5"><div className="w-14 h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${po.deliveryProgress}%` }} /></div><span className="text-[10px]">{po.deliveryProgress}%</span></div> },
+        date:      { label: "Date",       cCls: "text-muted-foreground", cell: (po) => new Date(po.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
+    };
+    const DEL_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (d: DeliveryTimelineItem) => React.ReactNode }> = {
+        po:          { label: "PO",          cCls: "font-semibold",             cell: (d) => d.poNumber },
+        description: { label: "Description", cCls: "max-w-[180px] truncate",   cell: (d) => d.description },
+        dispatched:  { label: "Dispatched",                                     cell: (d) => d.stages[0]?.date ? new Date(d.stages[0].date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
+        transit:     { label: "Transit",                                        cell: (d) => d.stages[1]?.date ? new Date(d.stages[1].date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
+        delivered:   { label: "Delivered",                                      cell: (d) => d.stages[2]?.date ? new Date(d.stages[2].date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
+        inspected:   { label: "Inspected",                                      cell: (d) => d.stages[3]?.date ? new Date(d.stages[3].date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
+        status:      { label: "Status",                                         cell: (d) => { const hasDelayed = d.stages.some(s => s.status === "delayed"); const allDone = d.stages.every(s => s.status === "completed"); return <StatusPill status={hasDelayed ? "delayed" : allDone ? "completed" : "in-progress"} />; } },
+    };
+    const INV_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (inv: InvoiceItem) => React.ReactNode }> = {
+        invoiceNum: { label: "Invoice #",  cCls: "font-semibold",        cell: (inv) => inv.invoiceNumber },
+        po:         { label: "PO",                                       cell: (inv) => inv.poNumber },
+        amount:     { label: "Amount",     cCls: "font-mono",            cell: (inv) => fmt(inv.amount) },
+        submitted:  { label: "Submitted",                                cell: (inv) => new Date(inv.submittedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
+        dueDate:    { label: "Due Date",                                 cell: (inv) => new Date(inv.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
+        status:     { label: "Status",                                   cell: (inv) => <StatusPill status={inv.status.toLowerCase().replace(/_/g, "-")} /> },
+        paid:       { label: "Paid",                                     cell: (inv) => inv.paidAt ? new Date(inv.paidAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
+    };
+    const NCR_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (ncr: NCRItem) => React.ReactNode }> = {
+        ncrNum:   { label: "NCR #",    cCls: "font-semibold",          cell: (ncr) => ncr.ncrNumber },
+        title:    { label: "Title",    cCls: "max-w-[200px] truncate", cell: (ncr) => ncr.title },
+        severity: { label: "Severity",                                 cell: (ncr) => <SeverityBadge severity={ncr.severity} /> },
+        status:   { label: "Status",                                   cell: (ncr) => <StatusPill status={ncr.status.toLowerCase().replace(/_/g, "-")} /> },
+        reported: { label: "Reported",                                 cell: (ncr) => new Date(ncr.reportedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
+        slaDue:   { label: "SLA Due",                                  cell: (ncr) => ncr.slaDueAt ? new Date(ncr.slaDueAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
+    };
+    const MS_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (m: MilestoneItem) => React.ReactNode }> = {
+        milestone:  { label: "Milestone",  cCls: "font-semibold max-w-[200px] truncate", cell: (m) => m.title },
+        po:         { label: "PO",                                                       cell: (m) => m.poNumber },
+        amount:     { label: "Amount",     cCls: "font-mono",                            cell: (m) => fmt(m.amount) },
+        paymentPct: { label: "Payment %",                                                cell: (m) => `${m.paymentPercentage}%` },
+        dueDate:    { label: "Due Date",                                                 cell: (m) => new Date(m.expectedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
+        status:     { label: "Status",                                                   cell: (m) => <StatusPill status={m.status.toLowerCase()} /> },
+    };
+    const DOC_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (doc: DocumentStatusItem) => React.ReactNode }> = {
+        document: { label: "Document", cCls: "font-semibold", cell: (doc) => doc.type },
+        status:   { label: "Status",                          cell: (doc) => <StatusPill status={doc.status} /> },
+        expiry:   { label: "Expiry",                          cell: (doc) => doc.expiryDate ? new Date(doc.expiryDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) : "\u2014" },
+        uploaded: { label: "Uploaded",                        cell: (doc) => doc.uploadDate ? new Date(doc.uploadDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) : "\u2014" },
+    };
 
     if (loading) return <DashboardSkeleton />;
 
@@ -625,25 +693,25 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-muted/30">
-                                    <TableHead className="text-[10px] font-bold uppercase">PO Number</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Project</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Value</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Status</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Progress</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Date</TableHead>
+                                    {poCols.map(col => (
+                                        <TableHead key={col} draggable
+                                            onDragStart={() => setDragCol(col)}
+                                            onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                            onDrop={() => { reorderCols(poCols, dragCol!, col, setPoCols); setDragCol(null); setDragOverCol(null); }}
+                                            onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                            className={cn("text-[10px] font-bold uppercase cursor-grab active:cursor-grabbing select-none",
+                                                dragCol === col && "opacity-40 bg-muted/60",
+                                                dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                            )}>
+                                            <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{PO_DEF[col].label}</span>
+                                        </TableHead>
+                                    ))}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredPOs.map(po => (
                                     <TableRow key={po.id} className="text-xs hover:bg-muted/20">
-                                        <TableCell className="font-semibold">{po.poNumber}</TableCell>
-                                        <TableCell>{po.project}</TableCell>
-                                        <TableCell className="font-mono">{fmt(po.totalValue)}</TableCell>
-                                        <TableCell><StatusPill status={po.status.toLowerCase().replace(/_/g, "-")} /></TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-1.5"><div className="w-14 h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${po.deliveryProgress}%` }} /></div><span className="text-[10px]">{po.deliveryProgress}%</span></div>
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground">{new Date(po.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</TableCell>
+                                        {poCols.map(col => <TableCell key={col} className={PO_DEF[col].cCls}>{PO_DEF[col].cell(po)}</TableCell>)}
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -672,33 +740,27 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-muted/30">
-                                    <TableHead className="text-[10px] font-bold uppercase">PO</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Description</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Dispatched</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Transit</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Delivered</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Inspected</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Status</TableHead>
+                                    {delCols.map(col => (
+                                        <TableHead key={col} draggable
+                                            onDragStart={() => setDragCol(col)}
+                                            onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                            onDrop={() => { reorderCols(delCols, dragCol!, col, setDelCols); setDragCol(null); setDragOverCol(null); }}
+                                            onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                            className={cn("text-[10px] font-bold uppercase cursor-grab active:cursor-grabbing select-none",
+                                                dragCol === col && "opacity-40 bg-muted/60",
+                                                dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                            )}>
+                                            <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{DEL_DEF[col].label}</span>
+                                        </TableHead>
+                                    ))}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredDeliveries.map(d => {
-                                    const hasDelayed = d.stages.some(s => s.status === "delayed");
-                                    const allDone = d.stages.every(s => s.status === "completed");
-                                    const overallStatus = hasDelayed ? "delayed" : allDone ? "completed" : "in-progress";
-                                    return (
-                                        <TableRow key={d.id} className="text-xs hover:bg-muted/20">
-                                            <TableCell className="font-semibold">{d.poNumber}</TableCell>
-                                            <TableCell className="max-w-[180px] truncate">{d.description}</TableCell>
-                                            {d.stages.map(s => (
-                                                <TableCell key={s.name}>
-                                                    {s.date ? new Date(s.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}
-                                                </TableCell>
-                                            ))}
-                                            <TableCell><StatusPill status={overallStatus} /></TableCell>
-                                        </TableRow>
-                                    );
-                                })}
+                                {filteredDeliveries.map(d => (
+                                    <TableRow key={d.id} className="text-xs hover:bg-muted/20">
+                                        {delCols.map(col => <TableCell key={col} className={DEL_DEF[col].cCls}>{DEL_DEF[col].cell(d)}</TableCell>)}
+                                    </TableRow>
+                                ))}
                             </TableBody>
                         </Table>
                     </Card>
@@ -750,25 +812,25 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-muted/30">
-                                    <TableHead className="text-[10px] font-bold uppercase">Invoice #</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">PO</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Amount</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Submitted</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Due Date</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Status</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Paid</TableHead>
+                                    {invCols.map(col => (
+                                        <TableHead key={col} draggable
+                                            onDragStart={() => setDragCol(col)}
+                                            onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                            onDrop={() => { reorderCols(invCols, dragCol!, col, setInvCols); setDragCol(null); setDragOverCol(null); }}
+                                            onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                            className={cn("text-[10px] font-bold uppercase cursor-grab active:cursor-grabbing select-none",
+                                                dragCol === col && "opacity-40 bg-muted/60",
+                                                dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                            )}>
+                                            <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{INV_DEF[col].label}</span>
+                                        </TableHead>
+                                    ))}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredInvoices.map(inv => (
                                     <TableRow key={inv.id} className="text-xs hover:bg-muted/20">
-                                        <TableCell className="font-semibold">{inv.invoiceNumber}</TableCell>
-                                        <TableCell>{inv.poNumber}</TableCell>
-                                        <TableCell className="font-mono">{fmt(inv.amount)}</TableCell>
-                                        <TableCell>{new Date(inv.submittedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</TableCell>
-                                        <TableCell>{new Date(inv.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</TableCell>
-                                        <TableCell><StatusPill status={inv.status.toLowerCase().replace(/_/g, "-")} /></TableCell>
-                                        <TableCell>{inv.paidAt ? new Date(inv.paidAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</TableCell>
+                                        {invCols.map(col => <TableCell key={col} className={INV_DEF[col].cCls}>{INV_DEF[col].cell(inv)}</TableCell>)}
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -827,23 +889,25 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-muted/30">
-                                    <TableHead className="text-[10px] font-bold uppercase">NCR #</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Title</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Severity</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Status</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Reported</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">SLA Due</TableHead>
+                                    {ncrCols.map(col => (
+                                        <TableHead key={col} draggable
+                                            onDragStart={() => setDragCol(col)}
+                                            onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                            onDrop={() => { reorderCols(ncrCols, dragCol!, col, setNcrCols); setDragCol(null); setDragOverCol(null); }}
+                                            onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                            className={cn("text-[10px] font-bold uppercase cursor-grab active:cursor-grabbing select-none",
+                                                dragCol === col && "opacity-40 bg-muted/60",
+                                                dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                            )}>
+                                            <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{NCR_DEF[col].label}</span>
+                                        </TableHead>
+                                    ))}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredNCRs.map(ncr => (
                                     <TableRow key={ncr.id} className="text-xs hover:bg-muted/20">
-                                        <TableCell className="font-semibold">{ncr.ncrNumber}</TableCell>
-                                        <TableCell className="max-w-[200px] truncate">{ncr.title}</TableCell>
-                                        <TableCell><SeverityBadge severity={ncr.severity} /></TableCell>
-                                        <TableCell><StatusPill status={ncr.status.toLowerCase().replace(/_/g, "-")} /></TableCell>
-                                        <TableCell>{new Date(ncr.reportedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</TableCell>
-                                        <TableCell>{ncr.slaDueAt ? new Date(ncr.slaDueAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</TableCell>
+                                        {ncrCols.map(col => <TableCell key={col} className={NCR_DEF[col].cCls}>{NCR_DEF[col].cell(ncr)}</TableCell>)}
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -903,23 +967,25 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-muted/30">
-                                    <TableHead className="text-[10px] font-bold uppercase">Milestone</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">PO</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Amount</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Payment %</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Due Date</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Status</TableHead>
+                                    {msCols.map(col => (
+                                        <TableHead key={col} draggable
+                                            onDragStart={() => setDragCol(col)}
+                                            onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                            onDrop={() => { reorderCols(msCols, dragCol!, col, setMsCols); setDragCol(null); setDragOverCol(null); }}
+                                            onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                            className={cn("text-[10px] font-bold uppercase cursor-grab active:cursor-grabbing select-none",
+                                                dragCol === col && "opacity-40 bg-muted/60",
+                                                dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                            )}>
+                                            <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{MS_DEF[col].label}</span>
+                                        </TableHead>
+                                    ))}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredMilestones.map(m => (
                                     <TableRow key={m.id} className="text-xs hover:bg-muted/20">
-                                        <TableCell className="font-semibold max-w-[200px] truncate">{m.title}</TableCell>
-                                        <TableCell>{m.poNumber}</TableCell>
-                                        <TableCell className="font-mono">{fmt(m.amount)}</TableCell>
-                                        <TableCell>{m.paymentPercentage}%</TableCell>
-                                        <TableCell>{new Date(m.expectedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</TableCell>
-                                        <TableCell><StatusPill status={m.status.toLowerCase()} /></TableCell>
+                                        {msCols.map(col => <TableCell key={col} className={MS_DEF[col].cCls}>{MS_DEF[col].cell(m)}</TableCell>)}
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -954,19 +1020,25 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-muted/30">
-                                    <TableHead className="text-[10px] font-bold uppercase">Document</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Status</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Expiry</TableHead>
-                                    <TableHead className="text-[10px] font-bold uppercase">Uploaded</TableHead>
+                                    {docCols.map(col => (
+                                        <TableHead key={col} draggable
+                                            onDragStart={() => setDragCol(col)}
+                                            onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                            onDrop={() => { reorderCols(docCols, dragCol!, col, setDocCols); setDragCol(null); setDragOverCol(null); }}
+                                            onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                            className={cn("text-[10px] font-bold uppercase cursor-grab active:cursor-grabbing select-none",
+                                                dragCol === col && "opacity-40 bg-muted/60",
+                                                dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                            )}>
+                                            <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{DOC_DEF[col].label}</span>
+                                        </TableHead>
+                                    ))}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {documents.map(doc => (
                                     <TableRow key={doc.id} className="text-xs hover:bg-muted/20">
-                                        <TableCell className="font-semibold">{doc.type}</TableCell>
-                                        <TableCell><StatusPill status={doc.status} /></TableCell>
-                                        <TableCell>{doc.expiryDate ? new Date(doc.expiryDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) : "—"}</TableCell>
-                                        <TableCell>{doc.uploadDate ? new Date(doc.uploadDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) : "—"}</TableCell>
+                                        {docCols.map(col => <TableCell key={col} className={DOC_DEF[col].cCls}>{DOC_DEF[col].cell(doc)}</TableCell>)}
                                     </TableRow>
                                 ))}
                             </TableBody>

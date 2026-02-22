@@ -48,6 +48,7 @@ import {
     Lightning,
     Rows,
     Faders,
+    DotsSixVertical,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -143,6 +144,15 @@ const fmt = (value: number | undefined | null, currency = "USD") => {
     return `${currency}  ${num.toFixed(0)}`;
 };
 const pct = (v: number | undefined | null, d = 1) => `${(Number(v) || 0).toFixed(d)}%`;
+function reorderCols(arr: string[], from: string, to: string, set: React.Dispatch<React.SetStateAction<string[]>>) {
+    const next = [...arr];
+    const fi = next.indexOf(from);
+    const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0 || fi === ti) return;
+    next.splice(fi, 1);
+    next.splice(ti, 0, from);
+    set(next);
+}
 
 // ============================================
 // MAIN COMPONENT
@@ -288,6 +298,55 @@ export function ExecutiveDashboardClient() {
     const urgentCount = approvals.filter(a => a.priority === "urgent").length;
     const currentSection: SectionId = routeSection ?? "overview";
 
+    // ── Drag-to-reorder columns ──
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+    const [projCols, setProjCols] = useState(["project", "status", "contractValue", "spent", "physical", "financial", "link"]);
+    const [approvCols, setApprovCols] = useState(["type", "title", "requestedBy", "requestedAt", "amount", "priority", "status"]);
+    const [riskCols, setRiskCols] = useState(["risk", "category", "supplierRisk", "projectImpact"]);
+    const [alertCols, setAlertCols] = useState(["alert", "severity", "entity"]);
+    const [finCols, setFinCols] = useState(["metric", "value", "context"]);
+    const finRows: { id: string; metric: string; value: string; context: string }[] = data ? [
+        { id: "committed",    metric: "Total Committed",      value: fmt(data.kpis.financial.totalCommitted),    context: "Approved portfolio commitment" },
+        { id: "paid",         metric: "Total Paid",           value: fmt(data.kpis.financial.totalPaid),          context: "Invoices processed" },
+        { id: "unpaid",       metric: "Total Unpaid",         value: fmt(data.kpis.financial.totalUnpaid),        context: "Open payment obligations" },
+        { id: "retention",    metric: "Retention Held",       value: fmt(data.kpis.financial.retentionHeld),      context: "Held against contractual milestones" },
+        { id: "co",           metric: "Change Order Impact",  value: fmt(data.kpis.financial.changeOrderImpact),  context: "Budget variation pressure" },
+    ] : [];
+    const PROJ_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (p: ProjectSummary) => React.ReactNode }> = {
+        project:       { label: "Project",        cCls: "font-semibold",                    cell: (p) => p.name },
+        status:        { label: "Status",                                                   cell: (p) => <StatusBadge status={p.status} /> },
+        contractValue: { label: "Contract Value", hCls: "text-right", cCls: "text-right font-mono text-sm tabular-nums", cell: (p) => fmt(p.totalValue) },
+        spent:         { label: "Spent",          hCls: "text-right", cCls: "text-right font-mono text-sm tabular-nums", cell: (p) => fmt(p.spend) },
+        physical:      { label: "Physical",                                                 cell: (p) => <ProgressBar value={p.physicalProgress} showLabel /> },
+        financial:     { label: "Financial",                                                cell: (p) => <ProgressBar value={p.financialProgress} showLabel /> },
+        link:          { label: "",               cCls: "",                                cell: () => <CaretRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" /> },
+    };
+    const APPROV_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (a: ApprovalItem) => React.ReactNode }> = {
+        type:        { label: "Type",         cCls: "uppercase text-xs font-semibold text-muted-foreground", cell: (a) => a.type.replace("_", " ") },
+        title:       { label: "Title",        cCls: "font-medium",                                           cell: (a) => a.title },
+        requestedBy: { label: "Requested By",                                                                  cell: (a) => a.requestedBy },
+        requestedAt: { label: "Requested At", cCls: "text-muted-foreground",                                  cell: (a) => new Date(a.requestedAt).toLocaleDateString() },
+        amount:      { label: "Amount",       hCls: "text-right", cCls: "text-right font-mono",               cell: (a) => a.amount ? fmt(a.amount) : "\u2014" },
+        priority:    { label: "Priority",                                                                      cell: (a) => <Badge variant="outline" className="capitalize">{a.priority}</Badge> },
+        status:      { label: "Status",                                                                        cell: (a) => <Badge variant="secondary" className="capitalize">{a.status.replace("-", " ")}</Badge> },
+    };
+    const RISK_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (r: RiskItem) => React.ReactNode }> = {
+        risk:          { label: "Risk",           cCls: "font-medium",                        cell: (r) => r.name },
+        category:      { label: "Category",                                                   cell: (r) => r.category },
+        supplierRisk:  { label: "Supplier Risk",  hCls: "text-right", cCls: "text-right font-mono", cell: (r) => r.supplierRisk },
+        projectImpact: { label: "Project Impact", hCls: "text-right", cCls: "text-right font-mono", cell: (r) => r.projectImpact },
+    };
+    const ALERT_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (a: ComplianceAlert) => React.ReactNode }> = {
+        alert:    { label: "Alert",    cCls: "font-medium",           cell: (a) => a.title },
+        severity: { label: "Severity",                               cell: (a) => <Badge variant={a.severity === "critical" ? "destructive" : "outline"} className="capitalize">{a.severity}</Badge> },
+        entity:   { label: "Entity",   cCls: "text-muted-foreground", cell: (a) => a.relatedEntity },
+    };
+    const FIN_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (r: { id: string; metric: string; value: string; context: string }) => React.ReactNode }> = {
+        metric:  { label: "Metric",                                             cell: (r) => r.metric },
+        value:   { label: "Value",   hCls: "text-right", cCls: "text-right font-mono", cell: (r) => r.value },
+        context: { label: "Context", cCls: "text-muted-foreground",             cell: (r) => r.context },
+    };
     const tableDatasets = useMemo(() => {
         if (!data) {
             return {
@@ -587,27 +646,27 @@ export function ExecutiveDashboardClient() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Project</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Contract Value</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Spent</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Physical</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Financial</TableHead>
-                                                <TableHead className="w-10" />
+                                                {projCols.map(col => (
+                                                    <TableHead key={col} draggable
+                                                        onDragStart={() => setDragCol(col)}
+                                                        onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                                        onDrop={() => { reorderCols(projCols, dragCol!, col, setProjCols); setDragCol(null); setDragOverCol(null); }}
+                                                        onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                                        className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", PROJ_DEF[col].hCls,
+                                                            dragCol === col && "opacity-40 bg-muted/60",
+                                                            dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                                        )}>
+                                                        {col === "link" ? <span className="w-10" /> : <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{PROJ_DEF[col].label}</span>}
+                                                    </TableHead>
+                                                ))}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {projects.length === 0 ? (
-                                                <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">No projects found</TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={projCols.length} className="text-center py-10 text-muted-foreground">No projects found</TableCell></TableRow>
                                             ) : projects.map((p) => (
-                                                <TableRow key={p.id} className="cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => router.push(`/dashboard/projects/${p.id}`)}>
-                                                    <TableCell className="font-semibold">{p.name}</TableCell>
-                                                    <TableCell><StatusBadge status={p.status} /></TableCell>
-                                                    <TableCell className="text-right font-mono text-sm tabular-nums">{fmt(p.totalValue)}</TableCell>
-                                                    <TableCell className="text-right font-mono text-sm tabular-nums">{fmt(p.spend)}</TableCell>
-                                                    <TableCell><ProgressBar value={p.physicalProgress} showLabel /></TableCell>
-                                                    <TableCell><ProgressBar value={p.financialProgress} showLabel /></TableCell>
-                                                    <TableCell><CaretRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" /></TableCell>
+                                                <TableRow key={p.id} className="cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => router.push(`/dashboard/projects/${p.id}`)  }>
+                                                    {projCols.map(col => <TableCell key={col} className={PROJ_DEF[col].cCls}>{PROJ_DEF[col].cell(p)}</TableCell>)}
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -642,25 +701,25 @@ export function ExecutiveDashboardClient() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Type</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Title</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Requested By</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Requested At</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Amount</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Priority</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
+                                                {approvCols.map(col => (
+                                                    <TableHead key={col} draggable
+                                                        onDragStart={() => setDragCol(col)}
+                                                        onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                                        onDrop={() => { reorderCols(approvCols, dragCol!, col, setApprovCols); setDragCol(null); setDragOverCol(null); }}
+                                                        onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                                        className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", APPROV_DEF[col].hCls,
+                                                            dragCol === col && "opacity-40 bg-muted/60",
+                                                            dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                                        )}>
+                                                        <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{APPROV_DEF[col].label}</span>
+                                                    </TableHead>
+                                                ))}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {(approvals.length > 0 ? approvals : generateMockApprovals()).map((item) => (
                                                 <TableRow key={item.id} className="hover:bg-muted/20">
-                                                    <TableCell className="uppercase text-xs font-semibold text-muted-foreground">{item.type.replace("_", " ")}</TableCell>
-                                                    <TableCell className="font-medium">{item.title}</TableCell>
-                                                    <TableCell>{item.requestedBy}</TableCell>
-                                                    <TableCell className="text-muted-foreground">{new Date(item.requestedAt).toLocaleDateString()}</TableCell>
-                                                    <TableCell className="text-right font-mono">{item.amount ? fmt(item.amount) : "—"}</TableCell>
-                                                    <TableCell><Badge variant="outline" className="capitalize">{item.priority}</Badge></TableCell>
-                                                    <TableCell><Badge variant="secondary" className="capitalize">{item.status.replace("-", " ")}</Badge></TableCell>
+                                                    {approvCols.map(col => <TableCell key={col} className={APPROV_DEF[col].cCls}>{APPROV_DEF[col].cell(item)}</TableCell>)}
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -705,19 +764,25 @@ export function ExecutiveDashboardClient() {
                                         <Table>
                                             <TableHeader>
                                                 <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                                    <TableHead className="font-semibold text-xs uppercase tracking-wider">Risk</TableHead>
-                                                    <TableHead className="font-semibold text-xs uppercase tracking-wider">Category</TableHead>
-                                                    <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Supplier Risk</TableHead>
-                                                    <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Project Impact</TableHead>
+                                                    {riskCols.map(col => (
+                                                        <TableHead key={col} draggable
+                                                            onDragStart={() => setDragCol(col)}
+                                                            onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                                            onDrop={() => { reorderCols(riskCols, dragCol!, col, setRiskCols); setDragCol(null); setDragOverCol(null); }}
+                                                            onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                                            className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", RISK_DEF[col].hCls,
+                                                                dragCol === col && "opacity-40 bg-muted/60",
+                                                                dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                                            )}>
+                                                            <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{RISK_DEF[col].label}</span>
+                                                        </TableHead>
+                                                    ))}
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {(risks.length > 0 ? risks : generateMockRisks()).map((risk) => (
                                                     <TableRow key={risk.id} className="hover:bg-muted/20">
-                                                        <TableCell className="font-medium">{risk.name}</TableCell>
-                                                        <TableCell>{risk.category}</TableCell>
-                                                        <TableCell className="text-right font-mono">{risk.supplierRisk}</TableCell>
-                                                        <TableCell className="text-right font-mono">{risk.projectImpact}</TableCell>
+                                                        {riskCols.map(col => <TableCell key={col} className={RISK_DEF[col].cCls}>{RISK_DEF[col].cell(risk)}</TableCell>)}
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
@@ -727,19 +792,25 @@ export function ExecutiveDashboardClient() {
                                         <Table>
                                             <TableHeader>
                                                 <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                                    <TableHead className="font-semibold text-xs uppercase tracking-wider">Alert</TableHead>
-                                                    <TableHead className="font-semibold text-xs uppercase tracking-wider">Severity</TableHead>
-                                                    <TableHead className="font-semibold text-xs uppercase tracking-wider">Entity</TableHead>
+                                                    {alertCols.map(col => (
+                                                        <TableHead key={col} draggable
+                                                            onDragStart={() => setDragCol(col)}
+                                                            onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                                            onDrop={() => { reorderCols(alertCols, dragCol!, col, setAlertCols); setDragCol(null); setDragOverCol(null); }}
+                                                            onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                                            className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", ALERT_DEF[col].hCls,
+                                                                dragCol === col && "opacity-40 bg-muted/60",
+                                                                dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                                            )}>
+                                                            <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{ALERT_DEF[col].label}</span>
+                                                        </TableHead>
+                                                    ))}
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {(alerts.length > 0 ? alerts : generateMockAlerts(data.kpis)).map((alert) => (
                                                     <TableRow key={alert.id} className="hover:bg-muted/20">
-                                                        <TableCell className="font-medium">{alert.title}</TableCell>
-                                                        <TableCell>
-                                                            <Badge variant={alert.severity === "critical" ? "destructive" : "outline"} className="capitalize">{alert.severity}</Badge>
-                                                        </TableCell>
-                                                        <TableCell className="text-muted-foreground">{alert.relatedEntity}</TableCell>
+                                                        {alertCols.map(col => <TableCell key={col} className={ALERT_DEF[col].cCls}>{ALERT_DEF[col].cell(alert)}</TableCell>)}
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
@@ -785,17 +856,27 @@ export function ExecutiveDashboardClient() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Metric</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Value</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Context</TableHead>
+                                                {finCols.map(col => (
+                                                    <TableHead key={col} draggable
+                                                        onDragStart={() => setDragCol(col)}
+                                                        onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                                        onDrop={() => { reorderCols(finCols, dragCol!, col, setFinCols); setDragCol(null); setDragOverCol(null); }}
+                                                        onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                                        className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", FIN_DEF[col].hCls,
+                                                            dragCol === col && "opacity-40 bg-muted/60",
+                                                            dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                                        )}>
+                                                        <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{FIN_DEF[col].label}</span>
+                                                    </TableHead>
+                                                ))}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            <TableRow className="hover:bg-muted/20"><TableCell>Total Committed</TableCell><TableCell className="text-right font-mono">{fmt(data.kpis.financial.totalCommitted)}</TableCell><TableCell className="text-muted-foreground">Approved portfolio commitment</TableCell></TableRow>
-                                            <TableRow className="hover:bg-muted/20"><TableCell>Total Paid</TableCell><TableCell className="text-right font-mono">{fmt(data.kpis.financial.totalPaid)}</TableCell><TableCell className="text-muted-foreground">Invoices processed</TableCell></TableRow>
-                                            <TableRow className="hover:bg-muted/20"><TableCell>Total Unpaid</TableCell><TableCell className="text-right font-mono">{fmt(data.kpis.financial.totalUnpaid)}</TableCell><TableCell className="text-muted-foreground">Open payment obligations</TableCell></TableRow>
-                                            <TableRow className="hover:bg-muted/20"><TableCell>Retention Held</TableCell><TableCell className="text-right font-mono">{fmt(data.kpis.financial.retentionHeld)}</TableCell><TableCell className="text-muted-foreground">Held against contractual milestones</TableCell></TableRow>
-                                            <TableRow className="hover:bg-muted/20"><TableCell>Change Order Impact</TableCell><TableCell className="text-right font-mono">{fmt(data.kpis.financial.changeOrderImpact)}</TableCell><TableCell className="text-muted-foreground">Budget variation pressure</TableCell></TableRow>
+                                            {finRows.map(r => (
+                                                <TableRow key={r.id} className="hover:bg-muted/20">
+                                                    {finCols.map(col => <TableCell key={col} className={FIN_DEF[col].cCls}>{FIN_DEF[col].cell(r)}</TableCell>)}
+                                                </TableRow>
+                                            ))}
                                         </TableBody>
                                     </Table>
                                 </GlowCard>

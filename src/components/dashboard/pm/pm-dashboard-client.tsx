@@ -61,6 +61,7 @@ import {
     ChartBar,
     Rows,
     Faders,
+    DotsSixVertical,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { PMOnboardingTour } from "./onboarding-tour";
@@ -138,7 +139,15 @@ const fmt = (value: number | undefined | null, currency = "$") => {
     return `${currency}${num.toFixed(0)}`;
 };
 const pct = (v: number | undefined | null, d = 1) => `${(Number(v) || 0).toFixed(d)}%`;
-
+function reorderCols(arr: string[], from: string, to: string, set: React.Dispatch<React.SetStateAction<string[]>>) {
+    const next = [...arr];
+    const fi = next.indexOf(from);
+    const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0 || fi === ti) return;
+    next.splice(fi, 1);
+    next.splice(ti, 0, from);
+    set(next);
+}
 
 
 // ============================================
@@ -162,6 +171,15 @@ export function PMDashboardClient() {
     const [supplierFilter, setSupplierFilter] = useState("all");
     const [statusFilter, setStatusFilter] = useState("all");
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    // ── Drag-to-reorder columns ──
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+    const [delCols2, setDelCols2] = useState(["poNum", "supplier", "description", "expected", "qty", "status", "tracking"]);
+    const [matCols, setMatCols] = useState(["material", "ordered", "delivered", "installed", "remaining", "availability"]);
+    const [msCols2, setMsCols2] = useState(["milestone", "po", "dueDate", "value", "progress", "status"]);
+    const [coCols2, setCoCols2] = useState(["reference", "title", "po", "costImpact", "time", "status"]);
+    const [supCols, setSupCols] = useState(["supplier", "delivery", "quality", "compliance", "comms", "overall"]);
+    const [inspCols, setInspCols] = useState(["date", "inspection", "supplier", "status"]);
     const [viewModes, setViewModes] = useState<Record<string, "chart" | "table">>({
         deliveries: "chart", materials: "chart", quality: "chart",
         milestones: "chart", suppliers: "table", financials: "chart", inspections: "chart",
@@ -398,6 +416,55 @@ export function PMDashboardClient() {
     const healthScore = data ? calcHealthScore(data.kpis) : 0;
     const healthBreakdown = data ? calcHealthBreakdown(data.kpis) : [];
     const overdueDeliveries = deliveries.filter(d => d.status === "delayed").length;
+
+    // ── Column definition maps ──
+    const DEL2_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (d: DeliveryItem) => React.ReactNode }> = {
+        poNum:       { label: "PO #",        cCls: "font-mono text-xs font-semibold",               cell: (d) => d.poNumber },
+        supplier:    { label: "Supplier",    cCls: "text-xs",                                        cell: (d) => d.supplier },
+        description: { label: "Description", cCls: "text-xs max-w-[200px] truncate",               cell: (d) => d.description },
+        expected:    { label: "Expected",    cCls: "text-xs font-mono",                             cell: (d) => d.expectedDate.toLocaleDateString() },
+        qty:         { label: "Qty",         hCls: "text-right", cCls: "text-xs font-mono text-right", cell: (d) => `${d.quantity.toLocaleString()} ${d.unit}` },
+        status:      { label: "Status",      hCls: "text-center", cCls: "text-center",               cell: (d) => <StatusPill status={d.status} /> },
+        tracking:    { label: "Tracking",    cCls: "text-xs font-mono text-muted-foreground",       cell: (d) => d.trackingRef || "\u2014" },
+    };
+    const MAT_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (m: MaterialItem) => React.ReactNode }> = {
+        material:     { label: "Material",     cCls: "font-semibold text-xs",                                        cell: (m) => m.name },
+        ordered:      { label: "Ordered",      hCls: "text-right", cCls: "text-right font-mono text-xs",           cell: (m) => m.ordered.toLocaleString() },
+        delivered:    { label: "Delivered",    hCls: "text-right", cCls: "text-right font-mono text-xs",           cell: (m) => m.delivered.toLocaleString() },
+        installed:    { label: "Installed",    hCls: "text-right", cCls: "text-right font-mono text-xs",           cell: (m) => m.installed.toLocaleString() },
+        remaining:    { label: "Remaining",    hCls: "text-right", cCls: "text-right font-mono text-xs text-amber-600 dark:text-amber-400", cell: (m) => m.remaining.toLocaleString() },
+        availability: { label: "Availability", hCls: "text-right", cCls: "text-right",                             cell: (m) => <ScorePill score={Math.round((m.delivered / Math.max(m.ordered, 1)) * 100)} /> },
+    };
+    const MS2_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (m: MilestoneItem) => React.ReactNode }> = {
+        milestone: { label: "Milestone", cCls: "font-semibold text-xs",             cell: (m) => m.name },
+        po:        { label: "PO #",       cCls: "font-mono text-xs",                cell: (m) => m.poNumber },
+        dueDate:   { label: "Due Date",   cCls: "font-mono text-xs",                cell: (m) => m.dueDate.toLocaleDateString() },
+        value:     { label: "Value",      hCls: "text-right", cCls: "text-right font-mono text-xs", cell: (m) => fmt(m.value) },
+        progress:  { label: "Progress",   hCls: "text-center", cCls: "text-center", cell: (m) => <div className="flex items-center gap-2 justify-center"><div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${m.progress}%` }} /></div><span className="text-[10px] font-mono">{m.progress}%</span></div> },
+        status:    { label: "Status",     hCls: "text-center", cCls: "text-center", cell: (m) => <StatusPill status={m.status} /> },
+    };
+    const CO2_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (c: ChangeOrderItem) => React.ReactNode }> = {
+        reference:  { label: "Reference",    cCls: "font-mono text-xs font-semibold",   cell: (c) => c.reference },
+        title:      { label: "Title",         cCls: "text-xs max-w-[200px] truncate",   cell: (c) => c.title },
+        po:         { label: "PO #",          cCls: "font-mono text-xs",                cell: (c) => c.poNumber },
+        costImpact: { label: "Cost Impact",   hCls: "text-right", cCls: "",             cell: (c) => <span className={cn("text-right font-mono text-xs", c.costImpact < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")}>{c.costImpact < 0 ? "-" : "+"}{fmt(Math.abs(c.costImpact))}</span> },
+        time:       { label: "Time",          hCls: "text-right", cCls: "text-right font-mono text-xs", cell: (c) => c.timeImpactDays > 0 ? `+${c.timeImpactDays}d` : "\u2014" },
+        status:     { label: "Status",        hCls: "text-center", cCls: "text-center", cell: (c) => <StatusPill status={c.status} /> },
+    };
+    const SUP_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (s: SupplierScorecard) => React.ReactNode }> = {
+        supplier:   { label: "Supplier",    cCls: "font-semibold",                      cell: (s) => s.supplierName },
+        delivery:   { label: "Delivery",    hCls: "text-center", cCls: "text-center",  cell: (s) => <ScorePill score={s.delivery} /> },
+        quality:    { label: "Quality",     hCls: "text-center", cCls: "text-center",  cell: (s) => <ScorePill score={s.quality} /> },
+        compliance: { label: "Compliance",  hCls: "text-center", cCls: "text-center",  cell: (s) => <ScorePill score={s.compliance} /> },
+        comms:      { label: "Comms",       hCls: "text-center", cCls: "text-center",  cell: (s) => <ScorePill score={s.communication} /> },
+        overall:    { label: "Overall",     hCls: "text-center", cCls: "text-center",  cell: (s) => <ScorePill score={s.overall} bold /> },
+    };
+    const INSP_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (e: InspectionEvent) => React.ReactNode }> = {
+        date:       { label: "Date",       cCls: "font-mono text-xs",   cell: (e) => e.date },
+        inspection: { label: "Inspection", cCls: "font-semibold text-xs", cell: (e) => e.title },
+        supplier:   { label: "Supplier",   cCls: "text-xs",              cell: (e) => e.supplier },
+        status:     { label: "Status",     hCls: "text-center", cCls: "text-center", cell: (e) => <StatusPill status={e.status} /> },
+    };
 
     // ── Error state ──
     if (error) {
@@ -737,29 +804,29 @@ export function PMDashboardClient() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider">PO #</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider">Supplier</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider">Description</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider">Expected</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Qty</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Status</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider">Tracking</TableHead>
+                                            {delCols2.map(col => (
+                                                <TableHead key={col} draggable
+                                                    onDragStart={() => setDragCol(col)}
+                                                    onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                                    onDrop={() => { reorderCols(delCols2, dragCol!, col, setDelCols2); setDragCol(null); setDragOverCol(null); }}
+                                                    onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                                    className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", DEL2_DEF[col].hCls,
+                                                        dragCol === col && "opacity-40 bg-muted/60",
+                                                        dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                                    )}>
+                                                    <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{DEL2_DEF[col].label}</span>
+                                                </TableHead>
+                                            ))}
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {filteredDeliveries.map(d => (
                                             <TableRow key={d.id} className="hover:bg-muted/20 cursor-pointer">
-                                                <TableCell className="font-mono text-xs font-semibold">{d.poNumber}</TableCell>
-                                                <TableCell className="text-xs">{d.supplier}</TableCell>
-                                                <TableCell className="text-xs max-w-[200px] truncate">{d.description}</TableCell>
-                                                <TableCell className="text-xs font-mono">{d.expectedDate.toLocaleDateString()}</TableCell>
-                                                <TableCell className="text-xs font-mono text-right">{d.quantity.toLocaleString()} {d.unit}</TableCell>
-                                                <TableCell className="text-center"><StatusPill status={d.status} /></TableCell>
-                                                <TableCell className="text-xs font-mono text-muted-foreground">{d.trackingRef || "—"}</TableCell>
+                                                {delCols2.map(col => <TableCell key={col} className={DEL2_DEF[col].cCls}>{DEL2_DEF[col].cell(d)}</TableCell>)}
                                             </TableRow>
                                         ))}
                                         {filteredDeliveries.length === 0 && (
-                                            <TableRow><TableCell colSpan={7} className="text-center py-8 text-sm text-muted-foreground">No deliveries match your filters</TableCell></TableRow>
+                                            <TableRow><TableCell colSpan={delCols2.length} className="text-center py-8 text-sm text-muted-foreground">No deliveries match your filters</TableCell></TableRow>
                                         )}
                                     </TableBody>
                                 </Table>
@@ -781,27 +848,29 @@ export function PMDashboardClient() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider">Material</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Ordered</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Delivered</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Installed</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Remaining</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Availability</TableHead>
+                                            {matCols.map(col => (
+                                                <TableHead key={col} draggable
+                                                    onDragStart={() => setDragCol(col)}
+                                                    onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                                    onDrop={() => { reorderCols(matCols, dragCol!, col, setMatCols); setDragCol(null); setDragOverCol(null); }}
+                                                    onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                                    className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", MAT_DEF[col].hCls,
+                                                        dragCol === col && "opacity-40 bg-muted/60",
+                                                        dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                                    )}>
+                                                    <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{MAT_DEF[col].label}</span>
+                                                </TableHead>
+                                            ))}
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {filteredMaterials.map(m => (
                                             <TableRow key={m.name} className="hover:bg-muted/20">
-                                                <TableCell className="font-semibold text-xs">{m.name}</TableCell>
-                                                <TableCell className="text-right font-mono text-xs">{m.ordered.toLocaleString()}</TableCell>
-                                                <TableCell className="text-right font-mono text-xs">{m.delivered.toLocaleString()}</TableCell>
-                                                <TableCell className="text-right font-mono text-xs">{m.installed.toLocaleString()}</TableCell>
-                                                <TableCell className="text-right font-mono text-xs text-amber-600 dark:text-amber-400">{m.remaining.toLocaleString()}</TableCell>
-                                                <TableCell className="text-right"><ScorePill score={Math.round((m.delivered / Math.max(m.ordered, 1)) * 100)} /></TableCell>
+                                                {matCols.map(col => <TableCell key={col} className={MAT_DEF[col].cCls}>{MAT_DEF[col].cell(m)}</TableCell>)}
                                             </TableRow>
                                         ))}
                                         {filteredMaterials.length === 0 && (
-                                            <TableRow><TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">No materials match your filters</TableCell></TableRow>
+                                            <TableRow><TableCell colSpan={matCols.length} className="text-center py-8 text-sm text-muted-foreground">No materials match your filters</TableCell></TableRow>
                                         )}
                                     </TableBody>
                                 </Table>
@@ -851,32 +920,29 @@ export function PMDashboardClient() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Milestone</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">PO #</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Due Date</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Value</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Progress</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Status</TableHead>
+                                                {msCols2.map(col => (
+                                                    <TableHead key={col} draggable
+                                                        onDragStart={() => setDragCol(col)}
+                                                        onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                                        onDrop={() => { reorderCols(msCols2, dragCol!, col, setMsCols2); setDragCol(null); setDragOverCol(null); }}
+                                                        onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                                        className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", MS2_DEF[col].hCls,
+                                                            dragCol === col && "opacity-40 bg-muted/60",
+                                                            dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                                        )}>
+                                                        <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{MS2_DEF[col].label}</span>
+                                                    </TableHead>
+                                                ))}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {filteredMilestones.map(m => (
                                                 <TableRow key={m.id} className="hover:bg-muted/20">
-                                                    <TableCell className="font-semibold text-xs">{m.name}</TableCell>
-                                                    <TableCell className="font-mono text-xs">{m.poNumber}</TableCell>
-                                                    <TableCell className="font-mono text-xs">{m.dueDate.toLocaleDateString()}</TableCell>
-                                                    <TableCell className="text-right font-mono text-xs">{fmt(m.value)}</TableCell>
-                                                    <TableCell className="text-center">
-                                                        <div className="flex items-center gap-2 justify-center">
-                                                            <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${m.progress}%` }} /></div>
-                                                            <span className="text-[10px] font-mono">{m.progress}%</span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-center"><StatusPill status={m.status} /></TableCell>
+                                                    {msCols2.map(col => <TableCell key={col} className={MS2_DEF[col].cCls}>{MS2_DEF[col].cell(m)}</TableCell>)}
                                                 </TableRow>
                                             ))}
                                             {filteredMilestones.length === 0 && (
-                                                <TableRow><TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">No milestones match your filters</TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={msCols2.length} className="text-center py-8 text-sm text-muted-foreground">No milestones match your filters</TableCell></TableRow>
                                             )}
                                         </TableBody>
                                     </Table>
@@ -886,23 +952,25 @@ export function PMDashboardClient() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Reference</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Title</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">PO #</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Cost Impact</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Time</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Status</TableHead>
+                                                {coCols2.map(col => (
+                                                    <TableHead key={col} draggable
+                                                        onDragStart={() => setDragCol(col)}
+                                                        onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                                        onDrop={() => { reorderCols(coCols2, dragCol!, col, setCoCols2); setDragCol(null); setDragOverCol(null); }}
+                                                        onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                                        className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", CO2_DEF[col].hCls,
+                                                            dragCol === col && "opacity-40 bg-muted/60",
+                                                            dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                                        )}>
+                                                        <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{CO2_DEF[col].label}</span>
+                                                    </TableHead>
+                                                ))}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {filteredChangeOrders.map(c => (
                                                 <TableRow key={c.id} className="hover:bg-muted/20">
-                                                    <TableCell className="font-mono text-xs font-semibold">{c.reference}</TableCell>
-                                                    <TableCell className="text-xs max-w-[200px] truncate">{c.title}</TableCell>
-                                                    <TableCell className="font-mono text-xs">{c.poNumber}</TableCell>
-                                                    <TableCell className={cn("text-right font-mono text-xs", c.costImpact < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")}>{c.costImpact < 0 ? "-" : "+"}{fmt(Math.abs(c.costImpact))}</TableCell>
-                                                    <TableCell className="text-right font-mono text-xs">{c.timeImpactDays > 0 ? `+${c.timeImpactDays}d` : "—"}</TableCell>
-                                                    <TableCell className="text-center"><StatusPill status={c.status} /></TableCell>
+                                                    {coCols2.map(col => <TableCell key={col} className={CO2_DEF[col].cCls}>{CO2_DEF[col].cell(c)}</TableCell>)}
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -927,27 +995,29 @@ export function PMDashboardClient() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider">Supplier</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Delivery</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Quality</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Compliance</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Comms</TableHead>
-                                                <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Overall</TableHead>
+                                                {supCols.map(col => (
+                                                    <TableHead key={col} draggable
+                                                        onDragStart={() => setDragCol(col)}
+                                                        onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                                        onDrop={() => { reorderCols(supCols, dragCol!, col, setSupCols); setDragCol(null); setDragOverCol(null); }}
+                                                        onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                                        className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", SUP_DEF[col].hCls,
+                                                            dragCol === col && "opacity-40 bg-muted/60",
+                                                            dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                                        )}>
+                                                        <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{SUP_DEF[col].label}</span>
+                                                    </TableHead>
+                                                ))}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {filteredSuppliers.map((s) => (
                                                 <TableRow key={s.supplierId} className="hover:bg-muted/20">
-                                                    <TableCell className="font-semibold">{s.supplierName}</TableCell>
-                                                    <TableCell className="text-center"><ScorePill score={s.delivery} /></TableCell>
-                                                    <TableCell className="text-center"><ScorePill score={s.quality} /></TableCell>
-                                                    <TableCell className="text-center"><ScorePill score={s.compliance} /></TableCell>
-                                                    <TableCell className="text-center"><ScorePill score={s.communication} /></TableCell>
-                                                    <TableCell className="text-center"><ScorePill score={s.overall} bold /></TableCell>
+                                                    {supCols.map(col => <TableCell key={col} className={SUP_DEF[col].cCls}>{SUP_DEF[col].cell(s)}</TableCell>)}
                                                 </TableRow>
                                             ))}
                                             {filteredSuppliers.length === 0 && (
-                                                <TableRow><TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">No suppliers match your filters</TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={supCols.length} className="text-center py-8 text-sm text-muted-foreground">No suppliers match your filters</TableCell></TableRow>
                                             )}
                                         </TableBody>
                                     </Table>
@@ -998,23 +1068,29 @@ export function PMDashboardClient() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider">Date</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider">Inspection</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider">Supplier</TableHead>
-                                            <TableHead className="font-semibold text-xs uppercase tracking-wider text-center">Status</TableHead>
+                                            {inspCols.map(col => (
+                                                <TableHead key={col} draggable
+                                                    onDragStart={() => setDragCol(col)}
+                                                    onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                                    onDrop={() => { reorderCols(inspCols, dragCol!, col, setInspCols); setDragCol(null); setDragOverCol(null); }}
+                                                    onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                                    className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", INSP_DEF[col].hCls,
+                                                        dragCol === col && "opacity-40 bg-muted/60",
+                                                        dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                                    )}>
+                                                    <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{INSP_DEF[col].label}</span>
+                                                </TableHead>
+                                            ))}
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {filteredInspections.map(e => (
                                             <TableRow key={e.id} className="hover:bg-muted/20">
-                                                <TableCell className="font-mono text-xs">{e.date}</TableCell>
-                                                <TableCell className="font-semibold text-xs">{e.title}</TableCell>
-                                                <TableCell className="text-xs">{e.supplier}</TableCell>
-                                                <TableCell className="text-center"><StatusPill status={e.status} /></TableCell>
+                                                {inspCols.map(col => <TableCell key={col} className={INSP_DEF[col].cCls}>{INSP_DEF[col].cell(e)}</TableCell>)}
                                             </TableRow>
                                         ))}
                                         {filteredInspections.length === 0 && (
-                                            <TableRow><TableCell colSpan={4} className="text-center py-8 text-sm text-muted-foreground">No inspections match your filters</TableCell></TableRow>
+                                            <TableRow><TableCell colSpan={inspCols.length} className="text-center py-8 text-sm text-muted-foreground">No inspections match your filters</TableCell></TableRow>
                                         )}
                                     </TableBody>
                                 </Table>

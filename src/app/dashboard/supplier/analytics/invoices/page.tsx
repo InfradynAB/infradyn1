@@ -1,15 +1,22 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Receipt } from "@phosphor-icons/react";
+import { Receipt, DotsSixVertical } from "@phosphor-icons/react";
 import {
     SectionHeader, ViewToggle, StatusPill, StatCard,
     mockKPIs, mockInvoices, mockInvoiceCycle, fmt,
 } from "@/components/dashboard/supplier/analytics-shared";
 import { useAnalyticsFilters } from "@/components/dashboard/supplier/analytics-shell";
 import { InvoiceCycleLine } from "@/components/dashboard/supplier/charts/invoice-cycle-line";
+
+function reorderCols(
+    arr: string[], from: string, to: string, setter: (val: string[]) => void
+) {
+    const next = [...arr]; const fi = next.indexOf(from); const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0) return; next.splice(fi, 1); next.splice(ti, 0, from); setter(next);
+}
 
 export default function InvoicesPage() {
     const kpis = mockKPIs();
@@ -18,6 +25,9 @@ export default function InvoicesPage() {
     const { searchQuery, statusFilter } = useAnalyticsFilters();
     const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
     const toggleView = useCallback((_s: string, mode: "chart" | "table") => setViewMode(mode), []);
+    const [invCols, setInvCols] = useState(["invoiceNum", "po", "amount", "submitted", "dueDate", "status", "paid"]);
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     const filteredInvoices = useMemo(() => {
         let items = invoices;
@@ -25,6 +35,16 @@ export default function InvoicesPage() {
         if (statusFilter !== "all") items = items.filter(i => i.status.toLowerCase().replace(/_/g, "-") === statusFilter);
         return items;
     }, [invoices, searchQuery, statusFilter]);
+
+    const INV_DEF: Record<string, { label: string; cell: (inv: (typeof filteredInvoices)[number]) => ReactNode }> = {
+        invoiceNum: { label: "Invoice #",  cell: (inv) => <span className="font-semibold">{inv.invoiceNumber}</span> },
+        po:         { label: "PO",          cell: (inv) => <span>{inv.poNumber}</span> },
+        amount:     { label: "Amount",      cell: (inv) => <span className="font-mono">{fmt(inv.amount)}</span> },
+        submitted:  { label: "Submitted",   cell: (inv) => <span>{new Date(inv.submittedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</span> },
+        dueDate:    { label: "Due Date",    cell: (inv) => <span>{new Date(inv.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</span> },
+        status:     { label: "Status",      cell: (inv) => <StatusPill status={inv.status.toLowerCase().replace(/_/g, "-")} /> },
+        paid:       { label: "Paid",        cell: (inv) => <span>{inv.paidAt ? new Date(inv.paidAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014"}</span> },
+    };
 
     return (
         <div className="space-y-5">
@@ -72,25 +92,22 @@ export default function InvoicesPage() {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/30">
-                                <TableHead className="text-[10px] font-bold uppercase">Invoice #</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">PO</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Amount</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Submitted</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Due Date</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Status</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Paid</TableHead>
+                                {invCols.map((col) => (
+                                    <TableHead key={col} draggable
+                                        onDragStart={() => setDragCol(col)}
+                                        onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                        onDragEnd={() => { reorderCols(invCols, dragCol!, dragOverCol!, setInvCols); setDragCol(null); setDragOverCol(null); }}
+                                        className={["cursor-grab active:cursor-grabbing select-none text-[10px] font-bold uppercase", dragCol === col ? "opacity-40 bg-muted/60" : "", dragOverCol === col && dragCol !== col ? "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]" : ""].join(" ")}
+                                    >
+                                        <span className="flex items-center gap-1"><DotsSixVertical className="h-3 w-3 text-muted-foreground/60 shrink-0" />{INV_DEF[col].label}</span>
+                                    </TableHead>
+                                ))}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredInvoices.map(inv => (
                                 <TableRow key={inv.id} className="text-xs hover:bg-muted/20">
-                                    <TableCell className="font-semibold">{inv.invoiceNumber}</TableCell>
-                                    <TableCell>{inv.poNumber}</TableCell>
-                                    <TableCell className="font-mono">{fmt(inv.amount)}</TableCell>
-                                    <TableCell>{new Date(inv.submittedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</TableCell>
-                                    <TableCell>{new Date(inv.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</TableCell>
-                                    <TableCell><StatusPill status={inv.status.toLowerCase().replace(/_/g, "-")} /></TableCell>
-                                    <TableCell>{inv.paidAt ? new Date(inv.paidAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</TableCell>
+                                    {invCols.map((col) => (<TableCell key={col}>{INV_DEF[col].cell(inv)}</TableCell>))}
                                 </TableRow>
                             ))}
                         </TableBody>

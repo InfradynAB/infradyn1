@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SCurveChart } from "@/components/dashboard/s-curve-chart";
@@ -59,12 +59,21 @@ import {
     ListBullets,
     Eye,
     ArrowSquareOut,
+    DotsSixVertical,
 } from "@phosphor-icons/react";
 import { DeliveryCategoriesShell } from "@/components/dashboard/analytics/delivery-categories/delivery-categories-shell";
 import type { DashboardKPIs, SCurveDataPoint, COBreakdown } from "@/lib/services/kpi-engine";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { DatePicker } from "@/components/ui/date-picker";
+
+function reorderCols(arr: string[], from: string, to: string, setter: (val: string[]) => void) {
+  const a = [...arr];
+  const fi = a.indexOf(from), ti = a.indexOf(to);
+  if (fi < 0 || ti < 0 || fi === ti) return;
+  [a[fi], a[ti]] = [a[ti], a[fi]];
+  setter(a);
+}
 
 interface DashboardData {
     kpis: DashboardKPIs;
@@ -1146,6 +1155,20 @@ function MilestoneTrackerView({
         return true;
     });
 
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+    const [milesCols, setMilesCols] = useState<string[]>(["poMilestone", "supplier", "progress", "status", "expected", "invoice", "amount"]);
+
+    const MS_VIEW_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (m: MilestoneRow) => ReactNode }> = {
+        poMilestone: { label: "PO / Milestone", cell: (m) => (<div><p className="font-medium text-slate-800 dark:text-slate-200">{m.poNumber}</p><p className="text-sm text-muted-foreground truncate max-w-[200px]">{m.milestoneName}</p></div>) },
+        supplier: { label: "Supplier", cell: (m) => <span className="text-sm">{m.supplierName}</span> },
+        progress: { label: "Progress", hCls: "text-center", cell: (m) => (<div className="flex items-center gap-2"><div className="w-16 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden"><div className={cn("h-full rounded-full transition-all", m.progressPercent >= 100 ? "bg-emerald-500" : m.progressPercent >= 50 ? "bg-amber-500" : "bg-slate-400")} style={{ width: `${Math.min(m.progressPercent, 100)}%` }} /></div><span className="text-sm font-mono w-12">{m.progressPercent.toFixed(0)}%</span></div>) },
+        status: { label: "Status", hCls: "text-center", cCls: "text-center", cell: (m) => (<Badge variant={m.status === "COMPLETED" ? "default" : m.status === "DELAYED" ? "destructive" : m.status === "AT_RISK" ? "secondary" : "outline"} className="text-xs">{m.status}</Badge>) },
+        expected: { label: "Expected", cell: (m) => <span className="text-sm">{m.expectedDate ? new Date(m.expectedDate).toLocaleDateString() : "—"}</span> },
+        invoice: { label: "Invoice", cell: (m) => m.invoiceStatus ? (<Badge variant={m.invoiceStatus === "PAID" ? "default" : m.invoiceStatus === "APPROVED" ? "secondary" : "outline"} className="text-xs">{m.invoiceStatus}</Badge>) : (<span className="text-muted-foreground text-xs">No invoice</span>) },
+        amount: { label: "Amount", hCls: "text-right", cCls: "text-right font-mono text-sm", cell: (m) => formatCurrency(m.amount) },
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -1175,75 +1198,37 @@ function MilestoneTrackerView({
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>PO / Milestone</TableHead>
-                                <TableHead>Supplier</TableHead>
-                                <TableHead className="text-center">Progress</TableHead>
-                                <TableHead className="text-center">Status</TableHead>
-                                <TableHead>Expected</TableHead>
-                                <TableHead>Invoice</TableHead>
-                                <TableHead className="text-right">Amount</TableHead>
+                                {milesCols.map((col) => (
+                                    <TableHead
+                                        key={col}
+                                        draggable
+                                        onDragStart={() => setDragCol(col)}
+                                        onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                        onDragEnd={() => { if (dragCol && dragOverCol && dragCol !== dragOverCol) reorderCols(milesCols, dragCol, dragOverCol, setMilesCols); setDragCol(null); setDragOverCol(null); }}
+                                        className={cn(MS_VIEW_DEF[col].hCls, "cursor-grab active:cursor-grabbing select-none", dragCol === col && "opacity-40 bg-muted/60", dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
+                                    >
+                                        <div className="flex items-center gap-1">
+                                            <DotsSixVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                                            {MS_VIEW_DEF[col].label}
+                                        </div>
+                                    </TableHead>
+                                ))}
                                 <TableHead></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredMilestones.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={milesCols.length + 1} className="text-center py-8 text-muted-foreground">
                                         No milestones found
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 filteredMilestones.map((milestone, idx) => (
                                     <TableRow key={`${milestone.poId}-${idx}`} className="hover:bg-slate-50 dark:hover:bg-slate-800">
-                                        <TableCell>
-                                            <div>
-                                                <p className="font-medium text-slate-800 dark:text-slate-200">{milestone.poNumber}</p>
-                                                <p className="text-sm text-muted-foreground truncate max-w-[200px]">{milestone.milestoneName}</p>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-sm">{milestone.supplierName}</TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-16 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                                    <div
-                                                        className={cn(
-                                                            "h-full rounded-full transition-all",
-                                                            milestone.progressPercent >= 100 ? "bg-emerald-500" :
-                                                                milestone.progressPercent >= 50 ? "bg-amber-500" : "bg-slate-400"
-                                                        )}
-                                                        style={{ width: `${Math.min(milestone.progressPercent, 100)}%` }}
-                                                    />
-                                                </div>
-                                                <span className="text-sm font-mono w-12">{milestone.progressPercent.toFixed(0)}%</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <Badge variant={
-                                                milestone.status === "COMPLETED" ? "default" :
-                                                    milestone.status === "DELAYED" ? "destructive" :
-                                                        milestone.status === "AT_RISK" ? "secondary" : "outline"
-                                            } className="text-xs">
-                                                {milestone.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-sm">
-                                            {milestone.expectedDate ? new Date(milestone.expectedDate).toLocaleDateString() : "—"}
-                                        </TableCell>
-                                        <TableCell>
-                                            {milestone.invoiceStatus ? (
-                                                <Badge variant={
-                                                    milestone.invoiceStatus === "PAID" ? "default" :
-                                                        milestone.invoiceStatus === "APPROVED" ? "secondary" : "outline"
-                                                } className="text-xs">
-                                                    {milestone.invoiceStatus}
-                                                </Badge>
-                                            ) : (
-                                                <span className="text-muted-foreground text-xs">No invoice</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-right font-mono text-sm">
-                                            {formatCurrency(milestone.amount)}
-                                        </TableCell>
+                                        {milesCols.map((col) => (
+                                            <TableCell key={col} className={MS_VIEW_DEF[col].cCls}>{MS_VIEW_DEF[col].cell(milestone)}</TableCell>
+                                        ))}
                                         <TableCell>
                                             <Button
                                                 variant="ghost"
@@ -1287,6 +1272,29 @@ function RiskAssessmentView({
         CRITICAL: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
     };
 
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+    const [riskCols3, setRiskCols3] = useState<string[]>(["po", "supplier", "risk", "score", "delay"]);
+    const [supRiskCols, setSupRiskCols] = useState<string[]>(["supplierName", "pos", "physical", "financial", "totalValue", "paid", "riskScore"]);
+
+    const RISK_DEF3: Record<string, { label: string; hCls?: string; cCls?: string; cell: (r: RiskAssessment) => ReactNode }> = {
+        po: { label: "PO", cell: (r) => <span className="font-medium">{r.poNumber}</span> },
+        supplier: { label: "Supplier", cell: (r) => <span className="text-sm">{r.supplierName}</span> },
+        risk: { label: "Risk", hCls: "text-center", cCls: "text-center", cell: (r) => <Badge className={riskLevelColors[r.riskLevel]}>{r.riskLevel}</Badge> },
+        score: { label: "Score", hCls: "text-center", cCls: "text-center font-mono", cell: (r) => `${r.riskScore}/100` },
+        delay: { label: "Delay", hCls: "text-center", cCls: "text-center text-sm", cell: (r) => r.predictedDelay > 0 ? `+${r.predictedDelay}d` : "On track" },
+    };
+
+    const SUP_RISK_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (s: SupplierProgressRow) => ReactNode }> = {
+        supplierName: { label: "Supplier", cell: (s) => <span className="font-medium">{s.supplierName}</span> },
+        pos: { label: "POs", hCls: "text-center", cCls: "text-center", cell: (s) => s.poCount },
+        physical: { label: "Physical %", hCls: "text-center", cell: (s) => (<div className="flex items-center gap-2 justify-center"><div className="w-12 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(s.physicalProgress, 100)}%` }} /></div><span className="text-xs font-mono w-10">{s.physicalProgress.toFixed(0)}%</span></div>) },
+        financial: { label: "Financial %", hCls: "text-center", cell: (s) => (<div className="flex items-center gap-2 justify-center"><div className="w-12 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(s.financialProgress, 100)}%` }} /></div><span className="text-xs font-mono w-10">{s.financialProgress.toFixed(0)}%</span></div>) },
+        totalValue: { label: "Total Value", hCls: "text-right", cCls: "text-right font-mono text-sm", cell: (s) => formatCurrency(s.totalValue) },
+        paid: { label: "Paid", hCls: "text-right", cCls: "text-right font-mono text-sm text-emerald-600", cell: (s) => formatCurrency(s.paidAmount) },
+        riskScore: { label: "Risk", hCls: "text-center", cCls: "text-center", cell: (s) => (<Badge className={s.riskScore >= 60 ? "bg-red-100 text-red-700" : s.riskScore >= 40 ? "bg-orange-100 text-orange-700" : s.riskScore >= 20 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}>{s.riskScore}</Badge>) },
+    };
+
     return (
         <div className="space-y-6">
             {/* Risk Summary Cards */}
@@ -1328,28 +1336,30 @@ function RiskAssessmentView({
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>PO</TableHead>
-                                    <TableHead>Supplier</TableHead>
-                                    <TableHead className="text-center">Risk</TableHead>
-                                    <TableHead className="text-center">Score</TableHead>
-                                    <TableHead className="text-center">Delay</TableHead>
+                                    {riskCols3.map((col) => (
+                                        <TableHead
+                                            key={col}
+                                            draggable
+                                            onDragStart={() => setDragCol(col)}
+                                            onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                            onDragEnd={() => { if (dragCol && dragOverCol && dragCol !== dragOverCol) reorderCols(riskCols3, dragCol, dragOverCol, setRiskCols3); setDragCol(null); setDragOverCol(null); }}
+                                            className={cn(RISK_DEF3[col].hCls, "cursor-grab active:cursor-grabbing select-none", dragCol === col && "opacity-40 bg-muted/60", dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                <DotsSixVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                                                {RISK_DEF3[col].label}
+                                            </div>
+                                        </TableHead>
+                                    ))}
                                     <TableHead></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {risks.slice(0, 10).map((risk) => (
                                     <TableRow key={risk.poId} className="hover:bg-slate-50 dark:hover:bg-slate-800">
-                                        <TableCell className="font-medium">{risk.poNumber}</TableCell>
-                                        <TableCell className="text-sm">{risk.supplierName}</TableCell>
-                                        <TableCell className="text-center">
-                                            <Badge className={riskLevelColors[risk.riskLevel]}>
-                                                {risk.riskLevel}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-center font-mono">{risk.riskScore}/100</TableCell>
-                                        <TableCell className="text-center text-sm">
-                                            {risk.predictedDelay > 0 ? `+${risk.predictedDelay}d` : "On track"}
-                                        </TableCell>
+                                        {riskCols3.map((col) => (
+                                            <TableCell key={col} className={RISK_DEF3[col].cCls}>{RISK_DEF3[col].cell(risk)}</TableCell>
+                                        ))}
                                         <TableCell>
                                             <Button
                                                 variant="ghost"
@@ -1417,55 +1427,30 @@ function RiskAssessmentView({
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Supplier</TableHead>
-                                <TableHead className="text-center">POs</TableHead>
-                                <TableHead className="text-center">Physical %</TableHead>
-                                <TableHead className="text-center">Financial %</TableHead>
-                                <TableHead className="text-right">Total Value</TableHead>
-                                <TableHead className="text-right">Paid</TableHead>
-                                <TableHead className="text-center">Risk</TableHead>
+                                {supRiskCols.map((col) => (
+                                    <TableHead
+                                        key={col}
+                                        draggable
+                                        onDragStart={() => setDragCol(col)}
+                                        onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                        onDragEnd={() => { if (dragCol && dragOverCol && dragCol !== dragOverCol) reorderCols(supRiskCols, dragCol, dragOverCol, setSupRiskCols); setDragCol(null); setDragOverCol(null); }}
+                                        className={cn(SUP_RISK_DEF[col].hCls, "cursor-grab active:cursor-grabbing select-none", dragCol === col && "opacity-40 bg-muted/60", dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
+                                    >
+                                        <div className="flex items-center gap-1">
+                                            <DotsSixVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                                            {SUP_RISK_DEF[col].label}
+                                        </div>
+                                    </TableHead>
+                                ))}
                                 <TableHead></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {supplierProgress.slice(0, 10).map((supplier) => (
                                 <TableRow key={supplier.supplierId} className="hover:bg-slate-50 dark:hover:bg-slate-800">
-                                    <TableCell className="font-medium">{supplier.supplierName}</TableCell>
-                                    <TableCell className="text-center">{supplier.poCount}</TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2 justify-center">
-                                            <div className="w-12 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-blue-500 rounded-full"
-                                                    style={{ width: `${Math.min(supplier.physicalProgress, 100)}%` }}
-                                                />
-                                            </div>
-                                            <span className="text-xs font-mono w-10">{supplier.physicalProgress.toFixed(0)}%</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2 justify-center">
-                                            <div className="w-12 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-emerald-500 rounded-full"
-                                                    style={{ width: `${Math.min(supplier.financialProgress, 100)}%` }}
-                                                />
-                                            </div>
-                                            <span className="text-xs font-mono w-10">{supplier.financialProgress.toFixed(0)}%</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-right font-mono text-sm">{formatCurrency(supplier.totalValue)}</TableCell>
-                                    <TableCell className="text-right font-mono text-sm text-emerald-600">{formatCurrency(supplier.paidAmount)}</TableCell>
-                                    <TableCell className="text-center">
-                                        <Badge className={
-                                            supplier.riskScore >= 60 ? "bg-red-100 text-red-700" :
-                                                supplier.riskScore >= 40 ? "bg-orange-100 text-orange-700" :
-                                                    supplier.riskScore >= 20 ? "bg-amber-100 text-amber-700" :
-                                                        "bg-emerald-100 text-emerald-700"
-                                        }>
-                                            {supplier.riskScore}
-                                        </Badge>
-                                    </TableCell>
+                                    {supRiskCols.map((col) => (
+                                        <TableCell key={col} className={SUP_RISK_DEF[col].cCls}>{SUP_RISK_DEF[col].cell(supplier)}</TableCell>
+                                    ))}
                                     <TableCell>
                                         <Button
                                             variant="ghost"

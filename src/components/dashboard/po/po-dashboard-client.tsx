@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ import {
   Table as TableIcon,
   CalendarCheck,
   GitFork,
+  DotsSixVertical,
 } from "@phosphor-icons/react";
 import {
   POProgressCircle,
@@ -232,6 +234,16 @@ const fmtFull = (n: number) =>
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(n);
+
+function reorderCols(current: string[], from: string, to: string, setter: (c: string[]) => void) {
+  const arr = [...current];
+  const fi = arr.indexOf(from);
+  const ti = arr.indexOf(to);
+  if (fi < 0 || ti < 0 || fi === ti) return;
+  arr.splice(fi, 1);
+  arr.splice(ti, 0, from);
+  setter(arr);
+}
 
 function shipmentToTimelineRow(s: ShipmentItem): DeliveryTimelineRow {
   const events: DeliveryEvent[] = [
@@ -481,6 +493,65 @@ export function PODashboardClient({
       DISPATCHED: "secondary",
     };
     return map[s] ?? "outline";
+  };
+
+  /* ── Column drag-and-drop ─────────────────────── */
+  const [dragCol, setDragCol] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [shipsCols, setShipsCols] = useState(["tracking","description","provider","qty","status","dispatched","eta","delivered"]);
+  const [invCols, setInvCols] = useState(["invoiceNo","milestone","amount","status","submitted","approved","paid"]);
+  const [msCols, setMsCols] = useState(["title","expectedDate","pct","amount","status"]);
+  const [ncrCols, setNcrCols] = useState(["ncrNo","title","severity","issueType","status","reported","closed"]);
+  const [coCols, setCoCols] = useState(["coNo","reason","type","category","amountDelta","status","requested","approved"]);
+
+  const SHIPS_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (s: ShipmentItem) => React.ReactNode }> = {
+    tracking:    { label: "Tracking",     cCls: "font-mono",               cell: (s) => s.trackingNumber },
+    description: { label: "Description",  cCls: "max-w-[180px] truncate",  cell: (s) => s.boqDescription },
+    provider:    { label: "Provider",                                       cell: (s) => s.provider.replace(/_/g, " ") },
+    qty:         { label: "Qty",          cCls: "tabular-nums",             cell: (s) => `${s.quantity} ${s.unit}` },
+    status:      { label: "Status",                                          cell: (s) => <Badge variant={statusVariant(s.status)} className="text-[10px]">{s.status.replace(/_/g, " ")}</Badge> },
+    dispatched:  { label: "Dispatched",                                      cell: (s) => s.dispatchDate ?? "\u2014" },
+    eta:         { label: "ETA",                                             cell: (s) => s.eta ?? "\u2014" },
+    delivered:   { label: "Delivered",                                       cell: (s) => s.deliveredDate ?? "\u2014" },
+  };
+
+  const INV_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (i: InvoiceItem) => React.ReactNode }> = {
+    invoiceNo:  { label: "Invoice #",  cCls: "font-mono",                                        cell: (i) => i.invoiceNumber },
+    milestone:  { label: "Milestone",                                                             cell: (i) => i.milestoneTitle ?? "\u2014" },
+    amount:     { label: "Amount",     hCls: "text-right", cCls: "text-right tabular-nums font-medium", cell: (i) => fmtFull(i.amount) },
+    status:     { label: "Status",                                                                cell: (i) => <Badge variant={statusVariant(i.status)} className="text-[10px]">{i.status.replace(/_/g, " ")}</Badge> },
+    submitted:  { label: "Submitted",                                                             cell: (i) => i.submittedAt ?? "\u2014" },
+    approved:   { label: "Approved",                                                              cell: (i) => i.approvedAt ?? "\u2014" },
+    paid:       { label: "Paid",                                                                  cell: (i) => i.paidAt ?? "\u2014" },
+  };
+
+  const MS_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (m: MilestoneItem) => React.ReactNode }> = {
+    title:        { label: "Title",         cCls: "font-medium",                                        cell: (m) => m.title },
+    expectedDate: { label: "Expected Date",                                                              cell: (m) => m.expectedDate ? new Date(m.expectedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "\u2014" },
+    pct:          { label: "%",             hCls: "text-right", cCls: "text-right tabular-nums",         cell: (m) => `${m.paymentPercentage}%` },
+    amount:       { label: "Amount",        hCls: "text-right", cCls: "text-right tabular-nums font-medium", cell: (m) => fmtFull(m.amount) },
+    status:       { label: "Status",                                                                    cell: (m) => <Badge variant={statusVariant(m.status)} className="text-[10px]">{m.status}</Badge> },
+  };
+
+  const NCR_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (n: NCRItem) => React.ReactNode }> = {
+    ncrNo:     { label: "NCR #",       cCls: "font-mono",               cell: (n) => n.ncrNumber },
+    title:     { label: "Title",       cCls: "max-w-[200px] truncate",  cell: (n) => n.title },
+    severity:  { label: "Severity",                                      cell: (n) => <Badge variant={n.severity === "CRITICAL" ? "destructive" : n.severity === "MAJOR" ? "secondary" : "outline"} className="text-[10px]">{n.severity}</Badge> },
+    issueType: { label: "Issue Type",  cCls: "text-muted-foreground",   cell: (n) => n.issueType.replace(/_/g, " ") },
+    status:    { label: "Status",                                        cell: (n) => <Badge variant={statusVariant(n.status)} className="text-[10px]">{n.status.replace(/_/g, " ")}</Badge> },
+    reported:  { label: "Reported",                                      cell: (n) => n.reportedAt ?? "\u2014" },
+    closed:    { label: "Closed",                                        cell: (n) => n.closedAt ?? "\u2014" },
+  };
+
+  const CO_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (c: ChangeOrderItem) => React.ReactNode }> = {
+    coNo:        { label: "CO #",          cCls: "font-mono",               cell: (c) => c.changeNumber },
+    reason:      { label: "Reason",        cCls: "max-w-[200px] truncate",  cell: (c) => c.reason },
+    type:        { label: "Type",                                            cell: (c) => c.type },
+    category:    { label: "Category",                                        cell: (c) => c.category },
+    amountDelta: { label: "Amount Delta",  hCls: "text-right", cCls: "text-right tabular-nums font-medium", cell: (c) => <span className={c.amountDelta >= 0 ? "text-emerald-600" : "text-red-600"}>{c.amountDelta >= 0 ? "+" : ""}{fmtFull(c.amountDelta)}</span> },
+    status:      { label: "Status",                                          cell: (c) => <Badge variant={statusVariant(c.status)} className="text-[10px]">{c.status}</Badge> },
+    requested:   { label: "Requested",                                       cell: (c) => c.requestedAt ?? "\u2014" },
+    approved:    { label: "Approved",                                        cell: (c) => c.approvedAt ?? "\u2014" },
   };
 
   /* ── Render ─────────────────────────────────────── */
@@ -802,34 +873,39 @@ export function PODashboardClient({
               <div className="overflow-x-auto rounded-lg border">
                 <Table>
                   <TableHeader>
-                    <TableRow className="text-[11px]">
-                      <TableHead>Tracking</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Provider</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Dispatched</TableHead>
-                      <TableHead>ETA</TableHead>
-                      <TableHead>Delivered</TableHead>
+                    <TableRow>
+                      {shipsCols.map((col) => (
+                        <TableHead
+                          key={col}
+                          draggable
+                          onDragStart={(e) => { setDragCol(col); e.dataTransfer.effectAllowed = "move"; }}
+                          onDragOver={(e) => { e.preventDefault(); if (col !== dragCol) setDragOverCol(col); }}
+                          onDragLeave={() => setDragOverCol(null)}
+                          onDrop={(e) => { e.preventDefault(); if (dragCol && dragCol !== col) reorderCols(shipsCols, dragCol, col, setShipsCols); setDragCol(null); setDragOverCol(null); }}
+                          onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                          className={cn(
+                            SHIPS_DEF[col]?.hCls,
+                            "text-[11px] select-none cursor-grab active:cursor-grabbing transition-colors whitespace-nowrap",
+                            dragCol === col && "opacity-40 bg-muted/60",
+                            dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                          )}
+                        >
+                          <span className="inline-flex items-center gap-1.5">
+                            <DotsSixVertical className="h-2.5 w-2.5 shrink-0 text-muted-foreground/50" />
+                            {SHIPS_DEF[col].label}
+                          </span>
+                        </TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredShipments.map((s) => (
                       <TableRow key={s.id} className="text-xs">
-                        <TableCell className="font-mono">{s.trackingNumber}</TableCell>
-                        <TableCell className="max-w-[180px] truncate">{s.boqDescription}</TableCell>
-                        <TableCell>{s.provider.replace(/_/g, " ")}</TableCell>
-                        <TableCell className="tabular-nums">
-                          {s.quantity} {s.unit}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={statusVariant(s.status)} className="text-[10px]">
-                            {s.status.replace(/_/g, " ")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{s.dispatchDate ?? "—"}</TableCell>
-                        <TableCell>{s.eta ?? "—"}</TableCell>
-                        <TableCell>{s.deliveredDate ?? "—"}</TableCell>
+                        {shipsCols.map((col) => (
+                          <TableCell key={col} className={SHIPS_DEF[col]?.cCls}>
+                            {SHIPS_DEF[col].cell(s)}
+                          </TableCell>
+                        ))}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -857,32 +933,39 @@ export function PODashboardClient({
               <div className="overflow-x-auto rounded-lg border">
                 <Table>
                   <TableHeader>
-                    <TableRow className="text-[11px]">
-                      <TableHead>Invoice #</TableHead>
-                      <TableHead>Milestone</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Submitted</TableHead>
-                      <TableHead>Approved</TableHead>
-                      <TableHead>Paid</TableHead>
+                    <TableRow>
+                      {invCols.map((col) => (
+                        <TableHead
+                          key={col}
+                          draggable
+                          onDragStart={(e) => { setDragCol(col); e.dataTransfer.effectAllowed = "move"; }}
+                          onDragOver={(e) => { e.preventDefault(); if (col !== dragCol) setDragOverCol(col); }}
+                          onDragLeave={() => setDragOverCol(null)}
+                          onDrop={(e) => { e.preventDefault(); if (dragCol && dragCol !== col) reorderCols(invCols, dragCol, col, setInvCols); setDragCol(null); setDragOverCol(null); }}
+                          onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                          className={cn(
+                            INV_DEF[col]?.hCls,
+                            "text-[11px] select-none cursor-grab active:cursor-grabbing transition-colors whitespace-nowrap",
+                            dragCol === col && "opacity-40 bg-muted/60",
+                            dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                          )}
+                        >
+                          <span className="inline-flex items-center gap-1.5">
+                            <DotsSixVertical className="h-2.5 w-2.5 shrink-0 text-muted-foreground/50" />
+                            {INV_DEF[col].label}
+                          </span>
+                        </TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredInvoices.map((inv) => (
                       <TableRow key={inv.id} className="text-xs">
-                        <TableCell className="font-mono">{inv.invoiceNumber}</TableCell>
-                        <TableCell>{inv.milestoneTitle ?? "—"}</TableCell>
-                        <TableCell className="text-right tabular-nums font-medium">
-                          {fmtFull(inv.amount)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={statusVariant(inv.status)} className="text-[10px]">
-                            {inv.status.replace(/_/g, " ")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{inv.submittedAt ?? "—"}</TableCell>
-                        <TableCell>{inv.approvedAt ?? "—"}</TableCell>
-                        <TableCell>{inv.paidAt ?? "—"}</TableCell>
+                        {invCols.map((col) => (
+                          <TableCell key={col} className={INV_DEF[col]?.cCls}>
+                            {INV_DEF[col].cell(inv)}
+                          </TableCell>
+                        ))}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -913,38 +996,39 @@ export function PODashboardClient({
               <div className="overflow-x-auto rounded-lg border">
                 <Table>
                   <TableHeader>
-                    <TableRow className="text-[11px]">
-                      <TableHead>Title</TableHead>
-                      <TableHead>Expected Date</TableHead>
-                      <TableHead className="text-right">%</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Status</TableHead>
+                    <TableRow>
+                      {msCols.map((col) => (
+                        <TableHead
+                          key={col}
+                          draggable
+                          onDragStart={(e) => { setDragCol(col); e.dataTransfer.effectAllowed = "move"; }}
+                          onDragOver={(e) => { e.preventDefault(); if (col !== dragCol) setDragOverCol(col); }}
+                          onDragLeave={() => setDragOverCol(null)}
+                          onDrop={(e) => { e.preventDefault(); if (dragCol && dragCol !== col) reorderCols(msCols, dragCol, col, setMsCols); setDragCol(null); setDragOverCol(null); }}
+                          onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                          className={cn(
+                            MS_DEF[col]?.hCls,
+                            "text-[11px] select-none cursor-grab active:cursor-grabbing transition-colors whitespace-nowrap",
+                            dragCol === col && "opacity-40 bg-muted/60",
+                            dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                          )}
+                        >
+                          <span className="inline-flex items-center gap-1.5">
+                            <DotsSixVertical className="h-2.5 w-2.5 shrink-0 text-muted-foreground/50" />
+                            {MS_DEF[col].label}
+                          </span>
+                        </TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredMilestones.map((m) => (
                       <TableRow key={m.id} className="text-xs">
-                        <TableCell className="font-medium">{m.title}</TableCell>
-                        <TableCell>
-                          {m.expectedDate
-                            ? new Date(m.expectedDate).toLocaleDateString("en-GB", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              })
-                            : "—"}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {m.paymentPercentage}%
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums font-medium">
-                          {fmtFull(m.amount)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={statusVariant(m.status)} className="text-[10px]">
-                            {m.status}
-                          </Badge>
-                        </TableCell>
+                        {msCols.map((col) => (
+                          <TableCell key={col} className={MS_DEF[col]?.cCls}>
+                            {MS_DEF[col].cell(m)}
+                          </TableCell>
+                        ))}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1024,45 +1108,39 @@ export function PODashboardClient({
               <div className="overflow-x-auto rounded-lg border">
                 <Table>
                   <TableHeader>
-                    <TableRow className="text-[11px]">
-                      <TableHead>NCR #</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Severity</TableHead>
-                      <TableHead>Issue Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Reported</TableHead>
-                      <TableHead>Closed</TableHead>
+                    <TableRow>
+                      {ncrCols.map((col) => (
+                        <TableHead
+                          key={col}
+                          draggable
+                          onDragStart={(e) => { setDragCol(col); e.dataTransfer.effectAllowed = "move"; }}
+                          onDragOver={(e) => { e.preventDefault(); if (col !== dragCol) setDragOverCol(col); }}
+                          onDragLeave={() => setDragOverCol(null)}
+                          onDrop={(e) => { e.preventDefault(); if (dragCol && dragCol !== col) reorderCols(ncrCols, dragCol, col, setNcrCols); setDragCol(null); setDragOverCol(null); }}
+                          onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                          className={cn(
+                            NCR_DEF[col]?.hCls,
+                            "text-[11px] select-none cursor-grab active:cursor-grabbing transition-colors whitespace-nowrap",
+                            dragCol === col && "opacity-40 bg-muted/60",
+                            dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                          )}
+                        >
+                          <span className="inline-flex items-center gap-1.5">
+                            <DotsSixVertical className="h-2.5 w-2.5 shrink-0 text-muted-foreground/50" />
+                            {NCR_DEF[col].label}
+                          </span>
+                        </TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredNCRs.map((n) => (
                       <TableRow key={n.id} className="text-xs">
-                        <TableCell className="font-mono">{n.ncrNumber}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{n.title}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              n.severity === "CRITICAL"
-                                ? "destructive"
-                                : n.severity === "MAJOR"
-                                ? "secondary"
-                                : "outline"
-                            }
-                            className="text-[10px]"
-                          >
-                            {n.severity}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {n.issueType.replace(/_/g, " ")}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={statusVariant(n.status)} className="text-[10px]">
-                            {n.status.replace(/_/g, " ")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{n.reportedAt ?? "—"}</TableCell>
-                        <TableCell>{n.closedAt ?? "—"}</TableCell>
+                        {ncrCols.map((col) => (
+                          <TableCell key={col} className={NCR_DEF[col]?.cCls}>
+                            {NCR_DEF[col].cell(n)}
+                          </TableCell>
+                        ))}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1096,39 +1174,39 @@ export function PODashboardClient({
               <div className="overflow-x-auto rounded-lg border">
                 <Table>
                   <TableHeader>
-                    <TableRow className="text-[11px]">
-                      <TableHead>CO #</TableHead>
-                      <TableHead>Reason</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead className="text-right">Amount Delta</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Requested</TableHead>
-                      <TableHead>Approved</TableHead>
+                    <TableRow>
+                      {coCols.map((col) => (
+                        <TableHead
+                          key={col}
+                          draggable
+                          onDragStart={(e) => { setDragCol(col); e.dataTransfer.effectAllowed = "move"; }}
+                          onDragOver={(e) => { e.preventDefault(); if (col !== dragCol) setDragOverCol(col); }}
+                          onDragLeave={() => setDragOverCol(null)}
+                          onDrop={(e) => { e.preventDefault(); if (dragCol && dragCol !== col) reorderCols(coCols, dragCol, col, setCoCols); setDragCol(null); setDragOverCol(null); }}
+                          onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                          className={cn(
+                            CO_DEF[col]?.hCls,
+                            "text-[11px] select-none cursor-grab active:cursor-grabbing transition-colors whitespace-nowrap",
+                            dragCol === col && "opacity-40 bg-muted/60",
+                            dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                          )}
+                        >
+                          <span className="inline-flex items-center gap-1.5">
+                            <DotsSixVertical className="h-2.5 w-2.5 shrink-0 text-muted-foreground/50" />
+                            {CO_DEF[col].label}
+                          </span>
+                        </TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredCOs.map((co) => (
                       <TableRow key={co.id} className="text-xs">
-                        <TableCell className="font-mono">{co.changeNumber}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{co.reason}</TableCell>
-                        <TableCell>{co.type}</TableCell>
-                        <TableCell>{co.category}</TableCell>
-                        <TableCell
-                          className={`text-right tabular-nums font-medium ${
-                            co.amountDelta >= 0 ? "text-emerald-600" : "text-red-600"
-                          }`}
-                        >
-                          {co.amountDelta >= 0 ? "+" : ""}
-                          {fmtFull(co.amountDelta)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={statusVariant(co.status)} className="text-[10px]">
-                            {co.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{co.requestedAt ?? "—"}</TableCell>
-                        <TableCell>{co.approvedAt ?? "—"}</TableCell>
+                        {coCols.map((col) => (
+                          <TableCell key={col} className={CO_DEF[col]?.cCls}>
+                            {CO_DEF[col].cell(co)}
+                          </TableCell>
+                        ))}
                       </TableRow>
                     ))}
                   </TableBody>

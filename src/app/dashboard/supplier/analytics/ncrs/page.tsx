@@ -1,15 +1,22 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ShieldWarning } from "@phosphor-icons/react";
+import { ShieldWarning, DotsSixVertical } from "@phosphor-icons/react";
 import {
     SectionHeader, ViewToggle, StatusPill, StatCard, SeverityBadge,
     mockKPIs, mockNCRs, mockNCRMonthly,
 } from "@/components/dashboard/supplier/analytics-shared";
 import { useAnalyticsFilters } from "@/components/dashboard/supplier/analytics-shell";
 import { NCRStackedBars } from "@/components/dashboard/supplier/charts/ncr-stacked-bars";
+
+function reorderCols(
+    arr: string[], from: string, to: string, setter: (val: string[]) => void
+) {
+    const next = [...arr]; const fi = next.indexOf(from); const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0) return; next.splice(fi, 1); next.splice(ti, 0, from); setter(next);
+}
 
 export default function NCRsPage() {
     const kpis = mockKPIs();
@@ -18,6 +25,9 @@ export default function NCRsPage() {
     const { searchQuery, statusFilter } = useAnalyticsFilters();
     const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
     const toggleView = useCallback((_s: string, mode: "chart" | "table") => setViewMode(mode), []);
+    const [ncrSACols, setNcrSACols] = useState(["ncrNum", "title", "severity", "status", "reported", "slaDue"]);
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     const filteredNCRs = useMemo(() => {
         let items = ncrs;
@@ -25,6 +35,15 @@ export default function NCRsPage() {
         if (statusFilter !== "all") items = items.filter(n => n.status.toLowerCase() === statusFilter);
         return items;
     }, [ncrs, searchQuery, statusFilter]);
+
+    const NCR_SA_DEF: Record<string, { label: string; cell: (ncr: (typeof filteredNCRs)[number]) => ReactNode }> = {
+        ncrNum:   { label: "NCR #",    cell: (ncr) => <span className="font-semibold">{ncr.ncrNumber}</span> },
+        title:    { label: "Title",    cell: (ncr) => <span className="max-w-[200px] truncate block">{ncr.title}</span> },
+        severity: { label: "Severity", cell: (ncr) => <SeverityBadge severity={ncr.severity} /> },
+        status:   { label: "Status",   cell: (ncr) => <StatusPill status={ncr.status.toLowerCase().split("_").join("-")} /> },
+        reported: { label: "Reported", cell: (ncr) => <span>{new Date(ncr.reportedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</span> },
+        slaDue:   { label: "SLA Due",  cell: (ncr) => <span>{ncr.slaDueAt ? new Date(ncr.slaDueAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014"}</span> },
+    };
 
     return (
         <div className="space-y-5">
@@ -77,23 +96,22 @@ export default function NCRsPage() {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/30">
-                                <TableHead className="text-[10px] font-bold uppercase">NCR #</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Title</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Severity</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Status</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Reported</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">SLA Due</TableHead>
+                                {ncrSACols.map((col) => (
+                                    <TableHead key={col} draggable
+                                        onDragStart={() => setDragCol(col)}
+                                        onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                        onDragEnd={() => { reorderCols(ncrSACols, dragCol!, dragOverCol!, setNcrSACols); setDragCol(null); setDragOverCol(null); }}
+                                        className={["cursor-grab active:cursor-grabbing select-none text-[10px] font-bold uppercase", dragCol === col ? "opacity-40 bg-muted/60" : "", dragOverCol === col && dragCol !== col ? "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]" : ""].join(" ")}
+                                    >
+                                        <span className="flex items-center gap-1"><DotsSixVertical className="h-3 w-3 text-muted-foreground/60 shrink-0" />{NCR_SA_DEF[col].label}</span>
+                                    </TableHead>
+                                ))}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredNCRs.map(ncr => (
                                 <TableRow key={ncr.id} className="text-xs hover:bg-muted/20">
-                                    <TableCell className="font-semibold">{ncr.ncrNumber}</TableCell>
-                                    <TableCell className="max-w-[200px] truncate">{ncr.title}</TableCell>
-                                    <TableCell><SeverityBadge severity={ncr.severity} /></TableCell>
-                                    <TableCell><StatusPill status={ncr.status.toLowerCase().replace(/_/g, "-")} /></TableCell>
-                                    <TableCell>{new Date(ncr.reportedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</TableCell>
-                                    <TableCell>{ncr.slaDueAt ? new Date(ncr.slaDueAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</TableCell>
+                                    {ncrSACols.map((col) => (<TableCell key={col}>{NCR_SA_DEF[col].cell(ncr)}</TableCell>))}
                                 </TableRow>
                             ))}
                         </TableBody>

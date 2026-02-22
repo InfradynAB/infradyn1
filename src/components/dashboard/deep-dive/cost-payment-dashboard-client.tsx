@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -47,6 +47,7 @@ import {
   Receipt,
   Wallet,
   BarChart3,
+  GripVertical,
 } from "lucide-react";
 import {
   BarChart,
@@ -63,6 +64,14 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { exportTabularData } from "@/lib/export-engine";
+
+function reorderCols(arr: string[], from: string, to: string, setter: (val: string[]) => void) {
+  const a = [...arr];
+  const fi = a.indexOf(from), ti = a.indexOf(to);
+  if (fi < 0 || ti < 0 || fi === ti) return;
+  [a[fi], a[ti]] = [a[ti], a[fi]];
+  setter(a);
+}
 
 // ============================================================================
 // Types
@@ -425,6 +434,14 @@ export function CostPaymentDashboardClient() {
     });
   };
 
+  // ── Drag-reorder state (hooks must be before early return) ─────────────────────────
+  const [dragCol, setDragCol] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [budCols, setBudCols] = useState<string[]>(["category", "planned", "actual", "variance"]);
+  const [invCols, setInvCols] = useState<string[]>(["invoiceNum", "po", "supplier", "project", "amount", "status", "submitted", "due", "days"]);
+  const [wsDragCol, setWsDragCol] = useState<string | null>(null);
+  const [wsDragOverCol, setWsDragOverCol] = useState<string | null>(null);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -437,6 +454,35 @@ export function CostPaymentDashboardClient() {
 
   const fmt = (v: number) => `${kpis!.currency} ${v.toLocaleString()}`;
   const fmtAmount = (v: number) => v.toLocaleString();
+
+  // ── Drag DEF maps (after fmt is defined) ──────────────────────────────────────────────
+  const reorderWsCol = (from: string, to: string) => {
+    const cols = [...visibleColumns];
+    const fi = cols.indexOf(from), ti = cols.indexOf(to);
+    if (fi < 0 || ti < 0 || fi === ti) return;
+    [cols[fi], cols[ti]] = [cols[ti], cols[fi]];
+    setWorkspacePreset("custom");
+    setManualColumns((prev) => ({ ...prev, [activeDataset]: cols }));
+  };
+
+  const BUD_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (r: BudgetVarianceRow) => ReactNode }> = {
+    category: { label: "Category", cell: (r) => <span className="font-medium">{r.category}</span> },
+    planned: { label: "Planned", hCls: "text-right", cCls: "text-right font-mono", cell: (r) => fmt(r.planned) },
+    actual: { label: "Actual", hCls: "text-right", cCls: "text-right font-mono", cell: (r) => fmt(r.actual) },
+    variance: { label: "Variance", hCls: "text-right", cCls: "text-right", cell: (r) => (<span className={cn("font-mono font-semibold", r.variance >= 0 ? "text-emerald-600" : "text-red-600")}>{r.variance >= 0 ? "+" : ""}{fmt(r.variance)} ({r.variancePercent > 0 ? "+" : ""}{r.variancePercent}%)</span>) },
+  };
+
+  const INV_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (inv: InvoiceRow) => ReactNode }> = {
+    invoiceNum: { label: "Invoice #", cell: (inv) => <span className="font-mono font-semibold text-primary">{inv.invoiceNumber}</span> },
+    po: { label: "PO", cell: (inv) => <span className="text-sm">{inv.poNumber}</span> },
+    supplier: { label: "Supplier", cell: (inv) => <span className="text-sm">{inv.supplierName}</span> },
+    project: { label: "Project", cell: (inv) => <span className="text-sm">{inv.projectName}</span> },
+    amount: { label: "Amount", hCls: "text-right", cCls: "text-right font-mono font-semibold", cell: (inv) => `${inv.currency} ${inv.amount.toLocaleString()}` },
+    status: { label: "Status", cell: (inv) => <Badge className={STATUS_COLORS[inv.status]}>{inv.status.replace("_", " ")}</Badge> },
+    submitted: { label: "Submitted", cell: (inv) => <span className="text-sm text-muted-foreground">{inv.submittedDate}</span> },
+    due: { label: "Due Date", cell: (inv) => <span className="text-sm">{inv.dueDate}</span> },
+    days: { label: "Days", cell: (inv) => inv.paidDate ? <span className="text-emerald-600 text-sm">Paid {inv.paidDate}</span> : <span className={cn("font-mono text-sm", inv.daysPending > 30 ? "text-red-600 font-semibold" : "")}>{inv.daysPending}d</span> },
+  };
 
   return (
     <div className="space-y-6">
@@ -619,23 +665,29 @@ export function CostPaymentDashboardClient() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Planned</TableHead>
-                  <TableHead className="text-right">Actual</TableHead>
-                  <TableHead className="text-right">Variance</TableHead>
+                  {budCols.map((col) => (
+                    <TableHead
+                      key={col}
+                      draggable
+                      onDragStart={() => setDragCol(col)}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                      onDragEnd={() => { if (dragCol && dragOverCol && dragCol !== dragOverCol) reorderCols(budCols, dragCol, dragOverCol, setBudCols); setDragCol(null); setDragOverCol(null); }}
+                      className={cn(BUD_DEF[col].hCls, "cursor-grab active:cursor-grabbing select-none", dragCol === col && "opacity-40 bg-muted/60", dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
+                    >
+                      <div className="flex items-center gap-1">
+                        <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                        {BUD_DEF[col].label}
+                      </div>
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {budgetVariance.map((r) => (
                   <TableRow key={r.category}>
-                    <TableCell className="font-medium">{r.category}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(r.planned)}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(r.actual)}</TableCell>
-                    <TableCell className="text-right">
-                      <span className={cn("font-mono font-semibold", r.variance >= 0 ? "text-emerald-600" : "text-red-600")}>
-                        {r.variance >= 0 ? "+" : ""}{fmt(r.variance)} ({r.variancePercent > 0 ? "+" : ""}{r.variancePercent}%)
-                      </span>
-                    </TableCell>
+                    {budCols.map((col) => (
+                      <TableCell key={col} className={BUD_DEF[col].cCls}>{BUD_DEF[col].cell(r)}</TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>
@@ -714,38 +766,32 @@ export function CostPaymentDashboardClient() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>PO</TableHead>
-                  <TableHead>Supplier</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Submitted</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Days</TableHead>
+                  {invCols.map((col) => (
+                    <TableHead
+                      key={col}
+                      draggable
+                      onDragStart={() => setDragCol(col)}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                      onDragEnd={() => { if (dragCol && dragOverCol && dragCol !== dragOverCol) reorderCols(invCols, dragCol, dragOverCol, setInvCols); setDragCol(null); setDragOverCol(null); }}
+                      className={cn(INV_DEF[col].hCls, "cursor-grab active:cursor-grabbing select-none", dragCol === col && "opacity-40 bg-muted/60", dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
+                    >
+                      <div className="flex items-center gap-1">
+                        <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                        {INV_DEF[col].label}
+                      </div>
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredInvoices.length === 0 ? (
-                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No invoices match your filters</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={invCols.length} className="text-center py-8 text-muted-foreground">No invoices match your filters</TableCell></TableRow>
                 ) : (
                   filteredInvoices.map((inv) => (
                     <TableRow key={inv.id} className="hover:bg-muted/50">
-                      <TableCell className="font-mono font-semibold text-primary">{inv.invoiceNumber}</TableCell>
-                      <TableCell className="text-sm">{inv.poNumber}</TableCell>
-                      <TableCell className="text-sm">{inv.supplierName}</TableCell>
-                      <TableCell className="text-sm">{inv.projectName}</TableCell>
-                      <TableCell className="text-right font-mono font-semibold">{inv.currency} {inv.amount.toLocaleString()}</TableCell>
-                      <TableCell><Badge className={STATUS_COLORS[inv.status]}>{inv.status.replace("_", " ")}</Badge></TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{inv.submittedDate}</TableCell>
-                      <TableCell className="text-sm">{inv.dueDate}</TableCell>
-                      <TableCell>
-                        {inv.paidDate ? (
-                          <span className="text-emerald-600 text-sm">Paid {inv.paidDate}</span>
-                        ) : (
-                          <span className={cn("font-mono text-sm", inv.daysPending > 30 ? "text-red-600 font-semibold" : "")}>{inv.daysPending}d</span>
-                        )}
-                      </TableCell>
+                      {invCols.map((col) => (
+                        <TableCell key={col} className={INV_DEF[col].cCls}>{INV_DEF[col].cell(inv)}</TableCell>
+                      ))}
                     </TableRow>
                   ))
                 )}
@@ -857,7 +903,19 @@ export function CostPaymentDashboardClient() {
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     {visibleColumns.map((column) => (
-                      <TableHead key={column} className="whitespace-nowrap">{prettyLabel(column)}</TableHead>
+                      <TableHead
+                        key={column}
+                        draggable
+                        onDragStart={() => setWsDragCol(column)}
+                        onDragOver={(e) => { e.preventDefault(); setWsDragOverCol(column); }}
+                        onDragEnd={() => { if (wsDragCol && wsDragOverCol && wsDragCol !== wsDragOverCol) reorderWsCol(wsDragCol, wsDragOverCol); setWsDragCol(null); setWsDragOverCol(null); }}
+                        className={cn("whitespace-nowrap cursor-grab active:cursor-grabbing select-none", wsDragCol === column && "opacity-40 bg-muted/60", wsDragOverCol === column && wsDragCol !== column && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
+                      >
+                        <div className="flex items-center gap-1">
+                          <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                          {prettyLabel(column)}
+                        </div>
+                      </TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>

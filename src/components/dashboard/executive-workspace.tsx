@@ -35,6 +35,7 @@ import {
     X,
     FloppyDisk,
     Lightbulb,
+    DotsSixVertical,
 } from "@phosphor-icons/react";
 import { exportTabularData } from "@/lib/export-engine";
 
@@ -103,6 +104,7 @@ export function ExecutiveWorkspace({
     const [selectedPreset, setSelectedPreset] = useState<Partial<Record<ExecutiveDatasetKey, ViewPreset>>>({});
     const [manualColumns, setManualColumns] = useState<Partial<Record<ExecutiveDatasetKey, string[]>>>({});
     const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
+    const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
     const [customViews, setCustomViews] = useState<Partial<Record<ExecutiveDatasetKey, string[]>>>(() => {
         if (typeof window === "undefined") return {};
         try {
@@ -510,9 +512,17 @@ export function ExecutiveWorkspace({
                                 <Table>
                                     <TableHeader>
                                         <TableRow className="bg-muted/30">
-                                            {datasetVisibleCols.map((col) => (
-                                                <TableHead key={col} className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide">
-                                                    {prettyLabel(col)}
+                                        {datasetVisibleCols.map((col) => (
+                                                <TableHead key={col} draggable
+                                                    onDragStart={() => setDraggedColumn(col)}
+                                                    onDragOver={e => { e.preventDefault(); setDragOverColumn(col); }}
+                                                    onDrop={() => { if (draggedColumn) { reorderColumns(draggedColumn, col); } setDraggedColumn(null); setDragOverColumn(null); }}
+                                                    onDragEnd={() => { setDraggedColumn(null); setDragOverColumn(null); }}
+                                                    className={cn("whitespace-nowrap text-xs font-semibold uppercase tracking-wide cursor-grab active:cursor-grabbing select-none",
+                                                        draggedColumn === col && "opacity-40 bg-muted/60",
+                                                        dragOverColumn === col && draggedColumn !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                                    )}>
+                                                    <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{prettyLabel(col)}</span>
                                                 </TableHead>
                                             ))}
                                         </TableRow>

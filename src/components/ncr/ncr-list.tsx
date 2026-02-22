@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +19,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Clock, CheckCircle, AlertCircle, Plus } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle, AlertCircle, Plus, GripVertical } from "lucide-react";
 import { format } from "date-fns";
 
 // Types
@@ -111,12 +111,30 @@ function SLAIndicator({ slaDueAt, status }: { slaDueAt: string | null; status: N
     }
 }
 
+function reorderCols(
+    arr: string[],
+    from: string,
+    to: string,
+    setter: (val: string[]) => void
+) {
+    const next = [...arr];
+    const fi = next.indexOf(from);
+    const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0) return;
+    next.splice(fi, 1);
+    next.splice(ti, 0, from);
+    setter(next);
+}
+
 // Main NCR List Component
 export function NCRList({ organizationId, purchaseOrderId, onCreateNCR, onViewNCR }: NCRListProps) {
     const [ncrs, setNCRs] = useState<NCR[]>([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [severityFilter, setSeverityFilter] = useState<string>("all");
+    const [ncrCols, setNcrCols] = useState(["ncrNum", "title", "severity", "status", "po", "supplier", "sla", "created"]);
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     useEffect(() => {
         fetchNCRs();
@@ -150,6 +168,17 @@ export function NCRList({ organizationId, purchaseOrderId, onCreateNCR, onViewNC
         if (severityFilter !== "all" && ncr.severity !== severityFilter) return false;
         return true;
     });
+
+    const NCR_DEF: Record<string, { label: string; cell: (ncr: NCR) => ReactNode }> = {
+        ncrNum:   { label: "NCR #",    cell: (ncr) => <span className="font-mono text-sm">{ncr.ncrNumber}</span> },
+        title:    { label: "Title",    cell: (ncr) => <span className="max-w-[200px] truncate block">{ncr.title}</span> },
+        severity: { label: "Severity", cell: (ncr) => <SeverityBadge severity={ncr.severity} /> },
+        status:   { label: "Status",   cell: (ncr) => <StatusBadge status={ncr.status} /> },
+        po:       { label: "PO",       cell: (ncr) => <span className="font-mono text-sm">{ncr.purchaseOrder?.poNumber || "-"}</span> },
+        supplier: { label: "Supplier", cell: (ncr) => <span>{ncr.supplier?.name || "-"}</span> },
+        sla:      { label: "SLA",      cell: (ncr) => <SLAIndicator slaDueAt={ncr.slaDueAt} status={ncr.status} /> },
+        created:  { label: "Created",  cell: (ncr) => <span className="text-muted-foreground text-sm">{format(new Date(ncr.createdAt), "MMM d, yyyy")}</span> },
+    };
 
     if (loading) {
         return (
@@ -215,14 +244,25 @@ export function NCRList({ organizationId, purchaseOrderId, onCreateNCR, onViewNC
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>NCR #</TableHead>
-                                <TableHead>Title</TableHead>
-                                <TableHead>Severity</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>PO</TableHead>
-                                <TableHead>Supplier</TableHead>
-                                <TableHead>SLA</TableHead>
-                                <TableHead>Created</TableHead>
+                                {ncrCols.map((col) => (
+                                    <TableHead
+                                        key={col}
+                                        draggable
+                                        onDragStart={() => setDragCol(col)}
+                                        onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                        onDragEnd={() => { reorderCols(ncrCols, dragCol!, dragOverCol!, setNcrCols); setDragCol(null); setDragOverCol(null); }}
+                                        className={[
+                                            "cursor-grab active:cursor-grabbing select-none",
+                                            dragCol === col ? "opacity-40 bg-muted/60" : "",
+                                            dragOverCol === col && dragCol !== col ? "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]" : "",
+                                        ].join(" ")}
+                                    >
+                                        <span className="flex items-center gap-1">
+                                            <GripVertical className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                                            {NCR_DEF[col].label}
+                                        </span>
+                                    </TableHead>
+                                ))}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -232,30 +272,9 @@ export function NCRList({ organizationId, purchaseOrderId, onCreateNCR, onViewNC
                                     className="cursor-pointer hover:bg-muted/50"
                                     onClick={() => onViewNCR?.(ncr.id)}
                                 >
-                                    <TableCell className="font-mono text-sm">
-                                        {ncr.ncrNumber}
-                                    </TableCell>
-                                    <TableCell className="max-w-[200px] truncate">
-                                        {ncr.title}
-                                    </TableCell>
-                                    <TableCell>
-                                        <SeverityBadge severity={ncr.severity} />
-                                    </TableCell>
-                                    <TableCell>
-                                        <StatusBadge status={ncr.status} />
-                                    </TableCell>
-                                    <TableCell className="font-mono text-sm">
-                                        {ncr.purchaseOrder?.poNumber || "-"}
-                                    </TableCell>
-                                    <TableCell>
-                                        {ncr.supplier?.name || "-"}
-                                    </TableCell>
-                                    <TableCell>
-                                        <SLAIndicator slaDueAt={ncr.slaDueAt} status={ncr.status} />
-                                    </TableCell>
-                                    <TableCell className="text-muted-foreground text-sm">
-                                        {format(new Date(ncr.createdAt), "MMM d, yyyy")}
-                                    </TableCell>
+                                    {ncrCols.map((col) => (
+                                        <TableCell key={col}>{NCR_DEF[col].cell(ncr)}</TableCell>
+                                    ))}
                                 </TableRow>
                             ))}
                         </TableBody>

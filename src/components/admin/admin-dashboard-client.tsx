@@ -41,12 +41,20 @@ import {
     UploadSimple,
     PaperPlaneTilt,
     X,
+    DotsSixVertical,
 } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { inviteMember } from "@/lib/actions/invitation";
 import { removeOrganizationMember, updateAdminOrganizationDetails, updateOrganizationMemberEmail } from "@/lib/actions/admin-members";
 import * as XLSX from "xlsx";
+
+function reorderCols(
+    arr: string[], from: string, to: string, setter: (val: string[]) => void
+) {
+    const next = [...arr]; const fi = next.indexOf(from); const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0) return; next.splice(fi, 1); next.splice(ti, 0, from); setter(next);
+}
 
 type BulkInviteRole = "PM" | "SUPPLIER" | "QA" | "SITE_RECEIVER";
 
@@ -124,6 +132,12 @@ export function AdminDashboardClient({
     const [editedEmail, setEditedEmail] = useState("");
     const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
     const [isDeletingMember, setIsDeletingMember] = useState(false);
+    const [memberCols, setMemberCols] = useState(["member", "email", "role", "access", "status", "joined"]);
+    const [memberDragCol, setMemberDragCol] = useState<string | null>(null);
+    const [memberDragOverCol, setMemberDragOverCol] = useState<string | null>(null);
+    const [inviteCols, setInviteCols] = useState(["invEmail", "role", "access", "status", "sent", "expires"]);
+    const [inviteDragCol, setInviteDragCol] = useState<string | null>(null);
+    const [inviteDragOverCol, setInviteDragOverCol] = useState<string | null>(null);
 
     const filteredMembers = members.filter(m =>
         m.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -330,6 +344,34 @@ export function AdminDashboardClient({
         setIsSendingBulk(false);
     }
 
+    const MEMBER_DEF: Record<string, { label: string; cell: (member: (typeof filteredMembers)[number]) => ReactNode }> = {
+        member: { label: "Member", cell: (m) => (
+            <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10"><AvatarImage src={m.user.image || ""} /><AvatarFallback className="bg-primary/10 text-primary font-semibold">{m.user.name?.charAt(0)}</AvatarFallback></Avatar>
+                <div><p className="font-medium">{m.user.name}</p></div>
+            </div>
+        ) },
+        email:  { label: "Email",  cell: (m) => <span className="font-mono text-sm">{m.user.email}</span> },
+        role:   { label: "Role",   cell: (m) => <Badge variant={m.role === "ADMIN" ? "default" : "secondary"}>{m.role}</Badge> },
+        access: { label: "Access", cell: (m) => (
+            <div className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                {m.role === "SUPPLIER" ? <Factory className="h-3.5 w-3.5" /> : m.role === "ADMIN" || m.role === "SUPER_ADMIN" ? <Shield className="h-3.5 w-3.5" /> : <User className="h-3.5 w-3.5" />}
+                <span>{getAccessLabel(m.role)}</span>
+            </div>
+        ) },
+        status: { label: "Status", cell: (m) => getStatusBadge(m.user.isDeleted ? "INACTIVE" : "ACTIVE") },
+        joined: { label: "Joined", cell: (m) => <span className="text-muted-foreground">{new Date(m.createdAt).toLocaleDateString()}</span> },
+    };
+
+    const INVITE_DEF: Record<string, { label: string; cell: (invite: (typeof pendingInvites)[number]) => ReactNode }> = {
+        invEmail: { label: "Email",   cell: (inv) => <span className="font-medium">{inv.email}</span> },
+        role:     { label: "Role",    cell: (inv) => <Badge variant="outline">{inv.role}</Badge> },
+        access:   { label: "Access",  cell: (inv) => <span className="text-muted-foreground">{getAccessLabel(inv.role)}</span> },
+        status:   { label: "Status",  cell: (inv) => getStatusBadge(inv.status) },
+        sent:     { label: "Sent",    cell: (inv) => <span className="text-muted-foreground">{new Date(inv.createdAt).toLocaleDateString()}</span> },
+        expires:  { label: "Expires", cell: (inv) => <span className="text-muted-foreground">{new Date(inv.expiresAt).toLocaleDateString()}</span> },
+    };
+
     return (
         <>
             <div className="space-y-8">
@@ -451,75 +493,30 @@ export function AdminDashboardClient({
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Member</TableHead>
-                                        <TableHead>Email</TableHead>
-                                        <TableHead>Role</TableHead>
-                                        <TableHead>Access</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Joined</TableHead>
+                                        {memberCols.map((col) => (
+                                            <TableHead key={col} draggable
+                                                onDragStart={() => setMemberDragCol(col)}
+                                                onDragOver={(e) => { e.preventDefault(); setMemberDragOverCol(col); }}
+                                                onDragEnd={() => { reorderCols(memberCols, memberDragCol!, memberDragOverCol!, setMemberCols); setMemberDragCol(null); setMemberDragOverCol(null); }}
+                                                className={["cursor-grab active:cursor-grabbing select-none", memberDragCol === col ? "opacity-40 bg-muted/60" : "", memberDragOverCol === col && memberDragCol !== col ? "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]" : ""].join(" ")}
+                                            >
+                                                <span className="flex items-center gap-1"><DotsSixVertical className="h-3 w-3 text-muted-foreground/60 shrink-0" />{MEMBER_DEF[col].label}</span>
+                                            </TableHead>
+                                        ))}
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {filteredMembers.map((member) => (
                                         <TableRow key={member.id}>
-                                            <TableCell className="flex items-center gap-3">
-                                                <Avatar className="h-10 w-10">
-                                                    <AvatarImage src={member.user.image || ""} />
-                                                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                                                        {member.user.name?.charAt(0)}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                    <p className="font-medium">{member.user.name}</p>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="font-mono text-sm">{member.user.email}</TableCell>
-                                            <TableCell>
-                                                <Badge variant={member.role === "ADMIN" ? "default" : "secondary"}>
-                                                    {member.role}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                                                    {member.role === "SUPPLIER" ? <Factory className="h-3.5 w-3.5" /> : member.role === "ADMIN" || member.role === "SUPER_ADMIN" ? <Shield className="h-3.5 w-3.5" /> : <User className="h-3.5 w-3.5" />}
-                                                    <span>{getAccessLabel(member.role)}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                {getStatusBadge(member.user.isDeleted ? "INACTIVE" : "ACTIVE")}
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground">
-                                                {new Date(member.createdAt).toLocaleDateString()}
-                                            </TableCell>
+                                            {memberCols.map((col) => (<TableCell key={col}>{MEMBER_DEF[col].cell(member)}</TableCell>))}
                                             <TableCell className="text-right">
                                                 <div className="inline-flex items-center gap-1">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            setSelectedMemberForEdit({
-                                                                id: member.id,
-                                                                name: member.user.name,
-                                                                email: member.user.email,
-                                                            });
-                                                            setEditedEmail(member.user.email);
-                                                            setIsEditEmailOpen(true);
-                                                        }}
-                                                        className="gap-1.5"
-                                                    >
+                                                    <Button variant="ghost" size="sm" onClick={() => { setSelectedMemberForEdit({ id: member.id, name: member.user.name, email: member.user.email }); setEditedEmail(member.user.email); setIsEditEmailOpen(true); }} className="gap-1.5">
                                                         <PencilSimple className="h-3.5 w-3.5" />
                                                         Edit Email
                                                     </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            setSelectedMemberForDelete({ id: member.id, name: member.user.name });
-                                                            setIsDeleteConfirmOpen(true);
-                                                        }}
-                                                        className="gap-1.5 text-destructive"
-                                                    >
+                                                    <Button variant="ghost" size="sm" onClick={() => { setSelectedMemberForDelete({ id: member.id, name: member.user.name }); setIsDeleteConfirmOpen(true); }} className="gap-1.5 text-destructive">
                                                         <Trash className="h-3.5 w-3.5" />
                                                         Delete
                                                     </Button>
@@ -555,29 +552,22 @@ export function AdminDashboardClient({
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>Email</TableHead>
-                                            <TableHead>Role</TableHead>
-                                            <TableHead>Access</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Sent</TableHead>
-                                            <TableHead>Expires</TableHead>
+                                            {inviteCols.map((col) => (
+                                                <TableHead key={col} draggable
+                                                    onDragStart={() => setInviteDragCol(col)}
+                                                    onDragOver={(e) => { e.preventDefault(); setInviteDragOverCol(col); }}
+                                                    onDragEnd={() => { reorderCols(inviteCols, inviteDragCol!, inviteDragOverCol!, setInviteCols); setInviteDragCol(null); setInviteDragOverCol(null); }}
+                                                    className={["cursor-grab active:cursor-grabbing select-none", inviteDragCol === col ? "opacity-40 bg-muted/60" : "", inviteDragOverCol === col && inviteDragCol !== col ? "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]" : ""].join(" ")}
+                                                >
+                                                    <span className="flex items-center gap-1"><DotsSixVertical className="h-3 w-3 text-muted-foreground/60 shrink-0" />{INVITE_DEF[col].label}</span>
+                                                </TableHead>
+                                            ))}
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {pendingInvites.map((invite) => (
                                             <TableRow key={invite.id}>
-                                                <TableCell className="font-medium">{invite.email}</TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline">{invite.role}</Badge>
-                                                </TableCell>
-                                                <TableCell className="text-muted-foreground">{getAccessLabel(invite.role)}</TableCell>
-                                                <TableCell>{getStatusBadge(invite.status)}</TableCell>
-                                                <TableCell className="text-muted-foreground">
-                                                    {new Date(invite.createdAt).toLocaleDateString()}
-                                                </TableCell>
-                                                <TableCell className="text-muted-foreground">
-                                                    {new Date(invite.expiresAt).toLocaleDateString()}
-                                                </TableCell>
+                                                {inviteCols.map((col) => (<TableCell key={col}>{INVITE_DEF[col].cell(invite)}</TableCell>))}
                                             </TableRow>
                                         ))}
                                     </TableBody>

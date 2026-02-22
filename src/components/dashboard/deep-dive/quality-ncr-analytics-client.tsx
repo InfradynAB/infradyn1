@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -46,6 +46,7 @@ import {
   TrendingUp,
   Clock,
   BarChart3,
+  GripVertical,
 } from "lucide-react";
 import {
   BarChart,
@@ -64,6 +65,14 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { exportTabularData } from "@/lib/export-engine";
+
+function reorderCols(arr: string[], from: string, to: string, setter: (val: string[]) => void) {
+  const a = [...arr];
+  const fi = a.indexOf(from), ti = a.indexOf(to);
+  if (fi < 0 || ti < 0 || fi === ti) return;
+  [a[fi], a[ti]] = [a[ti], a[fi]];
+  setter(a);
+}
 
 // ============================================================================
 // Types
@@ -417,6 +426,33 @@ export function QualityNCRAnalyticsClient() {
     });
   };
 
+  // ── Drag-reorder state ─────────────────────────────────────────────────────
+  const [dragCol, setDragCol] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [ncrCols, setNcrCols] = useState<string[]>(["ncrNum", "title", "severity", "status", "supplier", "project", "created", "sla"]);
+  const [wsDragCol, setWsDragCol] = useState<string | null>(null);
+  const [wsDragOverCol, setWsDragOverCol] = useState<string | null>(null);
+
+  const reorderWsCol = (from: string, to: string) => {
+    const cols = [...visibleColumns];
+    const fi = cols.indexOf(from), ti = cols.indexOf(to);
+    if (fi < 0 || ti < 0 || fi === ti) return;
+    [cols[fi], cols[ti]] = [cols[ti], cols[fi]];
+    setWorkspacePreset("custom");
+    setManualColumns((prev) => ({ ...prev, [activeDataset]: cols }));
+  };
+
+  const NCR_DEF: Record<string, { label: string; cell: (n: NCRItem) => ReactNode }> = {
+    ncrNum: { label: "NCR #", cell: (n) => <Link href={`/dashboard/procurement/ncr/${n.id}`} className="font-mono font-semibold text-primary hover:underline">{n.ncrNumber}</Link> },
+    title: { label: "Title", cell: (n) => <span className="max-w-[200px] truncate block">{n.title}</span> },
+    severity: { label: "Severity", cell: (n) => <Badge className={cn("border", SEVERITY_COLORS[n.severity])}>{n.severity}</Badge> },
+    status: { label: "Status", cell: (n) => <Badge className={STATUS_COLORS[n.status]}>{n.status.replace("_", " ")}</Badge> },
+    supplier: { label: "Supplier", cell: (n) => <span className="text-sm">{n.supplierName}</span> },
+    project: { label: "Project", cell: (n) => <span className="text-sm">{n.projectName}</span> },
+    created: { label: "Created", cell: (n) => <span className="text-sm text-muted-foreground">{n.createdAt}</span> },
+    sla: { label: "SLA", cell: (n) => n.isOverdue ? <Badge className="bg-red-100 text-red-700"><AlertTriangle className="h-3 w-3 mr-1" />Overdue</Badge> : n.status !== "CLOSED" ? <span className="text-xs text-muted-foreground">{n.slaDueAt || "—"}</span> : <span className="text-xs text-emerald-600">{n.resolutionDays}d</span> },
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -726,39 +762,32 @@ export function QualityNCRAnalyticsClient() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead>NCR #</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Supplier</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>SLA</TableHead>
+                  {ncrCols.map((col) => (
+                    <TableHead
+                      key={col}
+                      draggable
+                      onDragStart={() => setDragCol(col)}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                      onDragEnd={() => { if (dragCol && dragOverCol && dragCol !== dragOverCol) reorderCols(ncrCols, dragCol, dragOverCol, setNcrCols); setDragCol(null); setDragOverCol(null); }}
+                      className={cn("cursor-grab active:cursor-grabbing select-none", dragCol === col && "opacity-40 bg-muted/60", dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
+                    >
+                      <div className="flex items-center gap-1">
+                        <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                        {NCR_DEF[col].label}
+                      </div>
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredNCRs.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No NCRs match your filters</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={ncrCols.length} className="text-center py-8 text-muted-foreground">No NCRs match your filters</TableCell></TableRow>
                 ) : (
                   filteredNCRs.map((n) => (
                     <TableRow key={n.id} className="hover:bg-muted/50">
-                      <TableCell className="font-mono font-semibold">
-                        <Link href={`/dashboard/procurement/ncr/${n.id}`} className="text-primary hover:underline">{n.ncrNumber}</Link>
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate">{n.title}</TableCell>
-                      <TableCell><Badge className={cn("border", SEVERITY_COLORS[n.severity])}>{n.severity}</Badge></TableCell>
-                      <TableCell><Badge className={STATUS_COLORS[n.status]}>{n.status.replace("_", " ")}</Badge></TableCell>
-                      <TableCell className="text-sm">{n.supplierName}</TableCell>
-                      <TableCell className="text-sm">{n.projectName}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{n.createdAt}</TableCell>
-                      <TableCell>
-                        {n.isOverdue
-                          ? <Badge className="bg-red-100 text-red-700"><AlertTriangle className="h-3 w-3 mr-1" />Overdue</Badge>
-                          : n.status !== "CLOSED"
-                            ? <span className="text-xs text-muted-foreground">{n.slaDueAt || "—"}</span>
-                            : <span className="text-xs text-emerald-600">{n.resolutionDays}d</span>
-                        }
-                      </TableCell>
+                      {ncrCols.map((col) => (
+                        <TableCell key={col}>{NCR_DEF[col].cell(n)}</TableCell>
+                      ))}
                     </TableRow>
                   ))
                 )}
@@ -870,7 +899,19 @@ export function QualityNCRAnalyticsClient() {
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     {visibleColumns.map((column) => (
-                      <TableHead key={column} className="whitespace-nowrap">{prettyLabel(column)}</TableHead>
+                      <TableHead
+                        key={column}
+                        draggable
+                        onDragStart={() => setWsDragCol(column)}
+                        onDragOver={(e) => { e.preventDefault(); setWsDragOverCol(column); }}
+                        onDragEnd={() => { if (wsDragCol && wsDragOverCol && wsDragCol !== wsDragOverCol) reorderWsCol(wsDragCol, wsDragOverCol); setWsDragCol(null); setWsDragOverCol(null); }}
+                        className={cn("whitespace-nowrap cursor-grab active:cursor-grabbing select-none", wsDragCol === column && "opacity-40 bg-muted/60", wsDragOverCol === column && wsDragCol !== column && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
+                      >
+                        <div className="flex items-center gap-1">
+                          <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                          {prettyLabel(column)}
+                        </div>
+                      </TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>

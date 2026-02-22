@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -47,7 +47,7 @@ import {
   CheckCircle2,
   PackageCheck,
   Ship,
-
+  GripVertical,
 } from "lucide-react";
 import {
   BarChart,
@@ -60,6 +60,14 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { exportTabularData } from "@/lib/export-engine";
+
+function reorderCols(arr: string[], from: string, to: string, setter: (val: string[]) => void) {
+  const a = [...arr];
+  const fi = a.indexOf(from), ti = a.indexOf(to);
+  if (fi < 0 || ti < 0 || fi === ti) return;
+  [a[fi], a[ti]] = [a[ti], a[fi]];
+  setter(a);
+}
 
 // ============================================================================
 // Types
@@ -369,6 +377,34 @@ export function LogisticsTimelinesClient() {
     });
   };
 
+  // ── Drag-reorder state ─────────────────────────────────────────────────────
+  const [dragCol, setDragCol] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [shipCols, setShipCols] = useState<string[]>(["tracking", "po", "supplier", "carrier", "status", "route", "eta", "confidence", "transit"]);
+  const [wsDragCol, setWsDragCol] = useState<string | null>(null);
+  const [wsDragOverCol, setWsDragOverCol] = useState<string | null>(null);
+
+  const reorderWsCol = (from: string, to: string) => {
+    const cols = [...visibleColumns];
+    const fi = cols.indexOf(from), ti = cols.indexOf(to);
+    if (fi < 0 || ti < 0 || fi === ti) return;
+    [cols[fi], cols[ti]] = [cols[ti], cols[fi]];
+    setWorkspacePreset("custom");
+    setManualColumns((prev) => ({ ...prev, [activeDataset]: cols }));
+  };
+
+  const SHIP_DEF: Record<string, { label: string; cell: (s: ShipmentRow) => ReactNode }> = {
+    tracking: { label: "Tracking #", cell: (s) => <span className="font-mono font-semibold text-primary">{s.trackingNumber}</span> },
+    po: { label: "PO", cell: (s) => <span className="text-sm">{s.poNumber}</span> },
+    supplier: { label: "Supplier", cell: (s) => <span className="text-sm">{s.supplierName}</span> },
+    carrier: { label: "Carrier", cell: (s) => <span className="text-sm">{s.carrier}</span> },
+    status: { label: "Status", cell: (s) => { const sc = STATUS_CONFIG[s.status]; return <Badge className={cn("gap-1", sc.color)}>{sc.icon}{s.status.replace("_", " ")}</Badge>; } },
+    route: { label: "Route", cell: (s) => (<div className="text-xs"><div className="flex items-center gap-1"><MapPin className="h-3 w-3 text-muted-foreground" />{s.origin}</div><div className="flex items-center gap-1 text-muted-foreground">→ {s.destination}</div></div>) },
+    eta: { label: "ETA", cell: (s) => s.actualDate ? <span className="text-emerald-600">{s.actualDate}</span> : <span className={s.isDelayed ? "text-red-600 font-semibold" : ""}>{s.expectedDate}</span> },
+    confidence: { label: "Confidence", cell: (s) => <span className={cn("text-xs font-semibold", ETA_COLORS[s.etaConfidence])}>{s.etaConfidence}</span> },
+    transit: { label: "Transit", cell: (s) => <span className="font-mono text-sm">{s.daysInTransit}d</span> },
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -581,58 +617,34 @@ export function LogisticsTimelinesClient() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead>Tracking #</TableHead>
-                  <TableHead>PO</TableHead>
-                  <TableHead>Supplier</TableHead>
-                  <TableHead>Carrier</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Route</TableHead>
-                  <TableHead>ETA</TableHead>
-                  <TableHead>Confidence</TableHead>
-                  <TableHead>Transit</TableHead>
+                  {shipCols.map((col) => (
+                    <TableHead
+                      key={col}
+                      draggable
+                      onDragStart={() => setDragCol(col)}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                      onDragEnd={() => { if (dragCol && dragOverCol && dragCol !== dragOverCol) reorderCols(shipCols, dragCol, dragOverCol, setShipCols); setDragCol(null); setDragOverCol(null); }}
+                      className={cn("cursor-grab active:cursor-grabbing select-none", dragCol === col && "opacity-40 bg-muted/60", dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
+                    >
+                      <div className="flex items-center gap-1">
+                        <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                        {SHIP_DEF[col].label}
+                      </div>
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No shipments match your filters</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={shipCols.length} className="text-center py-8 text-muted-foreground">No shipments match your filters</TableCell></TableRow>
                 ) : (
-                  filtered.map((s) => {
-                    const sc = STATUS_CONFIG[s.status];
-                    return (
-                      <TableRow key={s.id} className="hover:bg-muted/50">
-                        <TableCell className="font-mono font-semibold text-primary">{s.trackingNumber}</TableCell>
-                        <TableCell className="text-sm">{s.poNumber}</TableCell>
-                        <TableCell className="text-sm">{s.supplierName}</TableCell>
-                        <TableCell className="text-sm">{s.carrier}</TableCell>
-                        <TableCell>
-                          <Badge className={cn("gap-1", sc.color)}>
-                            {sc.icon}{s.status.replace("_", " ")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-xs">
-                            <div className="flex items-center gap-1"><MapPin className="h-3 w-3 text-muted-foreground" />{s.origin}</div>
-                            <div className="flex items-center gap-1 text-muted-foreground">→ {s.destination}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {s.actualDate ? (
-                            <span className="text-emerald-600">{s.actualDate}</span>
-                          ) : (
-                            <span className={s.isDelayed ? "text-red-600 font-semibold" : ""}>{s.expectedDate}</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <span className={cn("text-xs font-semibold", ETA_COLORS[s.etaConfidence])}>
-                            {s.etaConfidence}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-mono text-sm">{s.daysInTransit}d</span>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+                  filtered.map((s) => (
+                    <TableRow key={s.id} className="hover:bg-muted/50">
+                      {shipCols.map((col) => (
+                        <TableCell key={col}>{SHIP_DEF[col].cell(s)}</TableCell>
+                      ))}
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
@@ -742,7 +754,19 @@ export function LogisticsTimelinesClient() {
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     {visibleColumns.map((column) => (
-                      <TableHead key={column} className="whitespace-nowrap">{prettyLabel(column)}</TableHead>
+                      <TableHead
+                        key={column}
+                        draggable
+                        onDragStart={() => setWsDragCol(column)}
+                        onDragOver={(e) => { e.preventDefault(); setWsDragOverCol(column); }}
+                        onDragEnd={() => { if (wsDragCol && wsDragOverCol && wsDragCol !== wsDragOverCol) reorderWsCol(wsDragCol, wsDragOverCol); setWsDragCol(null); setWsDragOverCol(null); }}
+                        className={cn("whitespace-nowrap cursor-grab active:cursor-grabbing select-none", wsDragCol === column && "opacity-40 bg-muted/60", wsDragOverCol === column && wsDragCol !== column && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
+                      >
+                        <div className="flex items-center gap-1">
+                          <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                          {prettyLabel(column)}
+                        </div>
+                      </TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>

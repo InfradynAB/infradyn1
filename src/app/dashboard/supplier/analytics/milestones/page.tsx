@@ -1,14 +1,21 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Target } from "@phosphor-icons/react";
+import { Target, DotsSixVertical } from "@phosphor-icons/react";
 import {
     SectionHeader, ViewToggle, StatusPill, fmt,
     mockMilestones,
 } from "@/components/dashboard/supplier/analytics-shared";
 import { useAnalyticsFilters } from "@/components/dashboard/supplier/analytics-shell";
+
+function reorderCols(
+    arr: string[], from: string, to: string, setter: (val: string[]) => void
+) {
+    const next = [...arr]; const fi = next.indexOf(from); const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0) return; next.splice(fi, 1); next.splice(ti, 0, from); setter(next);
+}
 
 export default function MilestonesPage() {
     const milestones = mockMilestones();
@@ -16,6 +23,9 @@ export default function MilestonesPage() {
     const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
     const toggleView = useCallback((_s: string, mode: "chart" | "table") => setViewMode(mode), []);
     const [now] = useState(() => Date.now());
+    const [milestCols, setMilestCols] = useState(["milestone", "poNum", "amount", "status", "dueDate"]);
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     const filteredMilestones = useMemo(() => {
         let items = milestones;
@@ -27,6 +37,14 @@ export default function MilestonesPage() {
     const completed = milestones.filter(m => m.status === "COMPLETED").length;
     const pending = milestones.filter(m => m.status === "PENDING").length;
     const submitted = milestones.filter(m => m.status === "SUBMITTED").length;
+
+    const MILEST_DEF: Record<string, { label: string; cell: (m: (typeof filteredMilestones)[number]) => ReactNode }> = {
+        milestone: { label: "Milestone", cell: (m) => <span className="font-semibold max-w-[200px] truncate block">{m.title}</span> },
+        poNum:     { label: "PO #",      cell: (m) => <span>{m.poNumber}</span> },
+        amount:    { label: "Amount",    cell: (m) => <span>{fmt(m.amount)}</span> },
+        status:    { label: "Status",    cell: (m) => <StatusPill status={m.status.toLowerCase().split("_").join("-")} /> },
+        dueDate:   { label: "Due Date",  cell: (m) => <span>{new Date(m.expectedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</span> },
+    };
 
     return (
         <div className="space-y-5">
@@ -78,21 +96,22 @@ export default function MilestonesPage() {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/30">
-                                <TableHead className="text-[10px] font-bold uppercase">Milestone</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">PO #</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Amount</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Status</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Due Date</TableHead>
+                                {milestCols.map((col) => (
+                                    <TableHead key={col} draggable
+                                        onDragStart={() => setDragCol(col)}
+                                        onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                        onDragEnd={() => { reorderCols(milestCols, dragCol!, dragOverCol!, setMilestCols); setDragCol(null); setDragOverCol(null); }}
+                                        className={["cursor-grab active:cursor-grabbing select-none text-[10px] font-bold uppercase", dragCol === col ? "opacity-40 bg-muted/60" : "", dragOverCol === col && dragCol !== col ? "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]" : ""].join(" ")}
+                                    >
+                                        <span className="flex items-center gap-1"><DotsSixVertical className="h-3 w-3 text-muted-foreground/60 shrink-0" />{MILEST_DEF[col].label}</span>
+                                    </TableHead>
+                                ))}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredMilestones.map(m => (
                                 <TableRow key={m.id} className="text-xs hover:bg-muted/20">
-                                    <TableCell className="font-semibold max-w-[200px] truncate">{m.title}</TableCell>
-                                    <TableCell>{m.poNumber}</TableCell>
-                                    <TableCell>{fmt(m.amount)}</TableCell>
-                                    <TableCell><StatusPill status={m.status.toLowerCase().replace(/_/g, "-")} /></TableCell>
-                                    <TableCell>{new Date(m.expectedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</TableCell>
+                                    {milestCols.map((col) => (<TableCell key={col}>{MILEST_DEF[col].cell(m)}</TableCell>))}
                                 </TableRow>
                             ))}
                         </TableBody>

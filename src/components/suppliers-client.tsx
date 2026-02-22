@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { TruckIcon, MagnifyingGlassIcon, SealCheckIcon, ArrowsClockwiseIcon, DotsThreeIcon, EyeIcon, TrashIcon, UsersThreeIcon, CaretLeftIcon, CaretRightIcon, WarningCircleIcon, CircleNotch } from "@phosphor-icons/react";
+import { TruckIcon, MagnifyingGlassIcon, SealCheckIcon, ArrowsClockwiseIcon, DotsThreeIcon, EyeIcon, TrashIcon, UsersThreeIcon, CaretLeftIcon, CaretRightIcon, WarningCircleIcon, CircleNotch, DotsSixVertical } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { deleteSupplier, inviteSelectedSuppliers } from "@/lib/actions/supplier";
@@ -43,6 +43,13 @@ interface SuppliersClientProps {
 
 const ITEMS_PER_PAGE = 10;
 
+function reorderCols(
+    arr: string[], from: string, to: string, setter: (val: string[]) => void
+) {
+    const next = [...arr]; const fi = next.indexOf(from); const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0) return; next.splice(fi, 1); next.splice(ti, 0, from); setter(next);
+}
+
 export function SuppliersClient({ suppliers }: SuppliersClientProps) {
     const [search, setSearch] = useState("");
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -53,6 +60,9 @@ export function SuppliersClient({ suppliers }: SuppliersClientProps) {
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [supplierToDelete, setSupplierToDelete] = useState<{ id: string; name: string } | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [supplierCols, setSupplierCols] = useState(["identity", "contact", "readiness", "status"]);
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     // Filter suppliers by search
     const filtered = useMemo(() => {
@@ -156,6 +166,65 @@ export function SuppliersClient({ suppliers }: SuppliersClientProps) {
         );
     }
 
+    const SUPPLIER_DEF: Record<string, { label: string; cell: (s: Supplier) => ReactNode }> = {
+        identity: {
+            label: "Supplier Identity",
+            cell: (s) => {
+                const r = Number(s.readinessScore) || 0;
+                const iv = r === 100;
+                const ii = s.status === "INVITED";
+                return (
+                    <div className="flex items-center gap-3">
+                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold ${iv ? "bg-green-500/10 text-green-600" : ii ? "bg-blue-500/10 text-blue-600" : "bg-primary/5 text-primary"}`}>
+                            {s.name.substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                            <div className="font-bold text-base leading-none mb-1">{s.name}</div>
+                            <div className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">Tax ID: {s.taxId || "Not set"}</div>
+                        </div>
+                    </div>
+                );
+            },
+        },
+        contact: {
+            label: "Contact",
+            cell: (s) => (
+                <div className="text-sm font-medium">
+                    {s.contactEmail || <span className="text-muted-foreground italic">No email</span>}
+                </div>
+            ),
+        },
+        readiness: {
+            label: "Readiness",
+            cell: (s) => {
+                const r = Number(s.readinessScore) || 0;
+                const iv = r === 100;
+                return (
+                    <div className="space-y-1.5 w-[180px]">
+                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                            <span>Score</span><span>{r}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full transition-all duration-1000 ${iv ? "bg-green-500" : "bg-primary"}`} style={{ width: `${r}%` }} />
+                        </div>
+                    </div>
+                );
+            },
+        },
+        status: {
+            label: "Status",
+            cell: (s) => {
+                const r = Number(s.readinessScore) || 0;
+                const iv = r === 100;
+                const ii = s.status === "INVITED";
+                if (iv) return <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-200/50 flex items-center gap-1.5 px-3 py-1 text-xs font-bold ring-1 ring-green-500/20"><SealCheckIcon className="h-3.5 w-3.5" weight="fill" />Verified</Badge>;
+                if (ii) return <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-blue-200/50 flex items-center gap-1.5 px-3 py-1 text-xs font-bold"><SealCheckIcon className="h-3.5 w-3.5" />Invited</Badge>;
+                if (s.contactEmail) return <Badge variant="outline" className="bg-amber-500/5 text-amber-600 border-amber-200/50 flex items-center gap-1.5 px-3 py-1 text-xs font-bold"><ArrowsClockwiseIcon className="h-3.5 w-3.5" />Pending</Badge>;
+                return <Badge variant="outline" className="bg-gray-500/5 text-gray-500 border-gray-200/50 flex items-center gap-1.5 px-3 py-1 text-xs font-bold">No Email</Badge>;
+            },
+        },
+    };
+
     return (
         <div className="space-y-4">
             {/* Search + Actions Bar */}
@@ -194,22 +263,31 @@ export function SuppliersClient({ suppliers }: SuppliersClientProps) {
                                     aria-label="Select all pending"
                                 />
                             </TableHead>
-                            <TableHead className="py-5 font-bold text-foreground">Supplier Identity</TableHead>
-                            <TableHead className="py-5 font-bold text-foreground">Contact</TableHead>
-                            <TableHead className="py-5 font-bold text-foreground">Readiness</TableHead>
-                            <TableHead className="py-5 font-bold text-foreground">Status</TableHead>
+                            {supplierCols.map((col) => (
+                                <TableHead key={col} draggable
+                                    onDragStart={() => setDragCol(col)}
+                                    onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                    onDragEnd={() => { reorderCols(supplierCols, dragCol!, dragOverCol!, setSupplierCols); setDragCol(null); setDragOverCol(null); }}
+                                    className={[
+                                        "cursor-grab active:cursor-grabbing select-none py-5 font-bold text-foreground",
+                                        dragCol === col ? "opacity-40 bg-muted/60" : "",
+                                        dragOverCol === col && dragCol !== col ? "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]" : "",
+                                    ].join(" ")}
+                                >
+                                    <span className="flex items-center gap-1">
+                                        <DotsSixVertical className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                                        {SUPPLIER_DEF[col].label}
+                                    </span>
+                                </TableHead>
+                            ))}
                             <TableHead className="py-5 font-bold text-foreground text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {paginated.map((s) => {
-                            const readiness = Number(s.readinessScore) || 0;
-                            const isVerified = readiness === 100;
-                            const isInvited = s.status === 'INVITED';
-                            const canBeSelected = s.status === 'INACTIVE' && s.contactEmail;
-
+                            const canBeSelected = s.status === "INACTIVE" && s.contactEmail;
                             return (
-                                <TableRow key={s.id} className={`group transition-colors border-muted/40 ${canBeSelected ? 'hover:bg-muted/30' : 'bg-muted/5 opacity-75'}`}>
+                                <TableRow key={s.id} className={`group transition-colors border-muted/40 ${canBeSelected ? "hover:bg-muted/30" : "bg-muted/5 opacity-75"}`}>
                                     <TableCell className="py-4">
                                         <Checkbox
                                             checked={selectedIds.has(s.id)}
@@ -218,58 +296,9 @@ export function SuppliersClient({ suppliers }: SuppliersClientProps) {
                                             aria-label={`Select ${s.name}`}
                                         />
                                     </TableCell>
-                                    <TableCell className="py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold ${isVerified ? 'bg-green-500/10 text-green-600' : isInvited ? 'bg-blue-500/10 text-blue-600' : 'bg-primary/5 text-primary'}`}>
-                                                {s.name.substring(0, 2).toUpperCase()}
-                                            </div>
-                                            <div>
-                                                <div className="font-bold text-base leading-none mb-1">{s.name}</div>
-                                                <div className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">
-                                                    Tax ID: {s.taxId || "Not set"}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="text-sm font-medium">{s.contactEmail || <span className="text-muted-foreground italic">No email</span>}</div>
-                                    </TableCell>
-                                    <TableCell className="w-[180px]">
-                                        <div className="space-y-1.5">
-                                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                                                <span>Score</span>
-                                                <span>{readiness}%</span>
-                                            </div>
-                                            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                                                <div
-                                                    className={`h-full transition-all duration-1000 ${isVerified ? 'bg-green-500' : 'bg-primary'}`}
-                                                    style={{ width: `${readiness}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {isVerified ? (
-                                            <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-200/50 flex items-center gap-1.5 px-3 py-1 text-xs font-bold ring-1 ring-green-500/20">
-                                                <SealCheckIcon className="h-3.5 w-3.5" weight="fill" />
-                                                Verified
-                                            </Badge>
-                                        ) : isInvited ? (
-                                            <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-blue-200/50 flex items-center gap-1.5 px-3 py-1 text-xs font-bold">
-                                                <SealCheckIcon className="h-3.5 w-3.5" />
-                                                Invited
-                                            </Badge>
-                                        ) : s.contactEmail ? (
-                                            <Badge variant="outline" className="bg-amber-500/5 text-amber-600 border-amber-200/50 flex items-center gap-1.5 px-3 py-1 text-xs font-bold">
-                                                <ArrowsClockwiseIcon className="h-3.5 w-3.5" />
-                                                Pending
-                                            </Badge>
-                                        ) : (
-                                            <Badge variant="outline" className="bg-gray-500/5 text-gray-500 border-gray-200/50 flex items-center gap-1.5 px-3 py-1 text-xs font-bold">
-                                                No Email
-                                            </Badge>
-                                        )}
-                                    </TableCell>
+                                    {supplierCols.map((col) => (
+                                        <TableCell key={col} className="py-4">{SUPPLIER_DEF[col].cell(s)}</TableCell>
+                                    ))}
                                     <TableCell className="text-right py-4">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
@@ -333,7 +362,7 @@ export function SuppliersClient({ suppliers }: SuppliersClientProps) {
 
             {/* Delete Confirmation Modal */}
             <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-                <AlertDialogContent className="z-[100]">
+                <AlertDialogContent className="z-100">
 
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2 text-red-600">

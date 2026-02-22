@@ -1,15 +1,22 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText } from "@phosphor-icons/react";
+import { FileText, DotsSixVertical } from "@phosphor-icons/react";
 import {
     SectionHeader, ViewToggle, StatusPill,
     mockKPIs, mockPOs, mockPOStatus, fmt,
 } from "@/components/dashboard/supplier/analytics-shared";
 import { useAnalyticsFilters } from "@/components/dashboard/supplier/analytics-shell";
 import { POStatusRadial } from "@/components/dashboard/supplier/charts/po-status-radial";
+
+function reorderCols(
+    arr: string[], from: string, to: string, setter: (val: string[]) => void
+) {
+    const next = [...arr]; const fi = next.indexOf(from); const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0) return; next.splice(fi, 1); next.splice(ti, 0, from); setter(next);
+}
 
 export default function OrdersPage() {
     const kpis = mockKPIs();
@@ -18,6 +25,9 @@ export default function OrdersPage() {
     const { searchQuery, projectFilter, statusFilter } = useAnalyticsFilters();
     const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
     const toggleView = useCallback((_s: string, mode: "chart" | "table") => setViewMode(mode), []);
+    const [ordCols, setOrdCols] = useState(["poNumber", "project", "value", "status", "progress", "date"]);
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     const filteredPOs = useMemo(() => {
         let items = pos;
@@ -26,6 +36,15 @@ export default function OrdersPage() {
         if (statusFilter !== "all") items = items.filter(p => p.status.toLowerCase() === statusFilter);
         return items;
     }, [pos, searchQuery, projectFilter, statusFilter]);
+
+    const ORD_DEF: Record<string, { label: string; cell: (po: (typeof filteredPOs)[number]) => ReactNode }> = {
+        poNumber: { label: "PO Number", cell: (po) => <span className="font-semibold">{po.poNumber}</span> },
+        project:  { label: "Project",   cell: (po) => <span>{po.project}</span> },
+        value:    { label: "Value",      cell: (po) => <span className="font-mono">{fmt(po.totalValue)}</span> },
+        status:   { label: "Status",     cell: (po) => <StatusPill status={po.status.toLowerCase().split("_").join("-")} /> },
+        progress: { label: "Progress",   cell: (po) => <div className="flex items-center gap-1.5"><div className="w-14 h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${po.deliveryProgress}%` }} /></div><span className="text-[10px]">{po.deliveryProgress}%</span></div> },
+        date:     { label: "Date",       cell: (po) => <span className="text-muted-foreground">{new Date(po.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</span> },
+    };
 
     return (
         <div className="space-y-5">
@@ -79,25 +98,22 @@ export default function OrdersPage() {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/30">
-                                <TableHead className="text-[10px] font-bold uppercase">PO Number</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Project</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Value</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Status</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Progress</TableHead>
-                                <TableHead className="text-[10px] font-bold uppercase">Date</TableHead>
+                                {ordCols.map((col) => (
+                                    <TableHead key={col} draggable
+                                        onDragStart={() => setDragCol(col)}
+                                        onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                        onDragEnd={() => { reorderCols(ordCols, dragCol!, dragOverCol!, setOrdCols); setDragCol(null); setDragOverCol(null); }}
+                                        className={["cursor-grab active:cursor-grabbing select-none text-[10px] font-bold uppercase", dragCol === col ? "opacity-40 bg-muted/60" : "", dragOverCol === col && dragCol !== col ? "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]" : ""].join(" ")}
+                                    >
+                                        <span className="flex items-center gap-1"><DotsSixVertical className="h-3 w-3 text-muted-foreground/60 shrink-0" />{ORD_DEF[col].label}</span>
+                                    </TableHead>
+                                ))}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredPOs.map(po => (
                                 <TableRow key={po.id} className="text-xs hover:bg-muted/20">
-                                    <TableCell className="font-semibold">{po.poNumber}</TableCell>
-                                    <TableCell>{po.project}</TableCell>
-                                    <TableCell className="font-mono">{fmt(po.totalValue)}</TableCell>
-                                    <TableCell><StatusPill status={po.status.toLowerCase().replace(/_/g, "-")} /></TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-1.5"><div className="w-14 h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${po.deliveryProgress}%` }} /></div><span className="text-[10px]">{po.deliveryProgress}%</span></div>
-                                    </TableCell>
-                                    <TableCell className="text-muted-foreground">{new Date(po.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</TableCell>
+                                    {ordCols.map((col) => (<TableCell key={col}>{ORD_DEF[col].cell(po)}</TableCell>))}
                                 </TableRow>
                             ))}
                         </TableBody>

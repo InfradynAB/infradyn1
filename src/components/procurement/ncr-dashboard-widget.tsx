@@ -25,8 +25,8 @@ export function NCRDashboardWidget() {
 
     const fetchData = async () => {
         try {
-            // This will use the current user's organization from session
-            const res = await fetch("/api/ncr?organizationId=default");
+            // organizationId is resolved server-side from the session
+            const res = await fetch("/api/ncr");
             const result = await res.json();
             if (result.success && result.data) {
                 setData(result.data);

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, Clock, TrendingUp, ChevronRight } from "lucide-react";
+import { AlertTriangle, Clock, TrendingUp, ChevronRight, GripVertical } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 
@@ -39,7 +39,26 @@ const getAgingBand = (days: number) => {
     return { color: "bg-green-500", label: "Normal" };
 };
 
+function reorderCols(
+    arr: string[],
+    from: string,
+    to: string,
+    setter: (val: string[]) => void
+) {
+    const next = [...arr];
+    const fi = next.indexOf(from);
+    const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0) return;
+    next.splice(fi, 1);
+    next.splice(ti, 0, from);
+    setter(next);
+}
+
 export function NCRAgingReport({ ncrs = [], loading = false }: NCRAgingReportProps) {
+    const [agingCols, setAgingCols] = useState(["ncr", "severity", "supplier", "daysOpen"]);
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+
     if (loading) {
         return (
             <Card>
@@ -87,6 +106,13 @@ export function NCRAgingReport({ ncrs = [], loading = false }: NCRAgingReportPro
     const medium = sortedNCRs.filter(n => n.daysOpen > 3 && n.daysOpen <= 7).length;
     const normal = sortedNCRs.filter(n => n.daysOpen <= 3).length;
     const total = sortedNCRs.length;
+
+    const AGING_DEF: Record<string, { label: string; hCls?: string; cell: (ncr: AgingNCR) => ReactNode }> = {
+        ncr:      { label: "NCR",       cell: (ncr) => <div><p className="font-mono text-sm">{ncr.ncrNumber}</p><p className="text-xs text-muted-foreground truncate max-w-[150px]">{ncr.title}</p></div> },
+        severity: { label: "Severity",  cell: (ncr) => <span className={`text-sm font-medium ${SEVERITY_COLORS[ncr.severity]}`}>{ncr.severity}</span> },
+        supplier: { label: "Supplier",  cell: (ncr) => <span className="text-sm">{ncr.supplier?.name || "-"}</span> },
+        daysOpen: { label: "Days Open", hCls: "text-right", cell: (ncr) => { const band = getAgingBand(ncr.daysOpen); return <div className="flex justify-end"><Badge className={`${band.color} text-white`}>{ncr.daysOpen}d</Badge></div>; } },
+    };
 
     return (
         <Card>
@@ -152,49 +178,44 @@ export function NCRAgingReport({ ncrs = [], loading = false }: NCRAgingReportPro
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>NCR</TableHead>
-                            <TableHead>Severity</TableHead>
-                            <TableHead>Supplier</TableHead>
-                            <TableHead className="text-right">Days Open</TableHead>
-                            <TableHead></TableHead>
+                            {agingCols.map((col) => (
+                                <TableHead
+                                    key={col}
+                                    draggable
+                                    onDragStart={() => setDragCol(col)}
+                                    onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                    onDragEnd={() => { reorderCols(agingCols, dragCol!, dragOverCol!, setAgingCols); setDragCol(null); setDragOverCol(null); }}
+                                    className={[
+                                        "cursor-grab active:cursor-grabbing select-none",
+                                        dragCol === col ? "opacity-40 bg-muted/60" : "",
+                                        dragOverCol === col && dragCol !== col ? "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]" : "",
+                                        AGING_DEF[col].hCls ?? "",
+                                    ].join(" ")}
+                                >
+                                    <span className="flex items-center gap-1">
+                                        <GripVertical className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                                        {AGING_DEF[col].label}
+                                    </span>
+                                </TableHead>
+                            ))}
+                            <TableHead />
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {sortedNCRs.slice(0, 10).map((ncr) => {
-                            const band = getAgingBand(ncr.daysOpen);
-                            return (
-                                <TableRow key={ncr.id}>
-                                    <TableCell>
-                                        <div>
-                                            <p className="font-mono text-sm">{ncr.ncrNumber}</p>
-                                            <p className="text-xs text-muted-foreground truncate max-w-[150px]">
-                                                {ncr.title}
-                                            </p>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <span className={`text-sm font-medium ${SEVERITY_COLORS[ncr.severity]}`}>
-                                            {ncr.severity}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell className="text-sm">
-                                        {ncr.supplier?.name || "-"}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <Badge className={`${band.color} text-white`}>
-                                            {ncr.daysOpen}d
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Button variant="ghost" size="sm" asChild>
-                                            <Link href={`/dashboard/procurement/ncr/${ncr.id}`}>
-                                                <ChevronRight className="h-4 w-4" />
-                                            </Link>
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            );
-                        })}
+                        {sortedNCRs.slice(0, 10).map((ncr) => (
+                            <TableRow key={ncr.id}>
+                                {agingCols.map((col) => (
+                                    <TableCell key={col}>{AGING_DEF[col].cell(ncr)}</TableCell>
+                                ))}
+                                <TableCell>
+                                    <Button variant="ghost" size="sm" asChild>
+                                        <Link href={`/dashboard/procurement/ncr/${ncr.id}`}>
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Link>
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
                     </TableBody>
                 </Table>
 

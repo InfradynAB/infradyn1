@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ import {
     UserCircle,
     CaretLeft,
     CaretRight,
+    DotsSixVertical,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -95,6 +96,13 @@ const ACTION_LABELS: Record<string, { label: string; variant: "default" | "secon
     SNOOZED: { label: "Snoozed", variant: "secondary" },
 };
 
+function reorderCols(
+    arr: string[], from: string, to: string, setter: (val: string[]) => void
+) {
+    const next = [...arr]; const fi = next.indexOf(from); const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0) return; next.splice(fi, 1); next.splice(ti, 0, from); setter(next);
+}
+
 export function AlertLogsClient() {
     const [logs, setLogs] = useState<AlertLogEntry[]>([]);
     const [loading, setLoading] = useState(true);
@@ -108,6 +116,9 @@ export function AlertLogsClient() {
     const [severityFilter, setSeverityFilter] = useState<string>("all");
     const [actionFilter, setActionFilter] = useState<string>("all");
     const [search, setSearch] = useState("");
+    const [logCols, setLogCols] = useState(["alert", "reference", "respondedBy", "action", "responseTime", "notes"]);
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     const fetchLogs = useCallback(async (showRefreshing = false) => {
         if (showRefreshing) setRefreshing(true);
@@ -185,6 +196,40 @@ export function AlertLogsClient() {
             log.responder?.email?.toLowerCase().includes(searchLower)
         );
     });
+
+    const LOG_DEF: Record<string, { label: string; cell: (log: AlertLogEntry) => ReactNode }> = {
+        alert:        { label: "Alert",         cell: (log) => (
+            <div className="flex items-start gap-3">
+                {getSeverityIcon(log.alertSeverity)}
+                <div>
+                    <div className="font-medium">{log.alertTitle}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                        {getSeverityBadge(log.alertSeverity)}
+                        <span className="text-xs text-muted-foreground">{ALERT_TYPE_LABELS[log.alertType] || log.alertType}</span>
+                    </div>
+                    {log.alertDescription && (
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{log.alertDescription}</p>
+                    )}
+                </div>
+            </div>
+        ) },
+        reference:    { label: "Reference",     cell: (log) => log.entityReference ? (
+            <div><div className="font-mono text-sm">{log.entityReference}</div>{log.entityType && <div className="text-xs text-muted-foreground">{log.entityType}</div>}</div>
+        ) : <span className="text-muted-foreground">—</span> },
+        respondedBy:  { label: "Responded By",  cell: (log) => log.responder ? (
+            <div className="flex items-center gap-2">
+                <Avatar className="h-7 w-7"><AvatarImage src={log.responder.image || undefined} /><AvatarFallback className="text-xs">{log.responder.name?.charAt(0) || log.responder.email.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
+                <div><div className="text-sm font-medium">{log.responder.name || "Unknown"}</div><div className="text-xs text-muted-foreground">{log.responder.email}</div></div>
+            </div>
+        ) : <div className="flex items-center gap-2 text-muted-foreground"><UserCircle className="h-5 w-5" /><span className="text-sm">Unknown</span></div> },
+        action:       { label: "Action",        cell: (log) => <Badge variant={ACTION_LABELS[log.action]?.variant || "secondary"}>{ACTION_LABELS[log.action]?.label || log.action}</Badge> },
+        responseTime: { label: "Response Time", cell: (log) => (
+            <div><div className="text-sm">{format(new Date(log.respondedAt), "MMM d, yyyy")}</div><div className="text-xs text-muted-foreground">{format(new Date(log.respondedAt), "h:mm a")}</div></div>
+        ) },
+        notes:        { label: "Notes",         cell: (log) => log.actionNotes ? (
+            <p className="text-sm text-muted-foreground max-w-[200px] truncate" title={log.actionNotes}>{log.actionNotes}</p>
+        ) : <span className="text-muted-foreground">—</span> },
+    };
 
     return (
         <div className="space-y-6">
@@ -310,91 +355,22 @@ export function AlertLogsClient() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Alert</TableHead>
-                                    <TableHead>Reference</TableHead>
-                                    <TableHead>Responded By</TableHead>
-                                    <TableHead>Action</TableHead>
-                                    <TableHead>Response Time</TableHead>
-                                    <TableHead>Notes</TableHead>
+                                    {logCols.map((col) => (
+                                        <TableHead key={col} draggable
+                                            onDragStart={() => setDragCol(col)}
+                                            onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                            onDragEnd={() => { reorderCols(logCols, dragCol!, dragOverCol!, setLogCols); setDragCol(null); setDragOverCol(null); }}
+                                            className={["cursor-grab active:cursor-grabbing select-none", dragCol === col ? "opacity-40 bg-muted/60" : "", dragOverCol === col && dragCol !== col ? "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]" : ""].join(" ")}
+                                        >
+                                            <span className="flex items-center gap-1"><DotsSixVertical className="h-3 w-3 text-muted-foreground/60 shrink-0" />{LOG_DEF[col].label}</span>
+                                        </TableHead>
+                                    ))}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredLogs.map((log) => (
                                     <TableRow key={log.id}>
-                                        <TableCell>
-                                            <div className="flex items-start gap-3">
-                                                {getSeverityIcon(log.alertSeverity)}
-                                                <div>
-                                                    <div className="font-medium">{log.alertTitle}</div>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        {getSeverityBadge(log.alertSeverity)}
-                                                        <span className="text-xs text-muted-foreground">
-                                                            {ALERT_TYPE_LABELS[log.alertType] || log.alertType}
-                                                        </span>
-                                                    </div>
-                                                    {log.alertDescription && (
-                                                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                                            {log.alertDescription}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {log.entityReference ? (
-                                                <div>
-                                                    <div className="font-mono text-sm">{log.entityReference}</div>
-                                                    {log.entityType && (
-                                                        <div className="text-xs text-muted-foreground">{log.entityType}</div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <span className="text-muted-foreground">—</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {log.responder ? (
-                                                <div className="flex items-center gap-2">
-                                                    <Avatar className="h-7 w-7">
-                                                        <AvatarImage src={log.responder.image || undefined} />
-                                                        <AvatarFallback className="text-xs">
-                                                            {log.responder.name?.charAt(0) || log.responder.email.charAt(0).toUpperCase()}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <div>
-                                                        <div className="text-sm font-medium">{log.responder.name || "Unknown"}</div>
-                                                        <div className="text-xs text-muted-foreground">{log.responder.email}</div>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center gap-2 text-muted-foreground">
-                                                    <UserCircle className="h-5 w-5" />
-                                                    <span className="text-sm">Unknown</span>
-                                                </div>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={ACTION_LABELS[log.action]?.variant || "secondary"}>
-                                                {ACTION_LABELS[log.action]?.label || log.action}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="text-sm">
-                                                {format(new Date(log.respondedAt), "MMM d, yyyy")}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {format(new Date(log.respondedAt), "h:mm a")}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {log.actionNotes ? (
-                                                <p className="text-sm text-muted-foreground max-w-[200px] truncate" title={log.actionNotes}>
-                                                    {log.actionNotes}
-                                                </p>
-                                            ) : (
-                                                <span className="text-muted-foreground">—</span>
-                                            )}
-                                        </TableCell>
+                                        {logCols.map((col) => (<TableCell key={col}>{LOG_DEF[col].cell(log)}</TableCell>))}
                                     </TableRow>
                                 ))}
                             </TableBody>

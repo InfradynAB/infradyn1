@@ -107,6 +107,7 @@ export function PODetailWorkspace({
     const [selectedPreset, setSelectedPreset] = useState<Partial<Record<PODatasetKey, ViewPreset>>>({});
     const [manualColumns, setManualColumns] = useState<Partial<Record<PODatasetKey, string[]>>>({});
     const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
+    const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
     const [customViews, setCustomViews] = useState<Partial<Record<PODatasetKey, string[]>>>(() => {
         if (typeof window === "undefined") return {};
         try {
@@ -461,8 +462,51 @@ export function PODetailWorkspace({
                                     <TableHeader>
                                         <TableRow className="bg-muted/30">
                                             {datasetVisibleCols.map((col) => (
-                                                <TableHead key={col} className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide">
-                                                    {prettyLabel(col)}
+                                                <TableHead
+                                                    key={col}
+                                                    draggable
+                                                    onDragStart={(e) => {
+                                                        setDraggedColumn(col);
+                                                        e.dataTransfer.effectAllowed = "move";
+                                                        e.dataTransfer.setData("text/plain", col);
+                                                    }}
+                                                    onDragOver={(e) => {
+                                                        e.preventDefault();
+                                                        e.dataTransfer.dropEffect = "move";
+                                                        if (col !== draggedColumn) setDragOverColumn(col);
+                                                    }}
+                                                    onDragLeave={() => setDragOverColumn(null)}
+                                                    onDrop={(e) => {
+                                                        e.preventDefault();
+                                                        if (draggedColumn && draggedColumn !== col) {
+                                                            reorderColumns(draggedColumn, col);
+                                                        }
+                                                        setDraggedColumn(null);
+                                                        setDragOverColumn(null);
+                                                    }}
+                                                    onDragEnd={() => {
+                                                        setDraggedColumn(null);
+                                                        setDragOverColumn(null);
+                                                    }}
+                                                    className={cn(
+                                                        "whitespace-nowrap text-xs font-semibold uppercase tracking-wide select-none transition-colors",
+                                                        "cursor-grab active:cursor-grabbing",
+                                                        draggedColumn === col && "opacity-40 bg-muted/60",
+                                                        dragOverColumn === col && draggedColumn !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]"
+                                                    )}
+                                                >
+                                                    <span className="inline-flex items-center gap-1.5">
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            width="10" height="10" viewBox="0 0 256 256"
+                                                            className="shrink-0 text-muted-foreground/50"
+                                                            fill="currentColor"
+                                                            aria-hidden="true"
+                                                        >
+                                                            <path d="M104,60a12,12,0,1,1-12-12A12,12,0,0,1,104,60Zm60,12a12,12,0,1,0-12-12A12,12,0,0,0,164,72ZM92,116a12,12,0,1,0,12,12A12,12,0,0,0,92,116Zm72,0a12,12,0,1,0,12,12A12,12,0,0,0,164,116ZM92,184a12,12,0,1,0,12,12A12,12,0,0,0,92,184Zm72,0a12,12,0,1,0,12,12A12,12,0,0,0,164,184Z"/>
+                                                        </svg>
+                                                        {prettyLabel(col)}
+                                                    </span>
                                                 </TableHead>
                                             ))}
                                         </TableRow>

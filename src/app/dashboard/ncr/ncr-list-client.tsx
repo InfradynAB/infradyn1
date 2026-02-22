@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, type ReactNode } from "react";
 import Link from "next/link";
 import { formatDistanceToNow, format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -34,6 +34,7 @@ import {
     XCircle,
     Clock,
     ArrowRight,
+    DotsSixVertical,
 } from "@phosphor-icons/react";
 import { AlertTriangle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -84,6 +85,21 @@ const SEVERITY_CONFIG = {
     MINOR: { color: "bg-yellow-500 text-black", icon: Clock },
 };
 
+function reorderCols(
+    arr: string[],
+    from: string,
+    to: string,
+    setter: (val: string[]) => void
+) {
+    const next = [...arr];
+    const fi = next.indexOf(from);
+    const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0) return;
+    next.splice(fi, 1);
+    next.splice(ti, 0, from);
+    setter(next);
+}
+
 export function NCRListPageClient({ organizationId, initialFilter }: NCRListPageClientProps) {
     const [ncrs, setNCRs] = useState<NCR[]>([]);
     const [loading, setLoading] = useState(true);
@@ -93,6 +109,9 @@ export function NCRListPageClient({ organizationId, initialFilter }: NCRListPage
     const [statusFilter, setStatusFilter] = useState<string>(initialFilter === "critical" ? "all" : "all");
     const [severityFilter, setSeverityFilter] = useState<string>(initialFilter === "critical" ? "CRITICAL" : "all");
     const [search, setSearch] = useState("");
+    const [ncrCols, setNcrCols] = useState(["ncrNum", "title", "severity", "status", "supplier", "poProject", "sla", "created"]);
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     const fetchNCRs = useCallback(async (showRefreshing = false) => {
         if (showRefreshing) setRefreshing(true);
@@ -178,6 +197,17 @@ export function NCRListPageClient({ organizationId, initialFilter }: NCRListPage
         if (n.status === "CLOSED" || !n.slaDueAt) return false;
         return new Date(n.slaDueAt) < new Date();
     }).length;
+
+    const NCR_CLIENT_DEF: Record<string, { label: string; cell: (ncr: NCR) => ReactNode }> = {
+        ncrNum:    { label: "NCR #",        cell: (ncr) => <span className="font-mono font-medium">{ncr.ncrNumber}</span> },
+        title:     { label: "Title",        cell: (ncr) => <div className="max-w-[200px]"><div className="font-medium truncate">{ncr.title}</div>{ncr.reporter?.name && <div className="text-xs text-muted-foreground">by {ncr.reporter.name}</div>}</div> },
+        severity:  { label: "Severity",     cell: (ncr) => { const sc = SEVERITY_CONFIG[ncr.severity]; const SI = sc.icon; return <Badge className={cn(sc.color, "flex items-center gap-1 w-fit")}><SI className="h-3 w-3" />{ncr.severity}</Badge>; } },
+        status:    { label: "Status",       cell: (ncr) => <Badge className={STATUS_CONFIG[ncr.status].color}>{STATUS_CONFIG[ncr.status].label}</Badge> },
+        supplier:  { label: "Supplier",     cell: (ncr) => <span>{ncr.supplier?.name || "—"}</span> },
+        poProject: { label: "PO / Project", cell: (ncr) => ncr.purchaseOrder ? <div><div className="font-mono text-sm">{ncr.purchaseOrder.poNumber}</div>{ncr.purchaseOrder.project && <div className="text-xs text-muted-foreground">{ncr.purchaseOrder.project.name}</div>}</div> : <span>—</span> },
+        sla:       { label: "SLA",          cell: (ncr) => <>{getSLAStatus(ncr.slaDueAt, ncr.status)}</> },
+        created:   { label: "Created",      cell: (ncr) => <div><div className="text-sm">{format(new Date(ncr.createdAt), "MMM d")}</div><div className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(ncr.createdAt), { addSuffix: true })}</div></div> },
+    };
 
     return (
         <div className="space-y-6">
@@ -331,91 +361,47 @@ export function NCRListPageClient({ organizationId, initialFilter }: NCRListPage
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>NCR #</TableHead>
-                                    <TableHead>Title</TableHead>
-                                    <TableHead>Severity</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Supplier</TableHead>
-                                    <TableHead>PO / Project</TableHead>
-                                    <TableHead>SLA</TableHead>
-                                    <TableHead>Created</TableHead>
-                                    <TableHead></TableHead>
+                                    {ncrCols.map((col) => (
+                                        <TableHead
+                                            key={col}
+                                            draggable
+                                            onDragStart={() => setDragCol(col)}
+                                            onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                            onDragEnd={() => { reorderCols(ncrCols, dragCol!, dragOverCol!, setNcrCols); setDragCol(null); setDragOverCol(null); }}
+                                            className={[
+                                                "cursor-grab active:cursor-grabbing select-none",
+                                                dragCol === col ? "opacity-40 bg-muted/60" : "",
+                                                dragOverCol === col && dragCol !== col ? "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]" : "",
+                                            ].join(" ")}
+                                        >
+                                            <span className="flex items-center gap-1">
+                                                <DotsSixVertical className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                                                {NCR_CLIENT_DEF[col].label}
+                                            </span>
+                                        </TableHead>
+                                    ))}
+                                    <TableHead />
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredNCRs.map((ncr) => {
-                                    const severityConfig = SEVERITY_CONFIG[ncr.severity];
-                                    const SeverityIcon = severityConfig.icon;
-                                    const statusConfig = STATUS_CONFIG[ncr.status];
-                                    
-                                    return (
-                                        <TableRow key={ncr.id}>
-                                            <TableCell className="font-mono font-medium">
-                                                {ncr.ncrNumber}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="max-w-[200px]">
-                                                    <div className="font-medium truncate">{ncr.title}</div>
-                                                    {ncr.reporter?.name && (
-                                                        <div className="text-xs text-muted-foreground">
-                                                            by {ncr.reporter.name}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge className={cn(severityConfig.color, "flex items-center gap-1 w-fit")}>
-                                                    <SeverityIcon className="h-3 w-3" />
-                                                    {ncr.severity}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge className={statusConfig.color}>
-                                                    {statusConfig.label}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                {ncr.supplier?.name || "—"}
-                                            </TableCell>
-                                            <TableCell>
-                                                {ncr.purchaseOrder ? (
-                                                    <div>
-                                                        <div className="font-mono text-sm">{ncr.purchaseOrder.poNumber}</div>
-                                                        {ncr.purchaseOrder.project && (
-                                                            <div className="text-xs text-muted-foreground">
-                                                                {ncr.purchaseOrder.project.name}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    "—"
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                {getSLAStatus(ncr.slaDueAt, ncr.status)}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="text-sm">
-                                                    {format(new Date(ncr.createdAt), "MMM d")}
-                                                </div>
-                                                <div className="text-xs text-muted-foreground">
-                                                    {formatDistanceToNow(new Date(ncr.createdAt), { addSuffix: true })}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    asChild
-                                                >
-                                                    <Link href={`/dashboard/procurement/ncr/${ncr.id}`}>
-                                                        <ArrowRight className="h-4 w-4" />
-                                                    </Link>
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })}
+                                {filteredNCRs.map((ncr) => (
+                                    <TableRow key={ncr.id}>
+                                        {ncrCols.map((col) => (
+                                            <TableCell key={col}>{NCR_CLIENT_DEF[col].cell(ncr)}</TableCell>
+                                        ))}
+                                        <TableCell>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                asChild
+                                            >
+                                                <Link href={`/dashboard/procurement/ncr/${ncr.id}`}>
+                                                    <ArrowRight className="h-4 w-4" />
+                                                </Link>
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
                             </TableBody>
                         </Table>
                     )}

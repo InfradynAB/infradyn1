@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -46,6 +46,7 @@ import {
     TableIcon,
     SpinnerIcon,
     DownloadSimpleIcon,
+    DotsSixVertical,
 } from "@phosphor-icons/react/dist/ssr";
 import { toast } from "sonner";
 import {
@@ -90,6 +91,21 @@ const EMPTY_ITEM: BOQItemWithROS = {
     rosStatus: "NOT_SET",
 };
 
+function reorderCols(
+    arr: string[],
+    from: string,
+    to: string,
+    setter: (val: string[]) => void
+) {
+    const next = [...arr];
+    const fi = next.indexOf(from);
+    const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0) return;
+    next.splice(fi, 1);
+    next.splice(ti, 0, from);
+    setter(next);
+}
+
 export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projectId }: ROSManagerProps) {
     const [globalRosDate, setGlobalRosDate] = useState<string>("");
     const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -103,6 +119,9 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
     const [sheetsUrl, setSheetsUrl] = useState("");
     const [importConfirmOpen, setImportConfirmOpen] = useState(false);
     const [pendingItems, setPendingItems] = useState<BOQItemWithROS[]>([]);
+    const [rosCols, setRosCols] = useState(["itemNum", "description", "qty", "unitPrice", "total", "discipline", "materialClass", "rosDate", "status"]);
+    const [dragCol, setDragCol] = useState<string | null>(null);
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     // Calculate totals
     const boqTotal = boqItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
@@ -361,6 +380,43 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
 
     const tbdCount = boqItems.filter((item) => item.rosStatus === "TBD").length;
 
+    const ROS_DEF: Record<string, { label: string; hCls?: string; cell: (item: BOQItemWithROS, idx: number) => ReactNode }> = {
+        itemNum:       { label: "Item #",          hCls: "w-[60px]",              cell: (item) => <span className="font-mono text-sm">{item.itemNumber}</span> },
+        description:   { label: "Description",                                    cell: (item) => <span className="max-w-[150px] truncate block">{item.description}</span> },
+        qty:           { label: "Qty",             hCls: "w-20 text-right",       cell: (item) => <span className="font-mono text-sm block text-right">{item.quantity}</span> },
+        unitPrice:     { label: "Unit Price",      hCls: "w-[100px] text-right",  cell: (item) => <span className="font-mono text-sm block text-right">{(item.unitPrice ?? 0).toLocaleString()}</span> },
+        total:         { label: "Total",           hCls: "w-[100px] text-right",  cell: (item) => <span className="font-mono text-sm font-medium block text-right">{(item.totalPrice ?? 0).toLocaleString()}</span> },
+        discipline:    { label: "Discipline",      hCls: "w-[130px]",             cell: (item, idx) => (
+            <Select value={item.discipline ?? "__none"} onValueChange={(v) => updateItem(idx, { discipline: v === "__none" ? null : v, materialClass: null })}>
+                <SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue placeholder="— none —" /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="__none">— none —</SelectItem>
+                    {DISCIPLINES.map((d) => <SelectItem key={d} value={d}>{DISCIPLINE_LABELS[d]}</SelectItem>)}
+                </SelectContent>
+            </Select>
+        ) },
+        materialClass: { label: "Material Class",  hCls: "w-[140px]",            cell: (item, idx) => (
+            <Select value={item.materialClass ?? "__none"} disabled={!item.discipline} onValueChange={(v) => updateItem(idx, { materialClass: v === "__none" ? null : v })}>
+                <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue placeholder="— select —" /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="__none">— none —</SelectItem>
+                    {(item.discipline ? (MATERIAL_CLASS_MAP[item.discipline as keyof typeof MATERIAL_CLASS_MAP] ?? []) : []).map((mc: string) => <SelectItem key={mc} value={mc}>{mc}</SelectItem>)}
+                </SelectContent>
+            </Select>
+        ) },
+        rosDate:       { label: "ROS Date",        hCls: "w-[130px]",             cell: (item, idx) => <Input type="date" value={item.rosDate || ""} onChange={(e) => updateItem(idx, { rosDate: e.target.value || undefined })} disabled={item.rosStatus === "TBD"} className="h-8" /> },
+        status:        { label: "Status",          hCls: "w-[90px]",              cell: (item, idx) => (
+            <Select value={item.rosStatus} onValueChange={(value) => { if (value === "TBD") { setTBD(idx); } else if (value === "NOT_SET") { updateItem(idx, { rosDate: undefined, rosStatus: "NOT_SET" }); } }}>
+                <SelectTrigger className="h-8 w-20"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="NOT_SET">--</SelectItem>
+                    <SelectItem value="SET">Set</SelectItem>
+                    <SelectItem value="TBD">TBD</SelectItem>
+                </SelectContent>
+            </Select>
+        ) },
+    };
+
     return (
         <Card>
             <CardHeader>
@@ -587,35 +643,28 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
 
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[50px]">
-                                            Critical
-                                        </TableHead>
-                                        <TableHead className="w-[60px]">
-                                            Item #
-                                        </TableHead>
-                                        <TableHead>Description</TableHead>
-                                        <TableHead className="w-20 text-right">
-                                            Qty
-                                        </TableHead>
-                                        <TableHead className="w-[100px] text-right">
-                                            Unit Price
-                                        </TableHead>
-                                        <TableHead className="w-[100px] text-right">
-                                            Total
-                                        </TableHead>
-                                        <TableHead className="w-[130px]">
-                                            Discipline
-                                        </TableHead>
-                                        <TableHead className="w-[140px]">
-                                            Material Class
-                                        </TableHead>
-                                        <TableHead className="w-[130px]">
-                                            ROS Date
-                                        </TableHead>
-                                        <TableHead className="w-[90px]">
-                                            Status
-                                        </TableHead>
-                                        <TableHead className="w-20"></TableHead>
+                                        <TableHead className="w-[50px]">Critical</TableHead>
+                                        {rosCols.map((col) => (
+                                            <TableHead
+                                                key={col}
+                                                draggable
+                                                onDragStart={() => setDragCol(col)}
+                                                onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                                onDragEnd={() => { reorderCols(rosCols, dragCol!, dragOverCol!, setRosCols); setDragCol(null); setDragOverCol(null); }}
+                                                className={[
+                                                    "cursor-grab active:cursor-grabbing select-none",
+                                                    ROS_DEF[col].hCls ?? "",
+                                                    dragCol === col ? "opacity-40 bg-muted/60" : "",
+                                                    dragOverCol === col && dragCol !== col ? "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]" : "",
+                                                ].join(" ")}
+                                            >
+                                                <span className="flex items-center gap-1">
+                                                    <DotsSixVertical className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                                                    {ROS_DEF[col].label}
+                                                </span>
+                                            </TableHead>
+                                        ))}
+                                        <TableHead className="w-20" />
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -623,8 +672,7 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
                                         <TableRow
                                             key={index}
                                             className={
-                                                item.isCritical &&
-                                                    item.rosStatus === "NOT_SET"
+                                                item.isCritical && item.rosStatus === "NOT_SET"
                                                     ? "bg-amber-50/50 dark:bg-amber-950/20"
                                                     : ""
                                             }
@@ -633,124 +681,13 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
                                                 <Checkbox
                                                     checked={item.isCritical}
                                                     onCheckedChange={(checked) =>
-                                                        updateItem(index, {
-                                                            isCritical:
-                                                                checked === true,
-                                                        })
+                                                        updateItem(index, { isCritical: checked === true })
                                                     }
                                                 />
                                             </TableCell>
-                                            <TableCell className="font-mono text-sm">
-                                                {item.itemNumber}
-                                            </TableCell>
-                                            <TableCell className="max-w-[150px] truncate">
-                                                {item.description}
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono text-sm">
-                                                {item.quantity}
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono text-sm">
-                                                {(item.unitPrice ?? 0).toLocaleString()}
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono text-sm font-medium">
-                                                {(item.totalPrice ?? 0).toLocaleString()}
-                                            </TableCell>
-                                            {/* Discipline inline select */}
-                                            <TableCell>
-                                                <Select
-                                                    value={item.discipline ?? "__none"}
-                                                    onValueChange={(v) =>
-                                                        updateItem(index, {
-                                                            discipline: v === "__none" ? null : v,
-                                                            materialClass: null,
-                                                        })
-                                                    }
-                                                >
-                                                    <SelectTrigger className="h-8 w-[120px] text-xs">
-                                                        <SelectValue placeholder="— none —" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="__none">— none —</SelectItem>
-                                                        {DISCIPLINES.map((d) => (
-                                                            <SelectItem key={d} value={d}>
-                                                                {DISCIPLINE_LABELS[d]}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </TableCell>
-                                            {/* Material Class inline select (cascades on discipline) */}
-                                            <TableCell>
-                                                <Select
-                                                    value={item.materialClass ?? "__none"}
-                                                    disabled={!item.discipline}
-                                                    onValueChange={(v) =>
-                                                        updateItem(index, {
-                                                            materialClass: v === "__none" ? null : v,
-                                                        })
-                                                    }
-                                                >
-                                                    <SelectTrigger className="h-8 w-[130px] text-xs">
-                                                        <SelectValue placeholder="— select —" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="__none">— none —</SelectItem>
-                                                        {(item.discipline ? (MATERIAL_CLASS_MAP[item.discipline as keyof typeof MATERIAL_CLASS_MAP] ?? []) : []).map((mc: string) => (
-                                                            <SelectItem key={mc} value={mc}>{mc}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Input
-                                                    type="date"
-                                                    value={item.rosDate || ""}
-                                                    onChange={(e) =>
-                                                        updateItem(index, {
-                                                            rosDate:
-                                                                e.target.value ||
-                                                                undefined,
-                                                        })
-                                                    }
-                                                    disabled={
-                                                        item.rosStatus === "TBD"
-                                                    }
-                                                    className="h-8"
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Select
-                                                    value={item.rosStatus}
-                                                    onValueChange={(value) => {
-                                                        if (value === "TBD") {
-                                                            setTBD(index);
-                                                        } else if (
-                                                            value === "NOT_SET"
-                                                        ) {
-                                                            updateItem(index, {
-                                                                rosDate: undefined,
-                                                                rosStatus:
-                                                                    "NOT_SET",
-                                                            });
-                                                        }
-                                                    }}
-                                                >
-                                                    <SelectTrigger className="h-8 w-20">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="NOT_SET">
-                                                            --
-                                                        </SelectItem>
-                                                        <SelectItem value="SET">
-                                                            Set
-                                                        </SelectItem>
-                                                        <SelectItem value="TBD">
-                                                            TBD
-                                                        </SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </TableCell>
+                                            {rosCols.map((col) => (
+                                                <TableCell key={col}>{ROS_DEF[col].cell(item, index)}</TableCell>
+                                            ))}
                                             <TableCell>
                                                 <div className="flex gap-1">
                                                     <Button
@@ -758,9 +695,7 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
                                                         size="icon"
                                                         variant="ghost"
                                                         className="h-8 w-8"
-                                                        onClick={() =>
-                                                            openEditDialog(index)
-                                                        }
+                                                        onClick={() => openEditDialog(index)}
                                                     >
                                                         <PencilSimpleIcon className="h-4 w-4" />
                                                     </Button>
@@ -769,9 +704,7 @@ export function ROSManager({ boqItems, onChange, currency = "USD", orgId, projec
                                                         size="icon"
                                                         variant="ghost"
                                                         className="h-8 w-8 text-destructive"
-                                                        onClick={() =>
-                                                            deleteItem(index)
-                                                        }
+                                                        onClick={() => deleteItem(index)}
                                                     >
                                                         <TrashIcon className="h-4 w-4" />
                                                     </Button>

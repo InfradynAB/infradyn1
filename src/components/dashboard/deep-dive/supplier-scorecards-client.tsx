@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -57,6 +57,7 @@ import {
   ArrowUpDown,
   BarChart3,
   Eye,
+  GripVertical,
 } from "lucide-react";
 import {
   BarChart,
@@ -75,6 +76,14 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { exportTabularData } from "@/lib/export-engine";
+
+function reorderCols(arr: string[], from: string, to: string, setter: (val: string[]) => void) {
+  const a = [...arr];
+  const fi = a.indexOf(from), ti = a.indexOf(to);
+  if (fi < 0 || ti < 0 || fi === ti) return;
+  [a[fi], a[ti]] = [a[ti], a[fi]];
+  setter(a);
+}
 
 // ============================================================================
 // Types
@@ -370,6 +379,33 @@ export function SupplierScorecardsClient() {
     });
   };
 
+  // ── Drag-reorder state ─────────────────────────────────────────────────────
+  const [dragCol, setDragCol] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [rankCols, setRankCols] = useState<string[]>(["name", "score", "delivery", "quality", "compliance", "onTime", "ncrs", "trend"]);
+  const [wsDragCol, setWsDragCol] = useState<string | null>(null);
+  const [wsDragOverCol, setWsDragOverCol] = useState<string | null>(null);
+
+  const reorderWsCol = (from: string, to: string) => {
+    const cols = [...visibleColumns];
+    const fi = cols.indexOf(from), ti = cols.indexOf(to);
+    if (fi < 0 || ti < 0 || fi === ti) return;
+    [cols[fi], cols[ti]] = [cols[ti], cols[fi]];
+    setWorkspacePreset("custom");
+    setManualColumns(cols as SupplierColumn[]);
+  };
+
+  const RANK_DEF: Record<string, { label: string; sortable?: SortKey; cell: (s: SupplierScore) => ReactNode }> = {
+    name: { label: "Supplier", sortable: "name", cell: (s) => (<div><div className="font-medium">{s.name}</div><div className="text-xs text-muted-foreground">{s.activePOs} active PO{s.activePOs !== 1 ? "s" : ""}</div></div>) },
+    score: { label: "Score", sortable: "overallScore", cell: (s) => (<><div className={cn("text-lg font-bold", getScoreColor(s.overallScore))}>{s.overallScore}</div>{getScoreBadge(s.overallScore)}</>) },
+    delivery: { label: "Delivery", sortable: "deliveryPerformance", cell: (s) => <ScoreMiniBar value={s.deliveryPerformance} /> },
+    quality: { label: "Quality", sortable: "qualityScore", cell: (s) => <ScoreMiniBar value={s.qualityScore} /> },
+    compliance: { label: "Compliance", sortable: "complianceScore", cell: (s) => <ScoreMiniBar value={s.complianceScore} /> },
+    onTime: { label: "On-Time", sortable: "onTimeRate", cell: (s) => <span className={cn("font-mono font-semibold", getScoreColor(s.onTimeRate))}>{s.onTimeRate}%</span> },
+    ncrs: { label: "NCRs", cell: (s) => (<div className="flex items-center gap-1"><span className="font-mono">{s.openNCRs}</span><span className="text-muted-foreground text-xs">/ {s.totalNCRs}</span></div>) },
+    trend: { label: "Trend", cell: (s) => <TrendIcon trend={s.trend} /> },
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -566,38 +602,28 @@ export function SupplierScorecardsClient() {
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="w-10">#</TableHead>
-                  <TableHead>
-                    <button className="flex items-center gap-1 font-semibold" onClick={() => toggleSort("name")}>
-                      Supplier <ArrowUpDown className="h-3 w-3" />
-                    </button>
-                  </TableHead>
-                  <TableHead>
-                    <button className="flex items-center gap-1 font-semibold" onClick={() => toggleSort("overallScore")}>
-                      Score <ArrowUpDown className="h-3 w-3" />
-                    </button>
-                  </TableHead>
-                  <TableHead>
-                    <button className="flex items-center gap-1 font-semibold" onClick={() => toggleSort("deliveryPerformance")}>
-                      Delivery <ArrowUpDown className="h-3 w-3" />
-                    </button>
-                  </TableHead>
-                  <TableHead>
-                    <button className="flex items-center gap-1 font-semibold" onClick={() => toggleSort("qualityScore")}>
-                      Quality <ArrowUpDown className="h-3 w-3" />
-                    </button>
-                  </TableHead>
-                  <TableHead>
-                    <button className="flex items-center gap-1 font-semibold" onClick={() => toggleSort("complianceScore")}>
-                      Compliance <ArrowUpDown className="h-3 w-3" />
-                    </button>
-                  </TableHead>
-                  <TableHead>
-                    <button className="flex items-center gap-1 font-semibold" onClick={() => toggleSort("onTimeRate")}>
-                      On-Time <ArrowUpDown className="h-3 w-3" />
-                    </button>
-                  </TableHead>
-                  <TableHead>NCRs</TableHead>
-                  <TableHead>Trend</TableHead>
+                  {rankCols.map((col) => {
+                    const def = RANK_DEF[col];
+                    return (
+                      <TableHead
+                        key={col}
+                        draggable
+                        onDragStart={() => setDragCol(col)}
+                        onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                        onDragEnd={() => { if (dragCol && dragOverCol && dragCol !== dragOverCol) reorderCols(rankCols, dragCol, dragOverCol, setRankCols); setDragCol(null); setDragOverCol(null); }}
+                        className={cn("cursor-grab active:cursor-grabbing select-none", dragCol === col && "opacity-40 bg-muted/60", dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
+                      >
+                        <div className="flex items-center gap-1">
+                          <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                          {def.sortable ? (
+                            <button className="flex items-center gap-1 font-semibold" onClick={() => toggleSort(def.sortable!)}>
+                              {def.label} <ArrowUpDown className="h-3 w-3" />
+                            </button>
+                          ) : def.label}
+                        </div>
+                      </TableHead>
+                    );
+                  })}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -605,33 +631,9 @@ export function SupplierScorecardsClient() {
                 {filtered.map((s, idx) => (
                   <TableRow key={s.id} className="group hover:bg-muted/50 transition-colors">
                     <TableCell className="font-mono text-muted-foreground">{idx + 1}</TableCell>
-                    <TableCell>
-                      <div className="font-medium">{s.name}</div>
-                      <div className="text-xs text-muted-foreground">{s.activePOs} active PO{s.activePOs !== 1 ? "s" : ""}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className={cn("text-lg font-bold", getScoreColor(s.overallScore))}>{s.overallScore}</div>
-                      {getScoreBadge(s.overallScore)}
-                    </TableCell>
-                    <TableCell>
-                      <ScoreMiniBar value={s.deliveryPerformance} />
-                    </TableCell>
-                    <TableCell>
-                      <ScoreMiniBar value={s.qualityScore} />
-                    </TableCell>
-                    <TableCell>
-                      <ScoreMiniBar value={s.complianceScore} />
-                    </TableCell>
-                    <TableCell>
-                      <span className={cn("font-mono font-semibold", getScoreColor(s.onTimeRate))}>{s.onTimeRate}%</span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <span className="font-mono">{s.openNCRs}</span>
-                        <span className="text-muted-foreground text-xs">/ {s.totalNCRs}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell><TrendIcon trend={s.trend} /></TableCell>
+                    {rankCols.map((col) => (
+                      <TableCell key={col}>{RANK_DEF[col].cell(s)}</TableCell>
+                    ))}
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -878,7 +880,19 @@ export function SupplierScorecardsClient() {
                 <TableHeader>
                   <TableRow className="bg-muted/40">
                     {visibleColumns.map((column) => (
-                      <TableHead key={column} className="whitespace-nowrap">{prettySupplierLabel(column)}</TableHead>
+                      <TableHead
+                        key={column}
+                        draggable
+                        onDragStart={() => setWsDragCol(column)}
+                        onDragOver={(e) => { e.preventDefault(); setWsDragOverCol(column); }}
+                        onDragEnd={() => { if (wsDragCol && wsDragOverCol && wsDragCol !== wsDragOverCol) reorderWsCol(wsDragCol, wsDragOverCol); setWsDragCol(null); setWsDragOverCol(null); }}
+                        className={cn("whitespace-nowrap cursor-grab active:cursor-grabbing select-none", wsDragCol === column && "opacity-40 bg-muted/60", wsDragOverCol === column && wsDragCol !== column && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
+                      >
+                        <div className="flex items-center gap-1">
+                          <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                          {prettySupplierLabel(column)}
+                        </div>
+                      </TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>
