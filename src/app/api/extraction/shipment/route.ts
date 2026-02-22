@@ -30,6 +30,31 @@ function resolvePythonServiceUrl(): string {
 
 const PYTHON_SERVICE_URL = resolvePythonServiceUrl();
 
+function resolveExtractionTimeoutMs(): number {
+    const raw = process.env.PYTHON_EXTRACTION_TIMEOUT_MS?.trim();
+    if (!raw) return 120000; // 2 minutes
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 120000;
+    return parsed;
+}
+
+const EXTRACTION_TIMEOUT_MS = resolveExtractionTimeoutMs();
+
+function isConnectionRefusedError(error: unknown) {
+    if (!error || typeof error !== "object") return false;
+    const maybeAny = error as { cause?: unknown; code?: unknown };
+    if (maybeAny.code === "ECONNREFUSED") return true;
+    const cause = maybeAny.cause as { code?: unknown } | undefined;
+    return cause?.code === "ECONNREFUSED";
+}
+
+function isTimeoutError(error: unknown) {
+    if (!error || typeof error !== "object") return false;
+    const anyErr = error as { name?: unknown; code?: unknown };
+    // Node/undici uses TimeoutError, and the thrown object here can also carry a DOMException-like code.
+    return anyErr.name === "TimeoutError" || anyErr.code === 23;
+}
+
 export async function POST(request: NextRequest) {
     try {
         // Auth check
@@ -89,13 +114,50 @@ export async function POST(request: NextRequest) {
         const pythonFormData = new FormData();
         pythonFormData.append("file", file);
 
-        const response = await fetch(
-            `${PYTHON_SERVICE_URL}/api/extraction/upload?document_type=shipment`,
-            {
-                method: "POST",
-                body: pythonFormData,
+        let response: Response;
+        try {
+            response = await fetch(
+                `${PYTHON_SERVICE_URL}/api/extraction/upload?document_type=shipment`,
+                {
+                    method: "POST",
+                    body: pythonFormData,
+                    signal: AbortSignal.timeout(EXTRACTION_TIMEOUT_MS),
+                }
+            );
+        } catch (fetchError) {
+            if (isConnectionRefusedError(fetchError)) {
+                console.error("[Shipment Extract] Python service unreachable (ECONNREFUSED)", {
+                    pythonServiceUrl: PYTHON_SERVICE_URL,
+                });
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: "Extraction service is unavailable right now. If you're running locally, start the Python service on port 8000 and try again.",
+                    },
+                    { status: 503 }
+                );
             }
-        );
+
+            if (isTimeoutError(fetchError)) {
+                console.error("[Shipment Extract] Python service request timed out", {
+                    pythonServiceUrl: PYTHON_SERVICE_URL,
+                    timeoutMs: EXTRACTION_TIMEOUT_MS,
+                });
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: `Extraction timed out after ${Math.round(EXTRACTION_TIMEOUT_MS / 1000)}s. Try a smaller file, or increase PYTHON_EXTRACTION_TIMEOUT_MS.`,
+                    },
+                    { status: 504 }
+                );
+            }
+
+            console.error("[Shipment Extract] Python service fetch failed:", fetchError);
+            return NextResponse.json(
+                { success: false, error: "Failed to reach extraction service. Please try again." },
+                { status: 503 }
+            );
+        }
 
         if (!response.ok) {
             const errorText = await response.text();

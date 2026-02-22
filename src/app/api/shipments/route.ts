@@ -89,7 +89,12 @@ export async function POST(request: NextRequest) {
 
                     if (!verification.valid) {
                         return NextResponse.json(
-                            { success: false, error: verification.error || "This tracking number wasn't found in DHL's system. It might not be registered yet — you can still create the shipment without DHL verification." },
+                            {
+                                success: false,
+                                error: verification.error || "This tracking number wasn't found in DHL's system. It might not be registered yet — you can still create the shipment without DHL verification.",
+                                canSubmitAsOther: true,
+                                fallbackProvider: "OTHER",
+                            },
                             { status: 400 }
                         );
                     }

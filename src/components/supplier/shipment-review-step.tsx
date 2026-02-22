@@ -7,7 +7,7 @@
  * Allows users to review, edit, add, and remove items before submission.
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +44,7 @@ interface ShipmentReviewStepProps {
     extractionResult: ExtractedShipmentResult;
     items: ExtractedItemResult[];
     onItemsChange: (items: ExtractedItemResult[]) => void;
+    canAddItems?: boolean;
 }
 
 function generateItemId(): string {
@@ -160,13 +161,16 @@ function ItemRow({
     index,
     onUpdate,
     onRemove,
+    expanded,
+    onToggleExpanded,
 }: {
     item: ExtractedItemResult;
     index: number;
     onUpdate: (updated: ExtractedItemResult) => void;
     onRemove: () => void;
+    expanded: boolean;
+    onToggleExpanded: () => void;
 }) {
-    const [isExpanded, setIsExpanded] = useState(false);
     const hasPackages = item.packages.length > 0;
 
     const updateField = <K extends keyof ExtractedItemResult>(
@@ -182,7 +186,7 @@ function ItemRow({
                 <TableCell className="w-8 text-xs text-muted-foreground">
                     {index + 1}
                 </TableCell>
-                <TableCell className="min-w-[80px]">
+                <TableCell className="min-w-20">
                     <Input
                         value={item.articleNumber}
                         onChange={(e) => updateField("articleNumber", e.target.value)}
@@ -241,39 +245,41 @@ function ItemRow({
                         placeholder="HS code"
                     />
                 </TableCell>
-                <TableCell className="w-10">
-                    <div className="flex items-center gap-1">
-                        {hasPackages && (
+                <TableCell className="w-28">
+                    <div className="flex items-center justify-end gap-1">
+                        {hasPackages ? (
                             <Button
-                                variant="ghost"
+                                type="button"
+                                variant="outline"
                                 size="sm"
-                                className="h-6 w-6 p-0"
-                                onClick={() => setIsExpanded(!isExpanded)}
+                                className="h-7 px-2 text-xs gap-1"
+                                onClick={onToggleExpanded}
                             >
-                                {isExpanded ? (
-                                    <ChevronDown className="h-3 w-3" />
-                                ) : (
-                                    <ChevronRight className="h-3 w-3" />
-                                )}
+                                {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                {item.packages.length} pkg
                             </Button>
+                        ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
                         )}
+
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
                             onClick={onRemove}
+                            aria-label="Remove item"
                         >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                     </div>
                 </TableCell>
             </TableRow>
 
             {/* Expandable packages sub-table */}
-            {isExpanded && hasPackages && (
+            {expanded && hasPackages && (
                 <TableRow>
                     <TableCell colSpan={8} className="p-0 bg-muted/30">
-                        <Collapsible open={isExpanded}>
+                        <Collapsible open={expanded}>
                             <CollapsibleTrigger className="hidden" />
                             <CollapsibleContent>
                                 <div className="px-4 py-2">
@@ -320,7 +326,14 @@ export function ShipmentReviewStep({
     extractionResult,
     items,
     onItemsChange,
+    canAddItems = true,
 }: ShipmentReviewStepProps) {
+    const itemsWithPackages = useMemo(
+        () => items.filter((i) => i.packages && i.packages.length > 0).map((i) => i.id),
+        [items]
+    );
+    const [expandedPackageItemIds, setExpandedPackageItemIds] = useState<Set<string>>(new Set());
+
     const handleUpdateItem = (index: number, updated: ExtractedItemResult) => {
         const newItems = [...items];
         newItems[index] = updated;
@@ -341,6 +354,15 @@ export function ShipmentReviewStep({
         0
     );
 
+    const allPackagesExpanded = itemsWithPackages.length > 0 && itemsWithPackages.every((id) => expandedPackageItemIds.has(id));
+    const toggleAllPackages = () => {
+        setExpandedPackageItemIds((prev) => {
+            if (itemsWithPackages.length === 0) return prev;
+            if (allPackagesExpanded) return new Set();
+            return new Set(itemsWithPackages);
+        });
+    };
+
     return (
         <div className="space-y-4">
             {/* Summary header */}
@@ -357,14 +379,29 @@ export function ShipmentReviewStep({
                             </span>
                         )}
                     </span>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs gap-1"
-                        onClick={handleAddItem}
-                    >
-                        <Plus className="h-3 w-3" /> Add Item
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {itemsWithPackages.length > 0 && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={toggleAllPackages}
+                            >
+                                {allPackagesExpanded ? "Collapse packages" : "Expand packages"}
+                            </Button>
+                        )}
+                        {canAddItems && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs gap-1"
+                                onClick={handleAddItem}
+                            >
+                                <Plus className="h-3 w-3" /> Add Item
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
                 <div className={cn(
@@ -381,7 +418,7 @@ export function ShipmentReviewStep({
                                 <TableHead>Unit</TableHead>
                                 <TableHead>Weight</TableHead>
                                 <TableHead>HS Code</TableHead>
-                                <TableHead className="w-10" />
+                                <TableHead className="w-28 text-right">Packages</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -394,6 +431,15 @@ export function ShipmentReviewStep({
                                         handleUpdateItem(index, updated)
                                     }
                                     onRemove={() => handleRemoveItem(index)}
+                                    expanded={expandedPackageItemIds.has(item.id)}
+                                    onToggleExpanded={() =>
+                                        setExpandedPackageItemIds((prev) => {
+                                            const next = new Set(prev);
+                                            if (next.has(item.id)) next.delete(item.id);
+                                            else next.add(item.id);
+                                            return next;
+                                        })
+                                    }
                                 />
                             ))}
                             {items.length === 0 && (
@@ -402,7 +448,9 @@ export function ShipmentReviewStep({
                                         colSpan={8}
                                         className="text-center py-8 text-sm text-muted-foreground"
                                     >
-                                        No items. Click &quot;Add Item&quot; to add manually.
+                                        {canAddItems
+                                            ? "No items. Click \"Add Item\" to add manually."
+                                            : "No items in this view. Select a packing list to add items."}
                                     </TableCell>
                                 </TableRow>
                             )}

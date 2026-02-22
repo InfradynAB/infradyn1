@@ -21,6 +21,8 @@ interface ShipmentUploadStepProps {
 }
 
 export interface ExtractedShipmentResult {
+    sourceFileName?: string;
+    extractedAt?: string;
     orderNumber?: string | null;
     project?: string | null;
     invoiceNumber?: string | null;
@@ -173,6 +175,8 @@ export function ShipmentUploadStep({
             // Convert snake_case → camelCase and add client IDs
             const data = result.data;
             const extractedResult: ExtractedShipmentResult = {
+                sourceFileName: selectedFile.name,
+                extractedAt: new Date().toISOString(),
                 orderNumber: data.order_number,
                 project: data.project,
                 invoiceNumber: data.invoice_number,

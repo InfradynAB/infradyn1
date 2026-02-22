@@ -7,7 +7,6 @@
  * between different logistics providers (Maersk, DHL Express, DHL Freight).
  */
 
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Ship, Plane, Truck, Package } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -60,8 +59,8 @@ const providers: ProviderOption[] = [
     },
     {
         id: "OTHER",
-        name: "Other Carrier",
-        description: "Manual tracking",
+        name: "Other",
+        description: "Any tracking number",
         icon: <Package className="h-8 w-8" />,
         trackingFormat: "Any tracking number",
         color: "text-gray-600",
