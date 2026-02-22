@@ -388,7 +388,7 @@ export function SupplierScorecardsClient() {
 
   const reorderWsCol = (from: string, to: string) => {
     const cols = [...visibleColumns];
-    const fi = cols.indexOf(from), ti = cols.indexOf(to);
+    const fi = cols.indexOf(from as SupplierColumn), ti = cols.indexOf(to as SupplierColumn);
     if (fi < 0 || ti < 0 || fi === ti) return;
     [cols[fi], cols[ti]] = [cols[ti], cols[fi]];
     setWorkspacePreset("custom");
