@@ -14,7 +14,7 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CircleNotchIcon, GoogleLogoIcon, Eye, EyeSlash } from "@phosphor-icons/react";
@@ -125,129 +125,130 @@ export function SignInForm() {
         });
     }
 
+    const content = showTwoFactor ? (
+        <Form {...otpForm}>
+            <form onSubmit={otpForm.handleSubmit(onOTPSubmit)} className="space-y-4">
+                <FormField
+                    control={otpForm.control}
+                    name="otp"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>OTP Code</FormLabel>
+                            <FormControl>
+                                <Input placeholder="123456" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading && <CircleNotchIcon className="mr-2 h-4 w-4 animate-spin" />}
+                    Verify
+                </Button>
+            </form>
+        </Form>
+    ) : (
+        <>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Email</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Enter your email" autoComplete="email" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                            <FormItem>
+                                <div className="flex items-center justify-between">
+                                    <FormLabel>Password</FormLabel>
+                                    <Link
+                                        href="/reset-password"
+                                        className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                                    >
+                                        Forgot Password?
+                                    </Link>
+                                </div>
+                                <FormControl>
+                                    <div className="relative">
+                                        <Input
+                                            type={showPassword ? "text" : "password"}
+                                            autoComplete="current-password"
+                                            placeholder="Enter your password"
+                                            {...field}
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            aria-label={showPassword ? "Hide password" : "Show password"}
+                                        >
+                                            {showPassword ? (
+                                                <EyeSlash className="h-4 w-4" aria-hidden="true" />
+                                            ) : (
+                                                <Eye className="h-4 w-4" aria-hidden="true" />
+                                            )}
+                                        </Button>
+                                    </div>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                        {isLoading && <CircleNotchIcon className="mr-2 h-4 w-4 animate-spin" />}
+                        Sign In
+                    </Button>
+                </form>
+            </Form>
+
+            <div className="relative py-2">
+                <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">OR</span>
+                </div>
+            </div>
+
+            <Button variant="outline" onClick={handleGoogleSignIn} disabled={isLoading} className="w-full">
+                <GoogleLogoIcon className="mr-2 h-4 w-4" weight="bold" />
+                Continue with Google
+            </Button>
+
+            <p className="pt-2 text-center text-sm text-muted-foreground">
+                Don&apos;t have an account?{" "}
+                <Link href="/sign-up" className="underline underline-offset-4">
+                    Sign Up
+                </Link>
+            </p>
+        </>
+    );
+
     if (showTwoFactor) {
         return (
-            <Card className="w-[400px]">
+            <Card className="w-full max-w-md">
                 <CardHeader>
                     <CardTitle>Two-Factor Authentication</CardTitle>
                     <CardDescription>Enter the code sent to your email.</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <Form {...otpForm}>
-                        <form onSubmit={otpForm.handleSubmit(onOTPSubmit)} className="space-y-4">
-                            <FormField
-                                control={otpForm.control}
-                                name="otp"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>OTP Code</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="123456" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <Button type="submit" className="w-full" disabled={isLoading}>
-                                {isLoading && <CircleNotchIcon className="mr-2 h-4 w-4 animate-spin" />}
-                                Verify
-                            </Button>
-                        </form>
-                    </Form>
-                </CardContent>
+                <CardContent>{content}</CardContent>
             </Card>
-        )
+        );
     }
 
     return (
-        <Card className="w-[400px]">
-            <CardHeader>
-                <CardTitle>Sign In</CardTitle>
-                <CardDescription>
-                    Enter your email below to sign in to your account
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="grid gap-4">
-                    <Button variant="outline" onClick={handleGoogleSignIn} disabled={isLoading}>
-                        <GoogleLogoIcon className="mr-2 h-4 w-4" weight="bold" />
-                        Google
-                    </Button>
-                    <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-background px-2 text-muted-foreground">
-                                Or continue with
-                            </span>
-                        </div>
-                    </div>
-                    <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                            <FormField
-                                control={form.control}
-                                name="email"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Email</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="m@example.com" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="password"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <div className="flex items-center justify-between">
-                                            <FormLabel>Password</FormLabel>
-                                            <Link
-                                                href="/reset-password"
-                                                className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                                            >
-                                                Forgot your password?
-                                            </Link>
-                                        </div>
-                                        <FormControl>
-                                            <div className="relative">
-                                                <Input type={showPassword ? "text" : "password"} {...field} />
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                                    onClick={() => setShowPassword(!showPassword)}
-                                                >
-                                                    {showPassword ? (
-                                                        <EyeSlash className="h-4 w-4" aria-hidden="true" />
-                                                    ) : (
-                                                        <Eye className="h-4 w-4" aria-hidden="true" />
-                                                    )}
-                                                    <span className="sr-only">
-                                                        {showPassword ? "Hide password" : "Show password"}
-                                                    </span>
-                                                </Button>
-                                            </div>
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <Button type="submit" className="w-full" disabled={isLoading}>
-                                {isLoading && <CircleNotchIcon className="mr-2 h-4 w-4 animate-spin" />}
-                                Sign In
-                            </Button>
-                        </form>
-                    </Form>
-                </div>
-            </CardContent>
-            <CardFooter className="justify-center">
-                <p className="text-sm text-muted-foreground">Don&apos;t have an account? <a href="/sign-up" className="underline">Sign up</a></p>
-            </CardFooter>
-        </Card>
+        <div className="w-full max-w-md">{content}</div>
     );
 }
