@@ -20,7 +20,7 @@ export default async function ConfirmDeliveryPage({
     const { shipmentId } = await params;
     const shipment = await getShipmentForConfirmation(shipmentId);
 
-    if (!shipment || !shipment.purchaseOrder) notFound();
+    if (!shipment) notFound();
 
     const po = shipment.purchaseOrder;
     const boqItems = (po.boqItems ?? []).map((item: any) => ({

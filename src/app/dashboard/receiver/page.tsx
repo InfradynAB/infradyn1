@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 export const metadata = { title: "Site Receiver — Dashboard | InfraDyn" };
 
 // ─── local helpers ────────────────────────────────────────────────────────────
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status }: { status: string | null }) {
     const map: Record<string, string> = {
         OPEN: "bg-red-500/10 text-red-500 border-red-500/20",
         CLOSED: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
@@ -37,8 +37,8 @@ function StatusBadge({ status }: { status: string }) {
         DISPATCHED: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
     };
     return (
-        <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize", map[status] ?? "bg-muted text-muted-foreground border-border")}>
-            {status.replace(/_/g, " ")}
+        <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize", map[status ?? ""] ?? "bg-muted text-muted-foreground border-border")}>
+            {(status ?? "Unknown").replace(/_/g, " ")}
         </span>
     );
 }

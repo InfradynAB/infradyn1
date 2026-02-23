@@ -62,16 +62,23 @@ export async function getReceiverDashboardSummary() {
         limit: 5,
     });
 
-    // Pending shipments (org-wide, not yet delivered – status = DISPATCHED | IN_TRANSIT | OUT_FOR_DELIVERY)
-    const pendingShipments = orgId
+    // Pending shipments – fetch org PO ids first to avoid 'where inside with' (Drizzle type-inference issue)
+    const orgPoIds = orgId
+        ? (await db.query.purchaseOrder.findMany({
+              where: and(eq(purchaseOrder.organizationId, orgId!), eq(purchaseOrder.isDeleted, false)),
+              columns: { id: true },
+          })).map(p => p.id)
+        : [];
+
+    const pendingShipments = orgId && orgPoIds.length > 0
         ? await db.query.shipment.findMany({
               where: and(
+                  inArray(shipment.purchaseOrderId, orgPoIds),
                   eq(shipment.isDeleted, false),
                   inArray(shipment.status, ["DISPATCHED", "IN_TRANSIT", "OUT_FOR_DELIVERY"] as const)
               ),
               with: {
                   purchaseOrder: {
-                      where: eq(purchaseOrder.organizationId, orgId!),
                       columns: { poNumber: true, supplierId: true },
                       with: { supplier: { columns: { name: true } } },
                   },
@@ -97,7 +104,7 @@ export async function getReceiverDashboardSummary() {
 
     return {
         recentDeliveries: myDeliveries,
-        pendingShipments: pendingShipments.filter(s => s.purchaseOrder !== null),
+        pendingShipments: pendingShipments.filter(s => s.purchaseOrder != null),
         myNcrs,
         counts: {
             totalConfirmed: myDeliveries.length,
@@ -175,7 +182,27 @@ export async function getMyDeliveries() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Single shipment detail (for confirm page)
 // ─────────────────────────────────────────────────────────────────────────────
-export async function getShipmentForConfirmation(shipmentId: string) {
+export type ShipmentForConfirmation = {
+    id: string;
+    carrier: string | null;
+    trackingNumber: string | null;
+    purchaseOrder: {
+        poNumber: string;
+        organizationId: string;
+        supplier: { name: string } | null;
+        project: { name: string; currency: string | null } | null;
+        boqItems: {
+            id: string;
+            itemNumber: string | null;
+            description: string | null;
+            unit: string | null;
+            quantity: string | null;
+            quantityDelivered: string | null;
+        }[];
+    };
+};
+
+export async function getShipmentForConfirmation(shipmentId: string): Promise<ShipmentForConfirmation | null> {
     const user = await getReceiverSession();
     const orgId = await getActiveOrganizationId();
     if (!orgId) return null;
@@ -184,27 +211,42 @@ export async function getShipmentForConfirmation(shipmentId: string) {
         where: and(eq(shipment.id, shipmentId), eq(shipment.isDeleted, false)),
         with: {
             purchaseOrder: {
-                where: eq(purchaseOrder.organizationId, orgId!),
                 with: {
-                    supplier: { columns: { name: true } },
-                    project: { columns: { name: true, currency: true } },
-                    boqItems: {
-                        columns: {
-                            id: true,
-                            description: true,
-                            unit: true,
-                            quantity: true,
-                            quantityDelivered: true,
-                            itemNumber: true,
-                        },
-                    },
+                    supplier: true,
+                    project: true,
+                    boqItems: true,
                 },
             },
         },
     });
 
     if (!ship || !ship.purchaseOrder) return null;
-    return ship;
+    if (ship.purchaseOrder.organizationId !== orgId) return null;
+
+    // Reshape to an explicit type so callers don't depend on Drizzle's deep inference
+    return {
+        id: ship.id,
+        carrier: ship.carrier,
+        trackingNumber: ship.trackingNumber,
+        purchaseOrder: {
+            poNumber: ship.purchaseOrder.poNumber,
+            organizationId: ship.purchaseOrder.organizationId,
+            supplier: ship.purchaseOrder.supplier
+                ? { name: ship.purchaseOrder.supplier.name }
+                : null,
+            project: ship.purchaseOrder.project
+                ? { name: ship.purchaseOrder.project.name, currency: ship.purchaseOrder.project.currency ?? null }
+                : null,
+            boqItems: ship.purchaseOrder.boqItems.map(b => ({
+                id: b.id,
+                itemNumber: b.itemNumber ?? null,
+                description: b.description ?? null,
+                unit: b.unit ?? null,
+                quantity: b.quantity ?? null,
+                quantityDelivered: b.quantityDelivered ?? null,
+            })),
+        },
+    };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
