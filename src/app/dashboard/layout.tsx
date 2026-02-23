@@ -202,7 +202,7 @@ export default async function DashboardLayout({
                 <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60">
                     <div className="flex min-w-0 items-center gap-3">
                         <SidebarTrigger className="-ml-1" />
-                        {user.role !== "SUPPLIER" && organizations.length > 0 && (
+                        {user.role !== "SUPPLIER" && user.role !== "SITE_RECEIVER" && organizations.length > 0 && (
                             <div className="w-56 max-w-[60vw]">
                                 <OrgSwitcher organizations={organizations} activeOrgId={activeOrgId} />
                             </div>

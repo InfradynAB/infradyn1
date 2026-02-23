@@ -29,5 +29,30 @@
     "categories": [
         "business",
         "productivity"
-    ]
+    ],
+    "shortcuts": [
+        {
+            "name": "Site Receiver Dashboard",
+            "short_name": "Deliveries",
+            "description": "Log and confirm material deliveries on site",
+            "url": "/dashboard/receiver",
+            "icons": [{ "src": "/favicon.ico", "sizes": "48x48" }]
+        },
+        {
+            "name": "Confirm Delivery",
+            "short_name": "Confirm",
+            "description": "Confirm an incoming shipment",
+            "url": "/dashboard/receiver/deliveries",
+            "icons": [{ "src": "/favicon.ico", "sizes": "48x48" }]
+        },
+        {
+            "name": "Raise NCR",
+            "short_name": "NCR",
+            "description": "Raise a Non-Conformance Report",
+            "url": "/dashboard/receiver/ncr/new",
+            "icons": [{ "src": "/favicon.ico", "sizes": "48x48" }]
+        }
+    ],
+    "prefer_related_applications": false,
+    "scope": "/"
 }

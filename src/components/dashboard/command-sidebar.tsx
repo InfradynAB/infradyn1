@@ -188,6 +188,34 @@ const accountNav = [
     { title: "Settings", url: "/dashboard/settings", icon: Gear },
 ];
 
+// Site Receiver navigation
+const receiverNav: SidebarNavItem[] = [
+    { title: "Dashboard", url: "/dashboard/receiver", icon: SquaresFour },
+    {
+        title: "Deliveries",
+        url: "/dashboard/receiver/deliveries",
+        icon: Truck,
+        subItems: [
+            { title: "Incoming Shipments", url: "/dashboard/receiver/deliveries", icon: Package },
+            { title: "My Confirmed", url: "/dashboard/receiver/deliveries?tab=confirmed", icon: ShieldCheck },
+        ],
+    },
+    {
+        title: "PO Tracking",
+        url: "/dashboard/receiver/pos",
+        icon: FileText,
+    },
+    {
+        title: "NCRs",
+        url: "/dashboard/receiver/ncr",
+        icon: ShieldWarning,
+        subItems: [
+            { title: "My NCRs", url: "/dashboard/receiver/ncr", icon: Warning },
+            { title: "Raise NCR", url: "/dashboard/receiver/ncr/new", icon: ShieldWarning },
+        ],
+    },
+];
+
 // Supplier-specific navigation
 interface SupplierNavItem {
     title: string;
@@ -230,6 +258,7 @@ export function CommandSidebar({
     const { state } = useSidebar();
     const isCollapsed = state === "collapsed";
     const isSupplier = user?.role === "SUPPLIER";
+    const isSiteReceiver = user?.role === "SITE_RECEIVER";
 
     const activeProject = projects.find((p) => p.id === activeProjectId);
     // Keep Analytics consistent: always routes to /dashboard/analytics (hub).
@@ -497,6 +526,14 @@ export function CommandSidebar({
                 )}
 
                 {/* Supplier Project Switcher */}
+                {isSiteReceiver && !isCollapsed && (
+                    <div className="px-2">
+                        <div className="flex h-10 w-full items-center gap-2 rounded-xl border border-sidebar-border/80 bg-sidebar-accent/40 px-3 text-sm">
+                            <Package className="h-4 w-4 text-sidebar-foreground/60" />
+                            <span className="font-medium text-sidebar-foreground/80 text-xs">Site Receiver Portal</span>
+                        </div>
+                    </div>
+                )}
                 {isSupplier && !isCollapsed && supplierProjects.length > 0 && (
                     <div className="px-2">
                         <SupplierProjectSwitcher
@@ -613,7 +650,89 @@ export function CommandSidebar({
 
             {/* Main Navigation Content */}
             <SidebarContent className="px-2 py-3">
-                {isSupplier ? (
+                {isSiteReceiver ? (
+                    // Site Receiver Navigation
+                    <SidebarGroup className="px-1.5 py-1">
+                        <SidebarGroupLabel className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/45">
+                            Site Portal
+                        </SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu className="gap-1.5">
+                                {receiverNav.map((item) =>
+                                    item.subItems ? (
+                                        isCollapsed ? (
+                                            <SidebarMenuItem key={item.title}>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <SidebarMenuButton
+                                                            tooltip={item.title}
+                                                            isActive={isActive(item.url)}
+                                                            className={navButtonClass(isActive(item.url))}
+                                                        >
+                                                            <item.icon className="h-4 w-4" />
+                                                            <span>{item.title}</span>
+                                                        </SidebarMenuButton>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent side="right" align="start" sideOffset={10} className="w-52 rounded-xl border-sidebar-border/80 bg-sidebar text-sidebar-foreground">
+                                                        {item.subItems.map((sub) => (
+                                                            <DropdownMenuItem asChild key={sub.title}>
+                                                                <Link href={sub.url} className="cursor-pointer gap-2 text-sm">
+                                                                    <sub.icon className="h-3.5 w-3.5" />
+                                                                    <span>{sub.title}</span>
+                                                                </Link>
+                                                            </DropdownMenuItem>
+                                                        ))}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </SidebarMenuItem>
+                                        ) : (
+                                            <Collapsible key={item.title} asChild defaultOpen={pathname.startsWith(item.url.split("?")[0])} className="group/collapsible">
+                                                <SidebarMenuItem>
+                                                    <div className="flex items-center gap-1">
+                                                        <SidebarMenuButton asChild tooltip={item.title} isActive={isActive(item.url)} className={cn(navButtonClass(isActive(item.url)), "flex-1")}>
+                                                            <Link href={item.url} className="flex items-center gap-3">
+                                                                <item.icon className="h-4 w-4" />
+                                                                <span>{item.title}</span>
+                                                            </Link>
+                                                        </SidebarMenuButton>
+                                                        <CollapsibleTrigger asChild>
+                                                            <button type="button" aria-label={`Toggle ${item.title}`} className="flex h-10 w-10 items-center justify-center rounded-xl text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/60">
+                                                                <CaretRight className="h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                                                            </button>
+                                                        </CollapsibleTrigger>
+                                                    </div>
+                                                    <CollapsibleContent>
+                                                        <SidebarMenuSub className="mx-4 mt-1 border-sidebar-border/70 px-2 py-1">
+                                                            {item.subItems.map((sub) => (
+                                                                <SidebarMenuSubItem key={sub.title}>
+                                                                    <SidebarMenuSubButton asChild isActive={isActive(sub.url)} className="h-8 rounded-lg text-xs data-[active=true]:bg-[#0E7490]! data-[active=true]:text-white!">
+                                                                        <Link href={sub.url} className="flex items-center gap-2">
+                                                                            <sub.icon className="h-3.5 w-3.5" />
+                                                                            <span>{sub.title}</span>
+                                                                        </Link>
+                                                                    </SidebarMenuSubButton>
+                                                                </SidebarMenuSubItem>
+                                                            ))}
+                                                        </SidebarMenuSub>
+                                                    </CollapsibleContent>
+                                                </SidebarMenuItem>
+                                            </Collapsible>
+                                        )
+                                    ) : (
+                                        <SidebarMenuItem key={item.title}>
+                                            <SidebarMenuButton asChild tooltip={item.title} isActive={isActive(item.url)} className={navButtonClass(isActive(item.url))}>
+                                                <Link href={item.url} className="flex items-center gap-3">
+                                                    <item.icon className="h-4 w-4" />
+                                                    <span>{item.title}</span>
+                                                </Link>
+                                            </SidebarMenuButton>
+                                        </SidebarMenuItem>
+                                    )
+                                )}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                ) : isSupplier ? (
                     // Supplier Navigation with collapsible sub-items
                     <SidebarGroup className="px-1.5 py-1">
                         <SidebarGroupLabel className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/45">
@@ -709,7 +828,7 @@ export function CommandSidebar({
                     </SidebarGroup>
                 ) : (
                     // Full Navigation organized by workflow
-                    <>
+                    <> 
                         {renderNavGroup("Daily Operations", dailyOpsItems)}
                         {renderNavGroup("Financials", financialsNav)}
                         {renderNavGroup("Quality & Logistics", qualityLogisticsNav)}
