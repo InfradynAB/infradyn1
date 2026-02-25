@@ -96,7 +96,7 @@ export function AIAssistantWidget({ user }: AIAssistantWidgetProps) {
             <button
                 onClick={() => setIsOpen((prev) => !prev)}
                 className={cn(
-                    "fixed bottom-6 right-6 z-[99] rounded-full shadow-2xl transition-all duration-300",
+                    "fixed bottom-18 right-6 z-[99] rounded-full shadow-2xl transition-all duration-300",
                     "w-14 h-14 flex items-center justify-center",
                     "bg-gradient-to-br from-cyan-700 to-cyan-600 hover:from-cyan-600 hover:to-cyan-500",
                     "text-white hover:scale-110 active:scale-95",
@@ -106,14 +106,13 @@ export function AIAssistantWidget({ user }: AIAssistantWidgetProps) {
                 aria-label="Open AI Assistant"
             >
                 <Sparkle className="w-6 h-6" weight="fill" />
-                {/* Pulse ring */}
-                <span className="absolute inset-0 rounded-full bg-cyan-600/30 animate-ping" />
+                <span className="absolute inset-0 rounded-full bg-cyan-600/30" />
             </button>
 
             {/* ---- Chat Panel ---- */}
             <div
                 className={cn(
-                    "fixed bottom-6 right-6 z-[100] w-[400px] h-[560px]",
+                    "fixed bottom-10 right-6 z-[100] w-[400px] h-[560px]",
                     "flex flex-col rounded-2xl shadow-2xl overflow-hidden",
                     "bg-background/95 backdrop-blur-xl border border-border/50",
                     "transition-all duration-300 origin-bottom-right",
