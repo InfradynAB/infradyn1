@@ -858,6 +858,7 @@ export function QualityNCRAnalyticsClient() {
                     <DropdownMenuCheckboxItem
                       key={column}
                       checked={visibleColumns.includes(column)}
+                      onSelect={(event) => event.preventDefault()}
                       onCheckedChange={(checked) => toggleColumn(column, checked === true)}
                     >
                       {prettyLabel(column)}

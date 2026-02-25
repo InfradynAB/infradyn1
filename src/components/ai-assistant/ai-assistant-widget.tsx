@@ -9,14 +9,11 @@
  */
 
 import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from "react";
-import { Sparkle, X, PaperPlaneTilt, Trash, CaretDown } from "@phosphor-icons/react";
+import { Sparkle, X, PaperPlaneTilt, Trash } from "@phosphor-icons/react";
 import { useAIChat } from "@/hooks/use-ai-chat";
 import { AIMessage } from "./ai-message";
 import { cn } from "@/lib/utils";
 
-// ============================================================================
-// Quick-start prompts (role-aware)
-// ============================================================================
 
 const PM_SUGGESTIONS = [
     "What's my project status?",
@@ -32,9 +29,6 @@ const SUPPLIER_SUGGESTIONS = [
     "How do I submit an invoice?",
 ];
 
-// ============================================================================
-// Props
-// ============================================================================
 
 interface AIAssistantWidgetProps {
     user: { name: string; role?: string };
@@ -42,9 +36,7 @@ interface AIAssistantWidgetProps {
     activeProjectId?: string | null;
 }
 
-// ============================================================================
-// Component
-// ============================================================================
+
 
 export function AIAssistantWidget({ user }: AIAssistantWidgetProps) {
     const [isOpen, setIsOpen] = useState(false);

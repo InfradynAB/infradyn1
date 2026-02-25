@@ -835,6 +835,7 @@ export function SupplierScorecardsClient() {
                     <DropdownMenuCheckboxItem
                       key={column}
                       checked={visibleColumns.includes(column)}
+                      onSelect={(event) => event.preventDefault()}
                       onCheckedChange={(checked) => toggleWorkspaceColumn(column, checked === true)}
                     >
                       {prettySupplierLabel(column)}
