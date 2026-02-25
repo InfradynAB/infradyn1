@@ -527,9 +527,33 @@ export function CommandSidebar({
                     </SidebarMenu>
                 )}
 
+                {!isCollapsed && (
+                    <SidebarMenu className="mb-3">
+                        <SidebarMenuItem>
+                            <SidebarMenuButton size="lg" asChild className="h-12 rounded-xl">
+                                <Link
+                                    href={isSupplier ? "/dashboard/supplier" : "/dashboard"}
+                                    className="flex items-center gap-2"
+                                >
+                                    <div className="flex h-9 items-center overflow-hidden">
+                                        <Image
+                                            src="/logos/logo.png"
+                                            alt="Infradyn"
+                                            width={120}
+                                            height={28}
+                                            className="h-7 w-auto object-contain"
+                                        />
+                                    </div>
+                                    <span className="text-xs font-medium uppercase tracking-wide text-sidebar-foreground/70">Materials</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+                )}
+
                 {/* Supplier Project Switcher */}
                 {isSiteReceiver && !isCollapsed && (
-                    <div className="px-2">
+                    <div className="mt-1 px-2">
                         <div className="flex h-10 w-full items-center gap-2 rounded-xl border border-sidebar-border/80 bg-sidebar-accent/40 px-3 text-sm">
                             <Package className="h-4 w-4 text-sidebar-foreground/60" />
                             <span className="font-medium text-sidebar-foreground/80 text-xs">Site Receiver Portal</span>
@@ -537,7 +561,7 @@ export function CommandSidebar({
                     </div>
                 )}
                 {isSupplier && !isCollapsed && supplierProjects.length > 0 && (
-                    <div className="px-2">
+                    <div className="mt-1 px-2">
                         <SupplierProjectSwitcher
                             projects={supplierProjects}
                             activeProjectId={activeSupplierProjectId ?? null}
@@ -547,7 +571,7 @@ export function CommandSidebar({
 
                 {/* Active Project Indicator (The "Uber" Context) */}
                 {!isSupplier && !isCollapsed && (
-                    <div className="px-2">
+                    <div className="mt-1 px-2">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <button
