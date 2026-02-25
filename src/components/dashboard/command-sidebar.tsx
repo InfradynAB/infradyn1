@@ -27,6 +27,7 @@ import {
     ShieldWarning,
     Target,
     CurrencyDollar,
+    Lifebuoy,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import {
@@ -184,6 +185,7 @@ const adminNav = [
 ];
 
 const accountNav = [
+    { title: "Support", url: "/dashboard/support", icon: Lifebuoy },
     { title: "Profile", url: "/dashboard/profile", icon: User },
     { title: "Settings", url: "/dashboard/settings", icon: Gear },
 ];

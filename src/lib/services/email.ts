@@ -6,6 +6,9 @@
 import { render } from "@react-email/render";
 import ChaseReminderEmail, { type ChaseReminderEmailProps } from "@/emails/chase-reminder-email";
 import EscalationEmail, { type EscalationEmailProps } from "@/emails/escalation-email";
+import TicketCreatedEmail, { type TicketCreatedEmailProps } from "@/emails/ticket-created-email";
+import TicketAdminNotifyEmail, { type TicketAdminNotifyEmailProps } from "@/emails/ticket-admin-notify-email";
+import TicketResponseEmail, { type TicketResponseEmailProps } from "@/emails/ticket-response-email";
 
 // Email configuration
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -219,4 +222,58 @@ export async function sendNCRCommentNotification(
 ): Promise<{ success: boolean; error?: string }> {
     const email = await buildNCRCommentEmail(data);
     return sendEmail({ ...email, to: recipientEmail });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Support Ticket Emails
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type TicketCreatedPayload = TicketCreatedEmailProps & { to: string };
+export type TicketAdminNotifyPayload = TicketAdminNotifyEmailProps & { to: string | string[] };
+export type TicketResponsePayload = TicketResponseEmailProps & { to: string };
+
+/**
+ * Send ticket-received confirmation to the user who raised it
+ */
+export async function sendTicketCreatedToUser(
+    payload: TicketCreatedPayload
+): Promise<{ success: boolean; error?: string }> {
+    const { to, ...props } = payload;
+    const html = await render(TicketCreatedEmail(props));
+    return sendEmail({
+        to,
+        subject: `Your support request ${props.ticketNumber} has been received`,
+        html,
+    });
+}
+
+/**
+ * Notify all super admins of a new ticket
+ */
+export async function sendTicketAdminNotify(
+    payload: TicketAdminNotifyPayload
+): Promise<{ success: boolean; error?: string }> {
+    const { to, ...props } = payload;
+    const html = await render(TicketAdminNotifyEmail(props));
+    const urgentPrefix = ["HIGH", "URGENT"].includes(props.priority) ? `[${props.priority}] ` : "";
+    return sendEmail({
+        to,
+        subject: `${urgentPrefix}New Support Ticket ${props.ticketNumber}: ${props.subject}`,
+        html,
+    });
+}
+
+/**
+ * Notify the ticket raiser that support has responded
+ */
+export async function sendTicketResponseToUser(
+    payload: TicketResponsePayload
+): Promise<{ success: boolean; error?: string }> {
+    const { to, ...props } = payload;
+    const html = await render(TicketResponseEmail(props));
+    return sendEmail({
+        to,
+        subject: `Support update on ${props.ticketNumber}: ${props.subject}`,
+        html,
+    });
 }

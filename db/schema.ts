@@ -33,6 +33,17 @@ export const commentParentTypeEnum = pgEnum('comment_parent_type', ['PO', 'SHIPM
 // Change Order Category for KPI breakdown
 export const coCategoryEnum = pgEnum('co_category', ['SCOPE', 'RATE', 'QUANTITY', 'SCHEDULE']);
 
+// Support Ticketing Enums
+export const supportTicketCategoryEnum = pgEnum('support_ticket_category', [
+    'TECHNICAL', 'BILLING', 'ACCESS_ISSUE', 'BUG_REPORT', 'DATA_ISSUE', 'FEATURE_REQUEST', 'GENERAL', 'OTHER'
+]);
+export const supportTicketStatusEnum = pgEnum('support_ticket_status', [
+    'OPEN', 'IN_PROGRESS', 'AWAITING_USER', 'RESOLVED', 'CLOSED'
+]);
+export const supportTicketPriorityEnum = pgEnum('support_ticket_priority', [
+    'LOW', 'MEDIUM', 'HIGH', 'URGENT'
+]);
+
 // Multi-provider logistics
 export const logisticsProviderEnum = pgEnum('logistics_provider', [
     'DHL_EXPRESS', 'DHL_FREIGHT', 'MAERSK', 'OTHER'
@@ -1408,4 +1419,49 @@ export const ncrAttachmentRelations = relations(ncrAttachment, ({ one }) => ({
 export const ncrMagicLinkRelations = relations(ncrMagicLink, ({ one }) => ({
     ncr: one(ncr, { fields: [ncrMagicLink.ncrId], references: [ncr.id] }),
     supplier: one(supplier, { fields: [ncrMagicLink.supplierId], references: [supplier.id] }),
+}));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUPPORT TICKETS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const supportTicket = pgTable('support_ticket', {
+    ...baseColumns,
+    ticketNumber: text('ticket_number').notNull(), // e.g. TKT-0001
+    raisedBy: text('raised_by').references(() => user.id).notNull(),
+    organizationId: uuid('organization_id').references(() => organization.id),
+    category: supportTicketCategoryEnum('category').notNull().default('GENERAL'),
+    priority: supportTicketPriorityEnum('priority').notNull().default('MEDIUM'),
+    status: supportTicketStatusEnum('status').notNull().default('OPEN'),
+    subject: text('subject').notNull(),
+    description: text('description').notNull(),
+    assignedTo: text('assigned_to').references(() => user.id),
+    resolvedAt: timestamp('resolved_at'),
+    closedAt: timestamp('closed_at'),
+    lastActivityAt: timestamp('last_activity_at').defaultNow().notNull(),
+});
+
+export const supportTicketMessage = pgTable('support_ticket_message', {
+    ...baseColumns,
+    ticketId: uuid('ticket_id').references(() => supportTicket.id).notNull(),
+    senderId: text('sender_id').references(() => user.id).notNull(),
+    content: text('content').notNull(),
+    isFromSupport: boolean('is_from_support').default(false).notNull(),
+    isInternal: boolean('is_internal').default(false).notNull(),
+    attachmentUrl: text('attachment_url'),
+    attachmentName: text('attachment_name'),
+    attachmentType: text('attachment_type'),
+});
+
+// Relations
+export const supportTicketRelations = relations(supportTicket, ({ one, many }) => ({
+    raiser: one(user, { fields: [supportTicket.raisedBy], references: [user.id], relationName: 'ticketRaiser' }),
+    assignee: one(user, { fields: [supportTicket.assignedTo], references: [user.id], relationName: 'ticketAssignee' }),
+    organization: one(organization, { fields: [supportTicket.organizationId], references: [organization.id] }),
+    messages: many(supportTicketMessage),
+}));
+
+export const supportTicketMessageRelations = relations(supportTicketMessage, ({ one }) => ({
+    ticket: one(supportTicket, { fields: [supportTicketMessage.ticketId], references: [supportTicket.id] }),
+    sender: one(user, { fields: [supportTicketMessage.senderId], references: [user.id] }),
 }));

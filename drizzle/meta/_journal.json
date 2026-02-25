@@ -29,6 +29,17 @@
       "when": 1771528528161,
       "tag": "0003_next_sphinx",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1740355200000,
+      "tag": "0004_support_tickets",
+      "breakpoints": true
+    }
+  ]
+}
+      "breakpoints": true
     }
   ]
 }
