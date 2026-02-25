@@ -173,7 +173,7 @@ export default async function SupplierDashboardPage() {
     ].filter(s => s.value > 0);
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8 pb-16">
+        <div className="w-full space-y-8 pb-16">
             {/* Onboarding Tour */}
             <OnboardingTourWrapper />
 

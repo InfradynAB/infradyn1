@@ -111,7 +111,7 @@ export default async function ReceiverDashboardPage() {
             : "Good evening";
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8 pb-16">
+        <div className="w-full space-y-8 pb-16">
             {/* ── HEADER ─────────────────────────────────────────────────────── */}
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div className="space-y-1">

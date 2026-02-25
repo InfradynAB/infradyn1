@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function FinanceDashboardPage() {
   return (
-    <div className="container mx-auto py-6 px-4 max-w-7xl">
+    <div className="w-full py-6">
       <CostPaymentDashboardClient />
     </div>
   );

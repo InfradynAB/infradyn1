@@ -54,7 +54,7 @@ export default function DeliveryCategoriesContent() {
     }
 
     return (
-        <div className="container mx-auto py-6 px-4 max-w-7xl space-y-6">
+        <div className="w-full py-6 space-y-6">
             {/* Header + project picker */}
             <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
