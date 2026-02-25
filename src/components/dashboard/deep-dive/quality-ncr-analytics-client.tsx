@@ -485,19 +485,18 @@ export function QualityNCRAnalyticsClient() {
         <Card className="md:col-span-1 lg:col-span-2">
           <CardHeader className="pb-2"><CardDescription>Open</CardDescription></CardHeader>
           <CardContent>
-            <span className="text-2xl font-bold text-amber-600">{kpis?.openNCRs}</span>
-            {kpis?.criticalOpen ? <Badge className="ml-2 bg-red-100 text-red-700">{kpis?.criticalOpen} critical</Badge> : null}
+            <span className="text-2xl font-bold">{kpis?.openNCRs}</span>
+            {kpis?.criticalOpen ? <Badge className="ml-2">{kpis?.criticalOpen} critical</Badge> : null}
           </CardContent>
         </Card>
         <Card className="md:col-span-1 lg:col-span-2">
           <CardHeader className="pb-2"><CardDescription>Overdue</CardDescription></CardHeader>
-          <CardContent><span className="text-2xl font-bold text-red-600">{kpis?.overdueNCRs}</span></CardContent>
+          <CardContent><span className="text-2xl font-bold">{kpis?.overdueNCRs}</span></CardContent>
         </Card>
         <Card className="md:col-span-1 lg:col-span-2">
           <CardHeader className="pb-2"><CardDescription>Avg Resolution</CardDescription></CardHeader>
           <CardContent>
             <div className="flex items-center gap-1">
-              <Clock className="h-4 w-4 text-muted-foreground" />
               <span className="text-2xl font-bold">{kpis?.avgResolutionTime}</span>
               <span className="text-sm text-muted-foreground">days</span>
             </div>

@@ -434,7 +434,6 @@ export function LogisticsTimelinesClient() {
           <CardHeader className="pb-2"><CardDescription>Active Shipments</CardDescription></CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Truck className="h-5 w-5 text-primary" />
               <span className="text-2xl font-bold">{kpis?.activeShipments}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">{kpis?.inTransit} in transit</p>
@@ -443,7 +442,7 @@ export function LogisticsTimelinesClient() {
         <Card>
           <CardHeader className="pb-2"><CardDescription>On-Time Rate</CardDescription></CardHeader>
           <CardContent>
-            <span className={cn("text-2xl font-bold", kpis!.onTimeRate >= 80 ? "text-emerald-600" : "text-amber-600")}>{kpis?.onTimeRate}%</span>
+            <span className="text-2xl font-bold">{kpis?.onTimeRate}%</span>
             <p className="text-xs text-muted-foreground mt-1">{kpis?.delivered} delivered this month</p>
           </CardContent>
         </Card>
@@ -451,8 +450,7 @@ export function LogisticsTimelinesClient() {
           <CardHeader className="pb-2"><CardDescription>Delayed</CardDescription></CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-              <span className="text-2xl font-bold text-red-600">{kpis?.delayed}</span>
+              <span className="text-2xl font-bold">{kpis?.delayed}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">shipments past ETA</p>
           </CardContent>

@@ -514,7 +514,7 @@ export function CostPaymentDashboardClient() {
             <CardDescription className="text-sm font-medium">Total Paid</CardDescription>
             <div>
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{kpis!.currency}</p>
-              <p className="text-[1.75rem] leading-none font-semibold font-mono tracking-tight text-emerald-600">{fmtAmount(kpis!.totalPaid)}</p>
+              <p className="text-[1.75rem] leading-none font-semibold font-mono tracking-tight">{fmtAmount(kpis!.totalPaid)}</p>
               <p className="text-xs text-muted-foreground mt-1">{kpis!.budgetUtilization}% utilization</p>
             </div>
           </CardContent>
@@ -525,7 +525,7 @@ export function CostPaymentDashboardClient() {
             <CardDescription className="text-sm font-medium">Pending</CardDescription>
             <div>
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{kpis!.currency}</p>
-              <p className="text-[1.75rem] leading-none font-semibold font-mono tracking-tight text-amber-600">{fmtAmount(kpis!.totalPending)}</p>
+              <p className="text-[1.75rem] leading-none font-semibold font-mono tracking-tight">{fmtAmount(kpis!.totalPending)}</p>
               <p className="text-xs text-muted-foreground mt-1">{kpis!.invoicesPending} invoices</p>
             </div>
           </CardContent>
@@ -536,7 +536,7 @@ export function CostPaymentDashboardClient() {
             <CardDescription className="text-sm font-medium">Overdue</CardDescription>
             <div>
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{kpis!.currency}</p>
-              <p className="text-[1.75rem] leading-none font-semibold font-mono tracking-tight text-red-600">{fmtAmount(kpis!.totalOverdue)}</p>
+              <p className="text-[1.75rem] leading-none font-semibold font-mono tracking-tight">{fmtAmount(kpis!.totalOverdue)}</p>
             </div>
           </CardContent>
         </Card>

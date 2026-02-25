@@ -436,18 +436,14 @@ export function SupplierScorecardsClient() {
         <Card>
           <CardHeader className="pb-2"><CardDescription>Total Suppliers</CardDescription></CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              <span className="text-2xl font-bold">{suppliers.length}</span>
-            </div>
+            <span className="text-2xl font-bold">{suppliers.length}</span>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardDescription>Avg Reliability Score</CardDescription></CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Star className="h-5 w-5 text-amber-500" />
-              <span className={cn("text-2xl font-bold", getScoreColor(avgScore))}>{avgScore}</span>
+              <span className="text-2xl font-bold">{avgScore}</span>
               <span className="text-sm text-muted-foreground">/ 100</span>
             </div>
           </CardContent>
@@ -456,8 +452,7 @@ export function SupplierScorecardsClient() {
           <CardHeader className="pb-2"><CardDescription>Excellent Performers</CardDescription></CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              <span className="text-2xl font-bold text-emerald-600">{excellentCount}</span>
+              <span className="text-2xl font-bold">{excellentCount}</span>
               <span className="text-sm text-muted-foreground">score &ge; 80</span>
             </div>
           </CardContent>
@@ -466,8 +461,7 @@ export function SupplierScorecardsClient() {
           <CardHeader className="pb-2"><CardDescription>At Risk</CardDescription></CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-              <span className="text-2xl font-bold text-red-600">{atRiskCount}</span>
+              <span className="text-2xl font-bold">{atRiskCount}</span>
               <span className="text-sm text-muted-foreground">score &lt; 60</span>
             </div>
           </CardContent>
