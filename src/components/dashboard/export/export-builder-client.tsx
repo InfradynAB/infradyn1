@@ -4,16 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Download, ArrowLeft, FileCsv, FileXls, FilePdf, FileDoc, ChartBar, Table, CheckSquare, UsersThree } from "@phosphor-icons/react";
+import { endOfDay, format as formatDate, startOfDay, subDays } from "date-fns";
+import type { DateRange } from "react-day-picker";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { DatePicker } from "@/components/ui/date-picker";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { exportTabularData } from "@/lib/export-engine";
 import type { ExportChartImage } from "@/lib/export-engine";
 import type { DashboardExportData } from "@/lib/utils/excel-export";
@@ -65,7 +67,21 @@ const MODULES_BY_SOURCE: Record<DashboardSource, ExportModule[]> = {
 
 const SUPPORTED_EXPORT_SOURCES: DashboardSource[] = ["executive", "pm", "supplier"];
 
+type TimelinePreset = "all" | "yesterday" | "3d" | "7d" | "15d" | "30d" | "90d" | "custom";
+
+const TIMELINE_PRESETS: Array<{ value: TimelinePreset; label: string }> = [
+    { value: "all", label: "All Time" },
+    { value: "yesterday", label: "Yesterday" },
+    { value: "3d", label: "Last 3 days" },
+    { value: "7d", label: "Last 7 days" },
+    { value: "15d", label: "Last 15 days" },
+    { value: "30d", label: "Last 30 days" },
+    { value: "90d", label: "Last 90 days" },
+    { value: "custom", label: "Custom" },
+];
+
 type SupplierOption = { id: string; name: string };
+type ProjectOption = { id: string; name: string };
 
 function fmtNumber(value: unknown): string {
     const num = Number(value) || 0;
@@ -322,7 +338,9 @@ export function ExportBuilderClient({ userRole }: ExportBuilderClientProps) {
     const [supplierScope, setSupplierScope] = useState<"self" | "all" | "single">(userRole === "SUPPLIER" ? "self" : "all");
     const [selectedSupplierId, setSelectedSupplierId] = useState("");
     const [supplierOptions, setSupplierOptions] = useState<SupplierOption[]>([]);
+    const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
     const [exporting, setExporting] = useState(false);
+    const [timelineOpen, setTimelineOpen] = useState(false);
 
     useEffect(() => {
         if (timeframe !== "custom") return;
@@ -331,6 +349,100 @@ export function ExportBuilderClient({ userRole }: ExportBuilderClientProps) {
         setCustomTo((prev) => prev ?? now);
         setCustomFrom(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
     }, [customFrom, timeframe]);
+
+    const formatTimelineLabel = () => {
+        if (timeframe === "all") return "All Time";
+        if (timeframe === "7d") return "Last 7 days";
+        if (timeframe === "30d") return "Last 30 days";
+        if (timeframe === "90d") return "Last 90 days";
+        if (timeframe === "custom") {
+            if (!customFrom) return "Custom";
+            const fromText = formatDate(customFrom, "MMM d, yyyy");
+            const toText = customTo ? formatDate(customTo, "MMM d, yyyy") : "Today";
+            return `${fromText} → ${toText}`;
+        }
+        return "All Time";
+    };
+
+    const isMatchingRelativeCustom = (days: number) => {
+        if (timeframe !== "custom" || !customFrom || !customTo) return false;
+        const today = startOfDay(new Date());
+        const expectedFrom = startOfDay(subDays(today, days - 1));
+        return startOfDay(customFrom).getTime() === expectedFrom.getTime() && startOfDay(customTo).getTime() === today.getTime();
+    };
+
+    const isMatchingYesterday = () => {
+        if (timeframe !== "custom" || !customFrom || !customTo) return false;
+        const yesterday = startOfDay(subDays(new Date(), 1));
+        return startOfDay(customFrom).getTime() === yesterday.getTime() && startOfDay(customTo).getTime() === yesterday.getTime();
+    };
+
+    const isPresetActive = (preset: TimelinePreset) => {
+        if (preset === "all") return timeframe === "all";
+        if (preset === "7d") return timeframe === "7d" || isMatchingRelativeCustom(7);
+        if (preset === "30d") return timeframe === "30d" || isMatchingRelativeCustom(30);
+        if (preset === "90d") return timeframe === "90d" || isMatchingRelativeCustom(90);
+        if (preset === "3d") return isMatchingRelativeCustom(3);
+        if (preset === "15d") return isMatchingRelativeCustom(15);
+        if (preset === "yesterday") return isMatchingYesterday();
+        if (preset === "custom") {
+            if (timeframe !== "custom") return false;
+            return !isMatchingYesterday() && !isMatchingRelativeCustom(3) && !isMatchingRelativeCustom(7) && !isMatchingRelativeCustom(15) && !isMatchingRelativeCustom(30) && !isMatchingRelativeCustom(90);
+        }
+        return false;
+    };
+
+    const applyTimelinePreset = (preset: TimelinePreset) => {
+        const today = new Date();
+        const todayStart = startOfDay(today);
+        const toToday = endOfDay(todayStart);
+
+        if (preset === "all") {
+            setTimeframe("all");
+            setCustomFrom(undefined);
+            setCustomTo(undefined);
+            setTimelineOpen(false);
+            return;
+        }
+
+        if (preset === "7d" || preset === "30d" || preset === "90d") {
+            setTimeframe(preset);
+            setCustomFrom(undefined);
+            setCustomTo(undefined);
+            setTimelineOpen(false);
+            return;
+        }
+
+        if (preset === "custom") {
+            setTimeframe("custom");
+            if (!customFrom) {
+                setCustomFrom(startOfDay(subDays(todayStart, 6)));
+                setCustomTo(toToday);
+            }
+            return;
+        }
+
+        if (preset === "yesterday") {
+            const yesterday = startOfDay(subDays(todayStart, 1));
+            setTimeframe("custom");
+            setCustomFrom(yesterday);
+            setCustomTo(endOfDay(yesterday));
+            setTimelineOpen(false);
+            return;
+        }
+
+        const days = preset === "3d" ? 3 : 15;
+        setTimeframe("custom");
+        setCustomFrom(startOfDay(subDays(todayStart, days - 1)));
+        setCustomTo(toToday);
+        setTimelineOpen(false);
+    };
+
+    const handleTimelineRangeSelect = (range: DateRange | undefined) => {
+        setTimeframe("custom");
+        setCustomFrom(range?.from ? startOfDay(range.from) : undefined);
+        setCustomTo(range?.to ? endOfDay(range.to) : undefined);
+    };
 
     const unsupportedSource = !SUPPORTED_EXPORT_SOURCES.includes(source);
     const roleAllowedSources = useMemo(() => {
@@ -392,6 +504,33 @@ export function ExportBuilderClient({ userRole }: ExportBuilderClientProps) {
             mounted = false;
         };
     }, [source, userRole]);
+
+    useEffect(() => {
+        let mounted = true;
+
+        const loadProjects = async () => {
+            try {
+                const response = await fetch("/api/projects/list");
+                if (!response.ok) return;
+                const payload = await response.json() as {
+                    success?: boolean;
+                    data?: { projects?: Array<{ id: string; name: string }> };
+                };
+                if (!mounted || !payload.success) return;
+                setProjectOptions((payload.data?.projects || []).map((projectRow) => ({
+                    id: projectRow.id,
+                    name: projectRow.name,
+                })));
+            } catch {
+                setProjectOptions([]);
+            }
+        };
+
+        loadProjects();
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     const toggleSection = (sectionId: string, checked: boolean) => {
         setSelectedModules((prev) => {
@@ -600,46 +739,71 @@ export function ExportBuilderClient({ userRole }: ExportBuilderClientProps) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="timeframe">Timeframe</Label>
-                            <Select value={timeframe} onValueChange={setTimeframe}>
-                                <SelectTrigger id="timeframe"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Time</SelectItem>
-                                    <SelectItem value="7d">Last 7 Days</SelectItem>
-                                    <SelectItem value="30d">Last 30 Days</SelectItem>
-                                    <SelectItem value="90d">Last 90 Days</SelectItem>
-                                    <SelectItem value="custom">Custom</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Label htmlFor="timeline">Timeline</Label>
+                            <Popover open={timelineOpen} onOpenChange={setTimelineOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button id="timeline" variant="outline" className="w-full justify-between font-normal">
+                                        <span>{formatTimelineLabel()}</span>
+                                        <span className="text-muted-foreground">▾</span>
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <div className="flex">
+                                        <div className="w-44 border-r p-2">
+                                            {TIMELINE_PRESETS.map((preset) => {
+                                                const active = isPresetActive(preset.value);
+                                                return (
+                                                    <button
+                                                        key={preset.value}
+                                                        type="button"
+                                                        onClick={() => applyTimelinePreset(preset.value)}
+                                                        className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm ${active ? "bg-accent text-accent-foreground" : "hover:bg-accent/60"}`}
+                                                    >
+                                                        <span>{preset.label}</span>
+                                                        {active && <span>✓</span>}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <div className="p-2">
+                                            <Calendar
+                                                mode="range"
+                                                selected={{ from: customFrom, to: customTo }}
+                                                onSelect={handleTimelineRangeSelect}
+                                                numberOfMonths={1}
+                                                initialFocus
+                                            />
+                                        </div>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                            {timeframe === "custom" && (
+                                <p className="text-xs text-muted-foreground">
+                                    {customFrom
+                                        ? `From ${formatDate(customFrom, "yyyy/MM/dd")} to ${formatDate(customTo ?? new Date(), "yyyy/MM/dd")}`
+                                        : "Pick a date range"}
+                                </p>
+                            )}
                         </div>
-
-                        {timeframe === "custom" && (
-                            <div className="space-y-2 lg:col-span-3">
-                                <Label>Custom Dates</Label>
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    <DatePicker
-                                        value={customFrom}
-                                        onChange={setCustomFrom}
-                                        placeholder="From (yyyy/mm/dd)"
-                                    />
-                                    <DatePicker
-                                        value={customTo}
-                                        onChange={setCustomTo}
-                                        placeholder="To (yyyy/mm/dd)"
-                                    />
-                                </div>
-                                <p className="text-xs text-muted-foreground">If To is blank, export runs until today.</p>
-                            </div>
-                        )}
 
                         <div className="space-y-2">
                             <Label htmlFor="projectId">Project ID (optional)</Label>
-                            <Input
-                                id="projectId"
-                                placeholder="All projects"
-                                value={projectId}
-                                onChange={(event) => setProjectId(event.target.value)}
-                            />
+                            <Select
+                                value={projectId || "__all__"}
+                                onValueChange={(value) => setProjectId(value === "__all__" ? "" : value)}
+                            >
+                                <SelectTrigger id="projectId">
+                                    <SelectValue placeholder="All projects" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__all__">All projects</SelectItem>
+                                    {projectOptions.map((projectRow) => (
+                                        <SelectItem key={projectRow.id} value={projectRow.id}>
+                                            {projectRow.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
 
