@@ -28,6 +28,7 @@ import {
     Target,
     CurrencyDollar,
     Lifebuoy,
+    ListBullets,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import {
@@ -128,7 +129,13 @@ const financialsNav = [
             { title: "Purchase Orders", url: "/dashboard/procurement", icon: FileText },
             { title: "New Purchase Order", url: "/dashboard/procurement/new", icon: FileText },
             { title: "Upload Document", url: "/dashboard/procurement/new?step=upload", icon: FileArrowUp },
+            { title: "BOQ Tracker", url: "/dashboard/boq", icon: ListBullets },
         ],
+    },
+    {
+        title: "BOQ Tracker",
+        url: "/dashboard/boq",
+        icon: ListBullets,
     },
     {
         title: "Invoices",

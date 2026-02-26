@@ -112,6 +112,11 @@ const items: MenuItem[] = [
         icon: FileTextIcon,
     },
     {
+        title: "BOQ Tracker",
+        url: "/dashboard/boq",
+        icon: ListBulletsIcon,
+    },
+    {
         title: "Suppliers",
         url: "/dashboard/suppliers",
         icon: TruckIcon,

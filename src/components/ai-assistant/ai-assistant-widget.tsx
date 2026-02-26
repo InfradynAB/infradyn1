@@ -222,7 +222,7 @@ function WelcomeView({
 }) {
     return (
         <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-700/20 to-cyan-600/20 flex items-center justify-center mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-linear-to-br from-cyan-700/20 to-cyan-600/20 flex items-center justify-center mb-4">
                 <Sparkle className="w-7 h-7 text-cyan-700" weight="fill" />
             </div>
             <h4 className="font-semibold text-lg mb-1">

@@ -29,6 +29,14 @@ export const etaConfidenceEnum = pgEnum('eta_confidence', ['HIGH', 'MEDIUM', 'LO
 export const conflictSeverityEnum = pgEnum('conflict_severity', ['LOW', 'MEDIUM', 'HIGH']);
 export const qaTaskStatusEnum = pgEnum('qa_task_status', ['PENDING', 'IN_PROGRESS', 'PASSED', 'FAILED', 'WAIVED']);
 export const commentParentTypeEnum = pgEnum('comment_parent_type', ['PO', 'SHIPMENT', 'DELIVERY', 'QA_TASK', 'INVOICE']);
+export const boqDeliveryBatchStatusEnum = pgEnum('boq_delivery_batch_status', [
+    'PENDING',
+    'IN_TRANSIT',
+    'PARTIALLY_DELIVERED',
+    'DELIVERED',
+    'LATE',
+    'CANCELLED',
+]);
 
 // Change Order Category for KPI breakdown
 export const coCategoryEnum = pgEnum('co_category', ['SCOPE', 'RATE', 'QUANTITY', 'SCHEDULE']);
@@ -283,7 +291,9 @@ export const boqItem = pgTable('boq_item', {
     totalPrice: numeric('total_price').notNull(),
     // Phase 2 additions - ROS (Required On Site)
     rosDate: timestamp('ros_date'), // Required on site date
+    requiredByDate: timestamp('required_by_date'), // Date-driven delivery target (AOS/ROS)
     isCritical: boolean('is_critical').default(false), // Critical material flag
+    criticality: text('criticality').default('BUFFERED'), // BUFFERED | JUST_IN_TIME
     rosStatus: text('ros_status').default('NOT_SET'), // NOT_SET, SET, TBD
     // Phase 6 additions - Delivery tracking
     quantityDelivered: numeric('quantity_delivered').default('0'),
@@ -300,7 +310,25 @@ export const boqItem = pgTable('boq_item', {
     // Delivery Analytics Categorization — Phase: Material Delivery Categories
     discipline: text('discipline'),      // L1: GROUNDWORKS | STRUCTURAL | ENVELOPE | ARCHITECTURAL | MEP | EXTERNAL
     materialClass: text('material_class'), // L2: e.g. 'Reinforcement', 'HVAC', 'Roofing'
+    scheduleActivityRef: text('schedule_activity_ref'), // Example: A107 - Pile caps
+    scheduleDaysAtRisk: integer('schedule_days_at_risk').default(0),
 });
+
+export const boqDeliveryBatch = pgTable('boq_delivery_batch', {
+    ...baseColumns,
+    boqItemId: uuid('boq_item_id').references(() => boqItem.id).notNull(),
+    linkedPoId: uuid('linked_po_id').references(() => purchaseOrder.id),
+    batchLabel: text('batch_label').notNull(),
+    expectedDate: timestamp('expected_date'),
+    actualDate: timestamp('actual_date'),
+    quantityExpected: numeric('quantity_expected').default('0').notNull(),
+    quantityDelivered: numeric('quantity_delivered').default('0').notNull(),
+    status: boqDeliveryBatchStatusEnum('status').default('PENDING').notNull(),
+    notes: text('notes'),
+}, (t) => ({
+    boqItemIdx: index('boq_delivery_batch_boq_item_idx').on(t.boqItemId),
+    linkedPoIdx: index('boq_delivery_batch_linked_po_idx').on(t.linkedPoId),
+}));
 
 
 export const milestone = pgTable('milestone', {
@@ -1149,6 +1177,12 @@ export const poVersionRelations = relations(poVersion, ({ one }) => ({
 export const boqItemRelations = relations(boqItem, ({ one, many }) => ({
     purchaseOrder: one(purchaseOrder, { fields: [boqItem.purchaseOrderId], references: [purchaseOrder.id] }),
     deliveryItems: many(deliveryItem),
+    deliveryBatches: many(boqDeliveryBatch),
+}));
+
+export const boqDeliveryBatchRelations = relations(boqDeliveryBatch, ({ one }) => ({
+    boqItem: one(boqItem, { fields: [boqDeliveryBatch.boqItemId], references: [boqItem.id] }),
+    linkedPo: one(purchaseOrder, { fields: [boqDeliveryBatch.linkedPoId], references: [purchaseOrder.id] }),
 }));
 
 export const milestoneRelations = relations(milestone, ({ one, many }) => ({
