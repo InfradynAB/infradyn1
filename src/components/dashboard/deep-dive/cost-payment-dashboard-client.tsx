@@ -467,21 +467,21 @@ export function CostPaymentDashboardClient() {
 
   const BUD_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (r: BudgetVarianceRow) => ReactNode }> = {
     category: { label: "Category", cell: (r) => <span className="font-medium">{r.category}</span> },
-    planned: { label: "Planned", hCls: "text-right", cCls: "text-right font-mono", cell: (r) => fmt(r.planned) },
-    actual: { label: "Actual", hCls: "text-right", cCls: "text-right font-mono", cell: (r) => fmt(r.actual) },
-    variance: { label: "Variance", hCls: "text-right", cCls: "text-right", cell: (r) => (<span className={cn("font-mono font-semibold", r.variance >= 0 ? "text-emerald-600" : "text-red-600")}>{r.variance >= 0 ? "+" : ""}{fmt(r.variance)} ({r.variancePercent > 0 ? "+" : ""}{r.variancePercent}%)</span>) },
+    planned: { label: "Planned", hCls: "text-right", cCls: "text-right font-sans tabular-nums", cell: (r) => fmt(r.planned) },
+    actual: { label: "Actual", hCls: "text-right", cCls: "text-right font-sans tabular-nums", cell: (r) => fmt(r.actual) },
+    variance: { label: "Variance", hCls: "text-right", cCls: "text-right", cell: (r) => (<span className={cn("font-sans font-semibold tabular-nums", r.variance >= 0 ? "text-emerald-600" : "text-red-600")}>{r.variance >= 0 ? "+" : ""}{fmt(r.variance)} ({r.variancePercent > 0 ? "+" : ""}{r.variancePercent}%)</span>) },
   };
 
   const INV_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (inv: InvoiceRow) => ReactNode }> = {
-    invoiceNum: { label: "Invoice #", cell: (inv) => <span className="font-mono font-semibold text-primary">{inv.invoiceNumber}</span> },
+    invoiceNum: { label: "Invoice #", cell: (inv) => <span className="font-sans font-semibold text-primary">{inv.invoiceNumber}</span> },
     po: { label: "PO", cell: (inv) => <span className="text-sm">{inv.poNumber}</span> },
     supplier: { label: "Supplier", cell: (inv) => <span className="text-sm">{inv.supplierName}</span> },
     project: { label: "Project", cell: (inv) => <span className="text-sm">{inv.projectName}</span> },
-    amount: { label: "Amount", hCls: "text-right", cCls: "text-right font-mono font-semibold", cell: (inv) => `${inv.currency} ${inv.amount.toLocaleString()}` },
+    amount: { label: "Amount", hCls: "text-right", cCls: "text-right font-sans tabular-nums font-semibold", cell: (inv) => `${inv.currency} ${inv.amount.toLocaleString()}` },
     status: { label: "Status", cell: (inv) => <Badge className={STATUS_COLORS[inv.status]}>{inv.status.replace("_", " ")}</Badge> },
     submitted: { label: "Submitted", cell: (inv) => <span className="text-sm text-muted-foreground">{inv.submittedDate}</span> },
     due: { label: "Due Date", cell: (inv) => <span className="text-sm">{inv.dueDate}</span> },
-    days: { label: "Days", cell: (inv) => inv.paidDate ? <span className="text-emerald-600 text-sm">Paid {inv.paidDate}</span> : <span className={cn("font-mono text-sm", inv.daysPending > 30 ? "text-red-600 font-semibold" : "")}>{inv.daysPending}d</span> },
+    days: { label: "Days", cell: (inv) => inv.paidDate ? <span className="text-emerald-600 text-sm">Paid {inv.paidDate}</span> : <span className={cn("font-sans text-sm", inv.daysPending > 30 ? "text-red-600 font-semibold" : "")}>{inv.daysPending}d</span> },
   };
 
   return (
@@ -504,7 +504,7 @@ export function CostPaymentDashboardClient() {
             <CardDescription className="text-sm font-medium">Total Committed</CardDescription>
             <div>
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{kpis!.currency}</p>
-              <p className="text-[1.75rem] leading-none font-semibold font-mono tracking-tight">{fmtAmount(kpis!.totalCommitted)}</p>
+              <p className="text-[1.75rem] leading-none font-semibold font-sans tabular-nums tracking-tight">{fmtAmount(kpis!.totalCommitted)}</p>
             </div>
           </CardContent>
         </Card>
@@ -514,7 +514,7 @@ export function CostPaymentDashboardClient() {
             <CardDescription className="text-sm font-medium">Total Paid</CardDescription>
             <div>
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{kpis!.currency}</p>
-              <p className="text-[1.75rem] leading-none font-semibold font-mono tracking-tight">{fmtAmount(kpis!.totalPaid)}</p>
+              <p className="text-[1.75rem] leading-none font-semibold font-sans tabular-nums tracking-tight">{fmtAmount(kpis!.totalPaid)}</p>
               <p className="text-xs text-muted-foreground mt-1">{kpis!.budgetUtilization}% utilization</p>
             </div>
           </CardContent>
@@ -525,7 +525,7 @@ export function CostPaymentDashboardClient() {
             <CardDescription className="text-sm font-medium">Pending</CardDescription>
             <div>
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{kpis!.currency}</p>
-              <p className="text-[1.75rem] leading-none font-semibold font-mono tracking-tight">{fmtAmount(kpis!.totalPending)}</p>
+              <p className="text-[1.75rem] leading-none font-semibold font-sans tabular-nums tracking-tight">{fmtAmount(kpis!.totalPending)}</p>
               <p className="text-xs text-muted-foreground mt-1">{kpis!.invoicesPending} invoices</p>
             </div>
           </CardContent>
@@ -536,7 +536,7 @@ export function CostPaymentDashboardClient() {
             <CardDescription className="text-sm font-medium">Overdue</CardDescription>
             <div>
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{kpis!.currency}</p>
-              <p className="text-[1.75rem] leading-none font-semibold font-mono tracking-tight">{fmtAmount(kpis!.totalOverdue)}</p>
+              <p className="text-[1.75rem] leading-none font-semibold font-sans tabular-nums tracking-tight">{fmtAmount(kpis!.totalOverdue)}</p>
             </div>
           </CardContent>
         </Card>
@@ -589,217 +589,217 @@ export function CostPaymentDashboardClient() {
       {workspaceMode === "analytics" ? (
         <>
 
-      {/* Cash Flow + Invoice Aging */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" />Cash Flow Projection</CardTitle>
-            <CardDescription>Monthly incoming vs outgoing (6 months)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={cashFlow}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v: number) => fmt(v)} />
-                  <Legend />
-                  <Area type="monotone" dataKey="incoming" stroke="#22C55E" fill="#22C55E" fillOpacity={0.1} name="Incoming" />
-                  <Area type="monotone" dataKey="outgoing" stroke="#EF4444" fill="#EF4444" fillOpacity={0.1} name="Outgoing" />
-                  <Line type="monotone" dataKey="cumulative" stroke="#6366F1" strokeWidth={2} name="Net Position" dot={{ r: 4 }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" />Invoice Aging</CardTitle>
-            <CardDescription>Outstanding invoices by age bucket</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={agingBuckets}>
-                  <XAxis dataKey="bucket" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v: number) => fmt(v)} />
-                  <Bar dataKey="value" fill="#6366F1" name="Value" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-4 grid grid-cols-4 gap-2">
-              {agingBuckets.map((b) => (
-                <div key={b.bucket} className="text-center p-2 rounded-lg bg-muted/50">
-                  <p className="text-xs text-muted-foreground">{b.bucket.split(" ")[0]}</p>
-                  <p className="font-bold">{b.count}</p>
+          {/* Cash Flow + Invoice Aging */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" />Cash Flow Projection</CardTitle>
+                <CardDescription>Monthly incoming vs outgoing (6 months)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={cashFlow}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                      <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                      <Tooltip formatter={(v: number) => fmt(v)} />
+                      <Legend />
+                      <Area type="monotone" dataKey="incoming" stroke="#22C55E" fill="#22C55E" fillOpacity={0.1} name="Incoming" />
+                      <Area type="monotone" dataKey="outgoing" stroke="#EF4444" fill="#EF4444" fillOpacity={0.1} name="Outgoing" />
+                      <Line type="monotone" dataKey="cumulative" stroke="#6366F1" strokeWidth={2} name="Net Position" dot={{ r: 4 }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              </CardContent>
+            </Card>
 
-      {/* Budget Variance */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />Budget Variance Analysis</CardTitle>
-          <CardDescription>Planned vs actual spend by category</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={budgetVariance} margin={{ left: 20 }}>
-                <XAxis dataKey="category" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v: number) => fmt(v)} />
-                <Legend />
-                <Bar dataKey="planned" fill="#6366F1" name="Planned" radius={[4, 4, 0, 0]} opacity={0.6} />
-                <Bar dataKey="actual" fill="#EC4899" name="Actual" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  {budCols.map((col) => (
-                    <TableHead
-                      key={col}
-                      draggable
-                      onDragStart={() => setDragCol(col)}
-                      onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
-                      onDragEnd={() => { if (dragCol && dragOverCol && dragCol !== dragOverCol) reorderCols(budCols, dragCol, dragOverCol, setBudCols); setDragCol(null); setDragOverCol(null); }}
-                      className={cn(BUD_DEF[col].hCls, "cursor-grab active:cursor-grabbing select-none", dragCol === col && "opacity-40 bg-muted/60", dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
-                    >
-                      <div className="flex items-center gap-1">
-                        <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
-                        {BUD_DEF[col].label}
-                      </div>
-                    </TableHead>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" />Invoice Aging</CardTitle>
+                <CardDescription>Outstanding invoices by age bucket</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={agingBuckets}>
+                      <XAxis dataKey="bucket" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                      <Tooltip formatter={(v: number) => fmt(v)} />
+                      <Bar dataKey="value" fill="#6366F1" name="Value" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-4 grid grid-cols-4 gap-2">
+                  {agingBuckets.map((b) => (
+                    <div key={b.bucket} className="text-center p-2 rounded-lg bg-muted/50">
+                      <p className="text-xs text-muted-foreground">{b.bucket.split(" ")[0]}</p>
+                      <p className="font-bold">{b.count}</p>
+                    </div>
                   ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {budgetVariance.map((r) => (
-                  <TableRow key={r.category}>
-                    {budCols.map((col) => (
-                      <TableCell key={col} className={BUD_DEF[col].cCls}>{BUD_DEF[col].cell(r)}</TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Payment Cycle by Supplier */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Payment Cycle by Supplier</CardTitle>
-          <CardDescription>Average days to payment and on-time rate</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={paymentCycle} layout="vertical" margin={{ left: 160 }}>
-                <XAxis type="number" tick={{ fontSize: 11 }} label={{ value: "Avg Days", position: "insideBottom", offset: -5, style: { fontSize: 11 } }} />
-                <YAxis type="category" dataKey="supplierName" tick={{ fontSize: 11 }} width={160} />
-                <Tooltip />
-                <Bar dataKey="avgDays" name="Avg Pay Days" radius={[0, 4, 4, 0]}>
-                  {paymentCycle.map((entry, index) => (
-                    <rect key={`cell-${index}`} fill={entry.avgDays <= 30 ? "#22C55E" : entry.avgDays <= 45 ? "#F59E0B" : "#EF4444"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Invoice List with Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Invoice Register</CardTitle>
-          <CardDescription>All invoices across projects</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search invoice # or PO..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="APPROVED">Approved</SelectItem>
-                <SelectItem value="PAID">Paid</SelectItem>
-                <SelectItem value="OVERDUE">Overdue</SelectItem>
-                <SelectItem value="PARTIALLY_PAID">Partially Paid</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="Supplier" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Suppliers</SelectItem>
-                {uniqueSuppliers.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={projectFilter} onValueChange={setProjectFilter}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="Project" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Projects</SelectItem>
-                {uniqueProjects.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Button variant={overdueOnly ? "default" : "outline"} size="sm" onClick={() => setOverdueOnly(!overdueOnly)}>
-              <AlertTriangle className="h-3 w-3 mr-1" />Overdue Only
-            </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          <div className="rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  {invCols.map((col) => (
-                    <TableHead
-                      key={col}
-                      draggable
-                      onDragStart={() => setDragCol(col)}
-                      onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
-                      onDragEnd={() => { if (dragCol && dragOverCol && dragCol !== dragOverCol) reorderCols(invCols, dragCol, dragOverCol, setInvCols); setDragCol(null); setDragOverCol(null); }}
-                      className={cn(INV_DEF[col].hCls, "cursor-grab active:cursor-grabbing select-none", dragCol === col && "opacity-40 bg-muted/60", dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
-                    >
-                      <div className="flex items-center gap-1">
-                        <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
-                        {INV_DEF[col].label}
-                      </div>
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredInvoices.length === 0 ? (
-                  <TableRow><TableCell colSpan={invCols.length} className="text-center py-8 text-muted-foreground">No invoices match your filters</TableCell></TableRow>
-                ) : (
-                  filteredInvoices.map((inv) => (
-                    <TableRow key={inv.id} className="hover:bg-muted/50">
-                      {invCols.map((col) => (
-                        <TableCell key={col} className={INV_DEF[col].cCls}>{INV_DEF[col].cell(inv)}</TableCell>
+          {/* Budget Variance */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />Budget Variance Analysis</CardTitle>
+              <CardDescription>Planned vs actual spend by category</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={budgetVariance} margin={{ left: 20 }}>
+                    <XAxis dataKey="category" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(v: number) => fmt(v)} />
+                    <Legend />
+                    <Bar dataKey="planned" fill="#6366F1" name="Planned" radius={[4, 4, 0, 0]} opacity={0.6} />
+                    <Bar dataKey="actual" fill="#EC4899" name="Actual" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-4 rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      {budCols.map((col) => (
+                        <TableHead
+                          key={col}
+                          draggable
+                          onDragStart={() => setDragCol(col)}
+                          onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                          onDragEnd={() => { if (dragCol && dragOverCol && dragCol !== dragOverCol) reorderCols(budCols, dragCol, dragOverCol, setBudCols); setDragCol(null); setDragOverCol(null); }}
+                          className={cn(BUD_DEF[col].hCls, "cursor-grab active:cursor-grabbing select-none", dragCol === col && "opacity-40 bg-muted/60", dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
+                        >
+                          <div className="flex items-center gap-1">
+                            <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                            {BUD_DEF[col].label}
+                          </div>
+                        </TableHead>
                       ))}
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {budgetVariance.map((r) => (
+                      <TableRow key={r.category}>
+                        {budCols.map((col) => (
+                          <TableCell key={col} className={BUD_DEF[col].cCls}>{BUD_DEF[col].cell(r)}</TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Payment Cycle by Supplier */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment Cycle by Supplier</CardTitle>
+              <CardDescription>Average days to payment and on-time rate</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={paymentCycle} layout="vertical" margin={{ left: 160 }}>
+                    <XAxis type="number" tick={{ fontSize: 11 }} label={{ value: "Avg Days", position: "insideBottom", offset: -5, style: { fontSize: 11 } }} />
+                    <YAxis type="category" dataKey="supplierName" tick={{ fontSize: 11 }} width={160} />
+                    <Tooltip />
+                    <Bar dataKey="avgDays" name="Avg Pay Days" radius={[0, 4, 4, 0]}>
+                      {paymentCycle.map((entry, index) => (
+                        <rect key={`cell-${index}`} fill={entry.avgDays <= 30 ? "#22C55E" : entry.avgDays <= 45 ? "#F59E0B" : "#EF4444"} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Invoice List with Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Invoice Register</CardTitle>
+              <CardDescription>All invoices across projects</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Search invoice # or PO..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="PENDING">Pending</SelectItem>
+                    <SelectItem value="APPROVED">Approved</SelectItem>
+                    <SelectItem value="PAID">Paid</SelectItem>
+                    <SelectItem value="OVERDUE">Overdue</SelectItem>
+                    <SelectItem value="PARTIALLY_PAID">Partially Paid</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                  <SelectTrigger className="w-44"><SelectValue placeholder="Supplier" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Suppliers</SelectItem>
+                    {uniqueSuppliers.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={projectFilter} onValueChange={setProjectFilter}>
+                  <SelectTrigger className="w-44"><SelectValue placeholder="Project" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Projects</SelectItem>
+                    {uniqueProjects.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button variant={overdueOnly ? "default" : "outline"} size="sm" onClick={() => setOverdueOnly(!overdueOnly)}>
+                  <AlertTriangle className="h-3 w-3 mr-1" />Overdue Only
+                </Button>
+              </div>
+
+              <div className="rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      {invCols.map((col) => (
+                        <TableHead
+                          key={col}
+                          draggable
+                          onDragStart={() => setDragCol(col)}
+                          onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                          onDragEnd={() => { if (dragCol && dragOverCol && dragCol !== dragOverCol) reorderCols(invCols, dragCol, dragOverCol, setInvCols); setDragCol(null); setDragOverCol(null); }}
+                          className={cn(INV_DEF[col].hCls, "cursor-grab active:cursor-grabbing select-none", dragCol === col && "opacity-40 bg-muted/60", dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
+                        >
+                          <div className="flex items-center gap-1">
+                            <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                            {INV_DEF[col].label}
+                          </div>
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredInvoices.length === 0 ? (
+                      <TableRow><TableCell colSpan={invCols.length} className="text-center py-8 text-muted-foreground">No invoices match your filters</TableCell></TableRow>
+                    ) : (
+                      filteredInvoices.map((inv) => (
+                        <TableRow key={inv.id} className="hover:bg-muted/50">
+                          {invCols.map((col) => (
+                            <TableCell key={col} className={INV_DEF[col].cCls}>{INV_DEF[col].cell(inv)}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
 
         </>
       ) : (

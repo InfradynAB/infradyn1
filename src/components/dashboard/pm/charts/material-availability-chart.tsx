@@ -32,7 +32,7 @@ function MatTooltip({ active, payload, label }: { active?: boolean; payload?: Ar
                 <div key={p.name} className="flex items-center gap-2 py-0.5">
                     <span className="w-2.5 h-2.5 rounded" style={{ backgroundColor: p.color }} />
                     <span className="text-muted-foreground">{p.name}:</span>
-                    <span className="font-bold font-mono">{p.value}</span>
+                    <span className="font-bold font-sans tabular-nums">{p.value}</span>
                 </div>
             ))}
         </div>
@@ -50,7 +50,7 @@ export function MaterialAvailabilityChart({ data }: Props) {
                 <h3 className="text-sm font-semibold">Material Availability</h3>
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">Overall:</span>
-                    <span className="text-sm font-bold font-mono">{availabilityPct}%</span>
+                    <span className="text-sm font-bold font-sans tabular-nums">{availabilityPct}%</span>
                 </div>
             </div>
             <ResponsiveContainer width="100%" height={Math.max(220, data.length * 44)}>

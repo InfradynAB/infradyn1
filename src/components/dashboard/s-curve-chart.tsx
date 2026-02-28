@@ -132,7 +132,7 @@ export function SCurveChart({ data, currency = "USD" }: SCurveChartProps) {
                                                         >
                                                             {entry.name}:
                                                         </span>
-                                                        <span className="font-mono text-slate-600 dark:text-slate-300">
+                                                        <span className="font-sans tabular-nums text-slate-600 dark:text-slate-300">
                                                             {currency}{" "}
                                                             {Number(entry.value).toLocaleString()}
                                                         </span>
@@ -197,7 +197,7 @@ export function SCurveChart({ data, currency = "USD" }: SCurveChartProps) {
                                 <p className="text-xs text-muted-foreground">
                                     Planned (Cumulative)
                                 </p>
-                                <p className="text-lg font-mono font-semibold text-slate-500">
+                                <p className="text-lg font-sans tabular-nums font-semibold text-slate-500">
                                     {currency}{" "}
                                     {latestPoint.plannedCumulative.toLocaleString()}
                                 </p>
@@ -206,7 +206,7 @@ export function SCurveChart({ data, currency = "USD" }: SCurveChartProps) {
                                 <p className="text-xs text-muted-foreground">
                                     Actual (Cumulative)
                                 </p>
-                                <p className="text-lg font-mono font-semibold text-emerald-600">
+                                <p className="text-lg font-sans tabular-nums font-semibold text-emerald-600">
                                     {currency}{" "}
                                     {latestPoint.actualCumulative.toLocaleString()}
                                 </p>
@@ -214,7 +214,7 @@ export function SCurveChart({ data, currency = "USD" }: SCurveChartProps) {
                             <div className="text-center">
                                 <p className="text-xs text-muted-foreground">Variance</p>
                                 <p
-                                    className={`text-lg font-mono font-semibold ${
+                                    className={`text-lg font-sans tabular-nums font-semibold ${
                                         variance < 0 ? "text-emerald-600" : "text-red-600"
                                     }`}
                                 >
@@ -231,7 +231,7 @@ export function SCurveChart({ data, currency = "USD" }: SCurveChartProps) {
                                     Cost Performance
                                 </p>
                                 <p
-                                    className={`text-lg font-mono font-semibold ${
+                                    className={`text-lg font-sans tabular-nums font-semibold ${
                                         variance <= 0 ? "text-emerald-600" : "text-red-600"
                                     }`}
                                 >

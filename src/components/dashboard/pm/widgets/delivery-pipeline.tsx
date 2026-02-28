@@ -87,7 +87,7 @@ export function DeliveryPipeline({ data, onDeliveryClick }: Props) {
                                         <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 rounded-md font-semibold shrink-0", cfg.bg, cfg.text, cfg.border)}>{cfg.label}</Badge>
                                     </div>
                                     <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                        <span className="font-mono">{d.poNumber}</span>
+                                        <span className="font-sans tabular-nums">{d.poNumber}</span>
                                         <ArrowRight className="w-2.5 h-2.5" />
                                         <span>{d.supplier}</span>
                                         <span className="mx-1">·</span>
@@ -99,7 +99,7 @@ export function DeliveryPipeline({ data, onDeliveryClick }: Props) {
                                         "text-[11px] font-bold",
                                         daysUntil < 0 ? "text-red-600 dark:text-red-400" : daysUntil <= 3 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
                                     )}>{dateLabel}</p>
-                                    {d.trackingRef && <p className="text-[9px] text-muted-foreground font-mono mt-0.5">{d.trackingRef}</p>}
+                                    {d.trackingRef && <p className="text-[9px] text-muted-foreground font-sans tabular-nums mt-0.5">{d.trackingRef}</p>}
                                 </div>
                             </div>
                         </button>

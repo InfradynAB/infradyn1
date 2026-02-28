@@ -98,7 +98,7 @@ export function PortfolioDonut({ data, totalSpend, currency = "USD" }: Portfolio
                         {/* Center label */}
                         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                             <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Total Spend</span>
-                            <span className="text-2xl font-bold font-mono tracking-tight mt-0.5">
+                            <span className="text-2xl font-bold font-sans tabular-nums tracking-tight mt-0.5">
                                 {formatCurrency(totalSpend, currency)}
                             </span>
                             <span className="text-xs text-muted-foreground mt-0.5">{data.length} Projects</span>
@@ -118,7 +118,7 @@ export function PortfolioDonut({ data, totalSpend, currency = "USD" }: Portfolio
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
                                     <span className={cn("w-1.5 h-1.5 rounded-full", STATUS_DOT[entry.status])} />
-                                    <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                                    <span className="font-sans tabular-nums text-xs text-muted-foreground tabular-nums">
                                         {entry.percentage.toFixed(1)}%
                                     </span>
                                 </div>

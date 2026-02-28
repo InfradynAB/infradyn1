@@ -174,7 +174,7 @@ export function ConflictQueueTable({
 
     const CONFLICT_DEF: Record<string, { label: string; cell: (conflict: Conflict) => ReactNode }> = {
         type:        { label: "Type",        cell: (c) => { const cfg = TYPE_CONFIG[c.type] || { label: c.type, icon: <AlertTriangle className="h-4 w-4" /> }; return <div className="flex items-center gap-2">{cfg.icon}<span className="text-sm font-medium">{cfg.label}</span></div>; } },
-        po:          { label: "PO",          cell: (c) => <span className="font-mono text-sm">{c.purchaseOrder?.poNumber || "—"}</span> },
+        po:          { label: "PO",          cell: (c) => <span className="font-sans tabular-nums text-sm">{c.purchaseOrder?.poNumber || "—"}</span> },
         description: { label: "Description", cell: (c) => (<><p className="text-sm truncate max-w-[200px]">{c.description || "—"}</p>{(c.supplierValue || c.logisticsValue) && <p className="text-xs text-muted-foreground">Supplier: {c.supplierValue || "—"} | API: {c.logisticsValue || "—"}</p>}</>) },
         severity:    { label: "Severity",    cell: (c) => { const cfg = SEVERITY_CONFIG[c.severity ?? "MEDIUM"]; return <Badge className={cn("text-white text-xs", cfg?.color)}>{cfg?.label ?? c.severity}</Badge>; } },
         age:         { label: "Age",         cell: (c) => { const t = typeof c.createdAt === "string" ? new Date(c.createdAt) : c.createdAt; return <span className="text-sm text-muted-foreground">{formatDistanceToNow(t, { addSuffix: true })}</span>; } },

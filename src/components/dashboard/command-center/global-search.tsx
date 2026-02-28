@@ -146,7 +146,7 @@ export function GlobalSearch({
                 >
                     <MagnifyingGlass className="h-5 w-5" />
                     <span className="flex-1 text-sm">{placeholder}</span>
-                    <kbd className="hidden sm:inline-flex h-6 items-center gap-1 rounded border bg-muted px-2 font-mono text-[10px] font-medium text-muted-foreground">
+                    <kbd className="hidden sm:inline-flex h-6 items-center gap-1 rounded border bg-muted px-2 font-sans tabular-nums text-[10px] font-medium text-muted-foreground">
                         <Command className="h-3 w-3" />K
                     </kbd>
                 </button>

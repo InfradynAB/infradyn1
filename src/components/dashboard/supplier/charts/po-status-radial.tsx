@@ -69,7 +69,7 @@ export function POStatusRadial({ data }: { data: POStatusData }) {
             </ResponsiveContainer>
             {/* Center label */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-3xl font-bold font-mono tabular-nums">{data.total.count}</span>
+                <span className="text-3xl font-bold font-sans tabular-nums">{data.total.count}</span>
                 <span className="text-[11px] text-muted-foreground font-medium">Total POs</span>
                 <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">{deliveredPct}% delivered</span>
             </div>

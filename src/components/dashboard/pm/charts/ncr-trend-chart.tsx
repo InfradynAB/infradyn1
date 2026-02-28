@@ -32,7 +32,7 @@ function NCRTooltip({ active, payload, label }: { active?: boolean; payload?: Ar
                 <div key={p.name} className="flex items-center gap-2 py-0.5">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color }} />
                     <span className="text-muted-foreground">{p.name}:</span>
-                    <span className="font-bold font-mono">{p.value}</span>
+                    <span className="font-bold font-sans tabular-nums">{p.value}</span>
                 </div>
             ))}
         </div>

@@ -394,7 +394,7 @@ export function LogisticsTimelinesClient() {
   };
 
   const SHIP_DEF: Record<string, { label: string; cell: (s: ShipmentRow) => ReactNode }> = {
-    tracking: { label: "Tracking #", cell: (s) => <span className="font-mono font-semibold text-primary">{s.trackingNumber}</span> },
+    tracking: { label: "Tracking #", cell: (s) => <span className="font-sans tabular-nums font-semibold text-primary">{s.trackingNumber}</span> },
     po: { label: "PO", cell: (s) => <span className="text-sm">{s.poNumber}</span> },
     supplier: { label: "Supplier", cell: (s) => <span className="text-sm">{s.supplierName}</span> },
     carrier: { label: "Carrier", cell: (s) => <span className="text-sm">{s.carrier}</span> },
@@ -402,7 +402,7 @@ export function LogisticsTimelinesClient() {
     route: { label: "Route", cell: (s) => (<div className="text-xs"><div className="flex items-center gap-1"><MapPin className="h-3 w-3 text-muted-foreground" />{s.origin}</div><div className="flex items-center gap-1 text-muted-foreground">→ {s.destination}</div></div>) },
     eta: { label: "ETA", cell: (s) => s.actualDate ? <span className="text-emerald-600">{s.actualDate}</span> : <span className={s.isDelayed ? "text-red-600 font-semibold" : ""}>{s.expectedDate}</span> },
     confidence: { label: "Confidence", cell: (s) => <span className={cn("text-xs font-semibold", ETA_COLORS[s.etaConfidence])}>{s.etaConfidence}</span> },
-    transit: { label: "Transit", cell: (s) => <span className="font-mono text-sm">{s.daysInTransit}d</span> },
+    transit: { label: "Transit", cell: (s) => <span className="font-sans tabular-nums text-sm">{s.daysInTransit}d</span> },
   };
 
   if (loading) {

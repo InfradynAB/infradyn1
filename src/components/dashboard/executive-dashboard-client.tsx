@@ -316,8 +316,8 @@ export function ExecutiveDashboardClient() {
     const PROJ_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (p: ProjectSummary) => React.ReactNode }> = {
         project: { label: "Project", cCls: "font-semibold", cell: (p) => p.name },
         status: { label: "Status", cell: (p) => <StatusBadge status={p.status} /> },
-        contractValue: { label: "Contract Value", hCls: "text-right", cCls: "text-right font-mono text-sm tabular-nums", cell: (p) => fmt(p.totalValue) },
-        spent: { label: "Spent", hCls: "text-right", cCls: "text-right font-mono text-sm tabular-nums", cell: (p) => fmt(p.spend) },
+        contractValue: { label: "Contract Value", hCls: "text-right", cCls: "text-right font-sans tabular-nums text-sm tabular-nums", cell: (p) => fmt(p.totalValue) },
+        spent: { label: "Spent", hCls: "text-right", cCls: "text-right font-sans tabular-nums text-sm tabular-nums", cell: (p) => fmt(p.spend) },
         physical: { label: "Physical", cell: (p) => <ProgressBar value={p.physicalProgress} showLabel /> },
         financial: { label: "Financial", cell: (p) => <ProgressBar value={p.financialProgress} showLabel /> },
         link: { label: "", cCls: "", cell: () => <CaretRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" /> },
@@ -327,15 +327,15 @@ export function ExecutiveDashboardClient() {
         title: { label: "Title", cCls: "font-medium", cell: (a) => a.title },
         requestedBy: { label: "Requested By", cell: (a) => a.requestedBy },
         requestedAt: { label: "Requested At", cCls: "text-muted-foreground", cell: (a) => new Date(a.requestedAt).toLocaleDateString() },
-        amount: { label: "Amount", hCls: "text-right", cCls: "text-right font-mono", cell: (a) => a.amount ? fmt(a.amount) : "\u2014" },
+        amount: { label: "Amount", hCls: "text-right", cCls: "text-right font-sans tabular-nums", cell: (a) => a.amount ? fmt(a.amount) : "\u2014" },
         priority: { label: "Priority", cell: (a) => <Badge variant="outline" className="capitalize">{a.priority}</Badge> },
         status: { label: "Status", cell: (a) => <Badge variant="secondary" className="capitalize">{a.status.replace("-", " ")}</Badge> },
     };
     const RISK_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (r: RiskItem) => React.ReactNode }> = {
         risk: { label: "Risk", cCls: "font-medium", cell: (r) => r.name },
         category: { label: "Category", cell: (r) => r.category },
-        supplierRisk: { label: "Supplier Risk", hCls: "text-right", cCls: "text-right font-mono", cell: (r) => r.supplierRisk },
-        projectImpact: { label: "Project Impact", hCls: "text-right", cCls: "text-right font-mono", cell: (r) => r.projectImpact },
+        supplierRisk: { label: "Supplier Risk", hCls: "text-right", cCls: "text-right font-sans tabular-nums", cell: (r) => r.supplierRisk },
+        projectImpact: { label: "Project Impact", hCls: "text-right", cCls: "text-right font-sans tabular-nums", cell: (r) => r.projectImpact },
     };
     const ALERT_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (a: ComplianceAlert) => React.ReactNode }> = {
         alert: { label: "Alert", cCls: "font-medium", cell: (a) => a.title },
@@ -344,7 +344,7 @@ export function ExecutiveDashboardClient() {
     };
     const FIN_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (r: { id: string; metric: string; value: string; context: string }) => React.ReactNode }> = {
         metric: { label: "Metric", cell: (r) => r.metric },
-        value: { label: "Value", hCls: "text-right", cCls: "text-right font-mono", cell: (r) => r.value },
+        value: { label: "Value", hCls: "text-right", cCls: "text-right font-sans tabular-nums", cell: (r) => r.value },
         context: { label: "Context", cCls: "text-muted-foreground", cell: (r) => r.context },
     };
     const tableDatasets = useMemo(() => {

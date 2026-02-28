@@ -443,7 +443,7 @@ export function QualityNCRAnalyticsClient() {
   };
 
   const NCR_DEF: Record<string, { label: string; cell: (n: NCRItem) => ReactNode }> = {
-    ncrNum: { label: "NCR #", cell: (n) => <Link href={`/dashboard/procurement/ncr/${n.id}`} className="font-mono font-semibold text-primary hover:underline">{n.ncrNumber}</Link> },
+    ncrNum: { label: "NCR #", cell: (n) => <Link href={`/dashboard/procurement/ncr/${n.id}`} className="font-sans tabular-nums font-semibold text-primary hover:underline">{n.ncrNumber}</Link> },
     title: { label: "Title", cell: (n) => <span className="max-w-[200px] truncate block">{n.title}</span> },
     severity: { label: "Severity", cell: (n) => <Badge className={cn("border", SEVERITY_COLORS[n.severity])}>{n.severity}</Badge> },
     status: { label: "Status", cell: (n) => <Badge className={STATUS_COLORS[n.status]}>{n.status.replace("_", " ")}</Badge> },
@@ -585,7 +585,7 @@ export function QualityNCRAnalyticsClient() {
                   <div key={it.issueType} className="flex items-center gap-2 text-sm">
                     <div className="h-3 w-3 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
                     <span className="flex-1 truncate">{it.issueType}</span>
-                    <span className="font-mono font-semibold">{it.count}</span>
+                    <span className="font-sans tabular-nums font-semibold">{it.count}</span>
                   </div>
                 ))}
               </div>
@@ -694,7 +694,7 @@ export function QualityNCRAnalyticsClient() {
         <Card>
           <CardHeader className="pb-2"><CardDescription>Cost of Quality</CardDescription></CardHeader>
           <CardContent>
-            <span className="text-3xl font-bold font-mono">${kpis?.costOfQuality.toLocaleString()}</span>
+            <span className="text-3xl font-bold font-sans tabular-nums">${kpis?.costOfQuality.toLocaleString()}</span>
             <p className="text-xs text-muted-foreground mt-1">Estimated rework & replacement cost</p>
           </CardContent>
         </Card>

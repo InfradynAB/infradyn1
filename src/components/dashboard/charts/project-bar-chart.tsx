@@ -32,8 +32,8 @@ function BarTooltip({ active, payload }: { active?: boolean; payload?: Array<{ p
             <div className="bg-popover text-popover-foreground border rounded-lg shadow-xl px-3.5 py-2.5 text-sm">
                 <p className="font-semibold mb-1">{p.name}</p>
                 <div className="space-y-0.5 text-xs text-muted-foreground">
-                    <p>Physical: <span className="font-mono font-medium text-foreground">{p.physicalProgress}%</span></p>
-                    <p>Financial: <span className="font-mono font-medium text-foreground">{p.financialProgress}%</span></p>
+                    <p>Physical: <span className="font-sans tabular-nums font-medium text-foreground">{p.physicalProgress}%</span></p>
+                    <p>Financial: <span className="font-sans tabular-nums font-medium text-foreground">{p.financialProgress}%</span></p>
                 </div>
                 <div className="mt-1.5 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: STATUS_COLORS[p.status] }} />
@@ -63,7 +63,7 @@ export function ProjectBarChart({ data, showFinancial = false, onProjectClick }:
                         </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="font-mono text-xs">Avg {avgProgress.toFixed(0)}%</Badge>
+                        <Badge variant="outline" className="font-sans tabular-nums text-xs">Avg {avgProgress.toFixed(0)}%</Badge>
                         {delayedCount > 0 && (
                             <Badge variant="destructive" className="text-xs">{delayedCount} Delayed</Badge>
                         )}
@@ -100,7 +100,7 @@ export function ProjectBarChart({ data, showFinancial = false, onProjectClick }:
                                     dataKey={showFinancial ? "financialProgress" : "physicalProgress"}
                                     position="right"
                                     formatter={(v: number) => `${v}%`}
-                                    className="fill-muted-foreground text-xs font-mono"
+                                    className="fill-muted-foreground text-xs font-sans tabular-nums"
                                 />
                             </Bar>
                         </BarChart>

@@ -457,11 +457,11 @@ export function ExecutiveWorkspace({
                                 </div>
                                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
                                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Rows (Filtered)</p>
-                                    <p className="text-sm font-semibold font-mono">{filteredRows.length.toLocaleString()}</p>
+                                    <p className="text-sm font-semibold font-sans tabular-nums">{filteredRows.length.toLocaleString()}</p>
                                 </div>
                                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
                                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Columns Visible</p>
-                                    <p className="text-sm font-semibold font-mono">{datasetVisibleCols.length}</p>
+                                    <p className="text-sm font-semibold font-sans tabular-nums">{datasetVisibleCols.length}</p>
                                 </div>
                             </div>
 
@@ -480,7 +480,7 @@ export function ExecutiveWorkspace({
                                     >
                                         <CaretLeft className="h-3.5 w-3.5" />
                                     </Button>
-                                    <span className="text-xs font-mono px-1.5">{safePage}/{totalPages}</span>
+                                    <span className="text-xs font-sans tabular-nums px-1.5">{safePage}/{totalPages}</span>
                                     <Button
                                         type="button"
                                         variant="outline"

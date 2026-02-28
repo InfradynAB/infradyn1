@@ -401,8 +401,8 @@ export function SupplierScorecardsClient() {
     delivery: { label: "Delivery", sortable: "deliveryPerformance", cell: (s) => <ScoreMiniBar value={s.deliveryPerformance} /> },
     quality: { label: "Quality", sortable: "qualityScore", cell: (s) => <ScoreMiniBar value={s.qualityScore} /> },
     compliance: { label: "Compliance", sortable: "complianceScore", cell: (s) => <ScoreMiniBar value={s.complianceScore} /> },
-    onTime: { label: "On-Time", sortable: "onTimeRate", cell: (s) => <span className={cn("font-mono font-semibold", getScoreColor(s.onTimeRate))}>{s.onTimeRate}%</span> },
-    ncrs: { label: "NCRs", cell: (s) => (<div className="flex items-center gap-1"><span className="font-mono">{s.openNCRs}</span><span className="text-muted-foreground text-xs">/ {s.totalNCRs}</span></div>) },
+    onTime: { label: "On-Time", sortable: "onTimeRate", cell: (s) => <span className={cn("font-sans tabular-nums font-semibold", getScoreColor(s.onTimeRate))}>{s.onTimeRate}%</span> },
+    ncrs: { label: "NCRs", cell: (s) => (<div className="flex items-center gap-1"><span className="font-sans tabular-nums">{s.openNCRs}</span><span className="text-muted-foreground text-xs">/ {s.totalNCRs}</span></div>) },
     trend: { label: "Trend", cell: (s) => <TrendIcon trend={s.trend} /> },
   };
 
@@ -624,7 +624,7 @@ export function SupplierScorecardsClient() {
               <TableBody>
                 {filtered.map((s, idx) => (
                   <TableRow key={s.id} className="group hover:bg-muted/50 transition-colors">
-                    <TableCell className="font-mono text-muted-foreground">{idx + 1}</TableCell>
+                    <TableCell className="font-sans tabular-nums text-muted-foreground">{idx + 1}</TableCell>
                     {rankCols.map((col) => (
                       <TableCell key={col}>{RANK_DEF[col].cell(s)}</TableCell>
                     ))}
@@ -977,7 +977,7 @@ function ScoreMiniBar({ value }: { value: number }) {
       <div className="w-16 h-2 rounded-full bg-muted overflow-hidden">
         <div className={cn("h-full rounded-full transition-all", color)} style={{ width: `${value}%` }} />
       </div>
-      <span className="text-xs font-mono">{value}</span>
+      <span className="text-xs font-sans tabular-nums">{value}</span>
     </div>
   );
 }

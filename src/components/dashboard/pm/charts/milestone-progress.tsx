@@ -46,7 +46,7 @@ export function MilestoneProgressChart({ data, onMilestoneClick }: Props) {
                 <h3 className="text-sm font-semibold">Milestone Progress</h3>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span>{data.filter(m => m.status === "completed").length}/{data.length} completed</span>
-                    <span className="font-mono font-bold text-foreground">{fmt(completedValue)}/{fmt(totalValue)}</span>
+                    <span className="font-sans tabular-nums font-bold text-foreground">{fmt(completedValue)}/{fmt(totalValue)}</span>
                 </div>
             </div>
 
@@ -80,7 +80,7 @@ export function MilestoneProgressChart({ data, onMilestoneClick }: Props) {
                                     <div className="min-w-0">
                                         <p className="text-sm font-semibold truncate">{ms.name}</p>
                                         <div className="flex items-center gap-2 mt-0.5">
-                                            {ms.poNumber && <span className="text-[10px] font-mono text-muted-foreground">{ms.poNumber}</span>}
+                                            {ms.poNumber && <span className="text-[10px] font-sans tabular-nums text-muted-foreground">{ms.poNumber}</span>}
                                             <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-md", cfg.badge)}>
                                                 {ms.status.replace("-", " ")}
                                             </span>
@@ -88,7 +88,7 @@ export function MilestoneProgressChart({ data, onMilestoneClick }: Props) {
                                     </div>
                                 </div>
                                 <div className="text-right shrink-0">
-                                    <p className="text-sm font-bold font-mono tabular-nums">{fmt(ms.value)}</p>
+                                    <p className="text-sm font-bold font-sans tabular-nums">{fmt(ms.value)}</p>
                                     <div className="flex items-center gap-1 justify-end text-[10px] text-muted-foreground mt-0.5">
                                         <CalendarBlank className="w-3 h-3" />
                                         <span className={cn(isOverdue && "text-red-500 font-bold")}>{daysLabel}</span>
@@ -101,7 +101,7 @@ export function MilestoneProgressChart({ data, onMilestoneClick }: Props) {
                                     <div className={cn("h-full rounded-full transition-all duration-700", cfg.barColor)}
                                         style={{ width: `${Math.min(ms.progress, 100)}%` }} />
                                 </div>
-                                <span className="text-[11px] font-mono font-bold tabular-nums w-9 text-right">{ms.progress}%</span>
+                                <span className="text-[11px] font-sans tabular-nums font-bold tabular-nums w-9 text-right">{ms.progress}%</span>
                             </div>
                         </button>
                     );

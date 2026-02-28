@@ -172,7 +172,7 @@ export function ContainerMap({
                         {containerNumber && (
                             <div>
                                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Container</p>
-                                <p className="font-mono font-medium">{containerNumber}</p>
+                                <p className="font-sans tabular-nums font-medium">{containerNumber}</p>
                             </div>
                         )}
                         {vesselName && (

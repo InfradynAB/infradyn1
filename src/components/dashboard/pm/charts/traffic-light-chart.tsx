@@ -31,7 +31,7 @@ export function TrafficLightChart({ data, onLightClick }: Props) {
             glow: "shadow-emerald-500/40",
             ring: "ring-emerald-400/30",
             textColor: "text-emerald-600 dark:text-emerald-400",
-            bg: "bg-emerald-50 dark:bg-emerald-500/10",
+            bg: "bg-card dark:bg-card/50",
             border: "border-emerald-200 dark:border-emerald-800/50",
             emoji: "On Time",
         },
@@ -87,12 +87,12 @@ export function TrafficLightChart({ data, onLightClick }: Props) {
                                     "shadow-lg transition-all duration-300 group-hover:scale-110",
                                     light.color, light.glow, "ring-4", light.ring
                                 )}>
-                                    <span className="text-2xl font-bold text-white font-mono">{light.count}</span>
+                                    <span className="text-2xl font-bold text-white font-sans tabular-nums">{light.count}</span>
                                 </div>
                             </div>
                             <p className={cn("text-sm font-bold", light.textColor)}>{light.emoji}</p>
                             <p className="text-[10px] text-muted-foreground mt-0.5">{light.label}</p>
-                            <p className={cn("text-lg font-bold font-mono mt-2", light.textColor)}>{pct}%</p>
+                            <p className={cn("text-lg font-bold font-sans tabular-nums mt-2", light.textColor)}>{pct}%</p>
                         </button>
                     );
                 })}
@@ -113,17 +113,17 @@ export function TrafficLightChart({ data, onLightClick }: Props) {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 dark:border-emerald-800/50 dark:bg-emerald-500/10 p-3">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">On-Time Rate</p>
-                    <p className="text-xl font-mono font-bold text-emerald-600 dark:text-emerald-400">{onTimePct}%</p>
+                    <p className="text-xl font-sans tabular-nums font-bold text-emerald-600 dark:text-emerald-400">{onTimePct}%</p>
                     <p className="text-[11px] text-muted-foreground">{data.green.count} deliveries on schedule</p>
                 </div>
                 <div className="rounded-xl border border-amber-200/70 bg-amber-50/40 dark:border-amber-800/50 dark:bg-amber-500/10 p-3">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Watchlist</p>
-                    <p className="text-xl font-mono font-bold text-amber-600 dark:text-amber-400">{atRiskPct}%</p>
+                    <p className="text-xl font-sans tabular-nums font-bold text-amber-600 dark:text-amber-400">{atRiskPct}%</p>
                     <p className="text-[11px] text-muted-foreground">{data.amber.count} deliveries may slip</p>
                 </div>
                 <div className="rounded-xl border border-red-200/70 bg-red-50/40 dark:border-red-800/50 dark:bg-red-500/10 p-3">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Critical Delay</p>
-                    <p className="text-xl font-mono font-bold text-red-600 dark:text-red-400">{delayedPct}%</p>
+                    <p className="text-xl font-sans tabular-nums font-bold text-red-600 dark:text-red-400">{delayedPct}%</p>
                     <p className="text-[11px] text-muted-foreground">{data.red.count} deliveries behind plan</p>
                 </div>
             </div>

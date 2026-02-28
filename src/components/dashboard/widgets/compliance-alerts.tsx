@@ -146,7 +146,7 @@ export function ComplianceAlerts({ data, onAlertClick, maxItems = 5 }: Complianc
                                         <div className="flex flex-col items-end shrink-0 gap-1">
                                             {alert.dueDate && (
                                                 <span className={cn(
-                                                    "text-[10px] font-mono",
+                                                    "text-[10px] font-sans tabular-nums",
                                                     alert.dueDate < new Date() ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
                                                 )}>
                                                     {getDaysRemaining(alert.dueDate)}

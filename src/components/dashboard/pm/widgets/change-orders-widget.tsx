@@ -47,7 +47,7 @@ export function ChangeOrdersWidget({ data, onCOClick }: Props) {
                 <h3 className="text-sm font-semibold">Change Orders</h3>
                 <div className="flex items-center gap-3">
                     <span className={cn(
-                        "text-xs font-bold font-mono",
+                        "text-xs font-bold font-sans tabular-nums",
                         totalCostImpact > 0 ? "text-red-600 dark:text-red-400" : totalCostImpact < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
                     )}>
                         {fmt(totalCostImpact)} net
@@ -64,17 +64,17 @@ export function ChangeOrdersWidget({ data, onCOClick }: Props) {
             <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-xl border border-border/60 p-3 text-center">
                     <ArrowsLeftRight className="w-4 h-4 mx-auto text-muted-foreground mb-1" weight="duotone" />
-                    <p className="text-lg font-bold font-mono">{data.length}</p>
+                    <p className="text-lg font-bold font-sans tabular-nums">{data.length}</p>
                     <p className="text-[10px] text-muted-foreground">Total COs</p>
                 </div>
                 <div className="rounded-xl border border-border/60 p-3 text-center">
                     {totalCostImpact >= 0 ? <TrendUp className="w-4 h-4 mx-auto text-red-500 mb-1" weight="bold" /> : <TrendDown className="w-4 h-4 mx-auto text-emerald-500 mb-1" weight="bold" />}
-                    <p className={cn("text-lg font-bold font-mono", totalCostImpact > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")}>{fmt(totalCostImpact)}</p>
+                    <p className={cn("text-lg font-bold font-sans tabular-nums", totalCostImpact > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")}>{fmt(totalCostImpact)}</p>
                     <p className="text-[10px] text-muted-foreground">Cost Impact</p>
                 </div>
                 <div className="rounded-xl border border-border/60 p-3 text-center">
                     <Clock className="w-4 h-4 mx-auto text-muted-foreground mb-1" weight="duotone" />
-                    <p className={cn("text-lg font-bold font-mono", totalTimeImpact > 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground")}>{totalTimeImpact > 0 ? `+${totalTimeImpact}` : totalTimeImpact}d</p>
+                    <p className={cn("text-lg font-bold font-sans tabular-nums", totalTimeImpact > 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground")}>{totalTimeImpact > 0 ? `+${totalTimeImpact}` : totalTimeImpact}d</p>
                     <p className="text-[10px] text-muted-foreground">Time Impact</p>
                 </div>
             </div>
@@ -89,17 +89,17 @@ export function ChangeOrdersWidget({ data, onCOClick }: Props) {
                     >
                         <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-2 min-w-0">
-                                <span className="text-[10px] font-mono text-muted-foreground">{co.reference}</span>
+                                <span className="text-[10px] font-sans tabular-nums text-muted-foreground">{co.reference}</span>
                                 <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 rounded-md font-semibold capitalize", statusColors[co.status])}>{co.status.replace("-", " ")}</Badge>
                             </div>
                             <span className={cn(
-                                "text-sm font-bold font-mono tabular-nums",
+                                "text-sm font-bold font-sans tabular-nums",
                                 co.costImpact > 0 ? "text-red-600 dark:text-red-400" : co.costImpact < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
                             )}>{fmt(co.costImpact)}</span>
                         </div>
                         <p className="text-sm font-medium truncate">{co.title}</p>
                         <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
-                            <span className="font-mono">{co.poNumber}</span>
+                            <span className="font-sans tabular-nums">{co.poNumber}</span>
                             <span>·</span>
                             <span>{co.timeImpactDays > 0 ? `+${co.timeImpactDays}d` : `${co.timeImpactDays}d`} schedule</span>
                         </div>

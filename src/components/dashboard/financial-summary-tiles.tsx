@@ -117,7 +117,7 @@ export function FinancialSummaryTiles({
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className={cn("text-2xl font-bold font-mono", tile.color)}>
+                            <div className={cn("text-2xl font-bold font-sans tabular-nums", tile.color)}>
                                 {tile.prefix || ""}
                                 {formatCurrency(tile.value, currency)}
                             </div>

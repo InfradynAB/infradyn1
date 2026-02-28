@@ -78,7 +78,7 @@ export function SupplierTrendChart({ data, suppliers }: SupplierTrendChartProps)
                                                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
                                                         <span className="text-muted-foreground">{entry.name}</span>
                                                     </div>
-                                                    <span className="font-mono font-medium">{Number(entry.value).toFixed(0)}</span>
+                                                    <span className="font-sans tabular-nums font-medium">{Number(entry.value).toFixed(0)}</span>
                                                 </div>
                                             ))}
                                         </div>

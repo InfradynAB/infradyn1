@@ -145,7 +145,7 @@ export function ApprovalsQueue({ data, onReview, currency = "USD" }: ApprovalsQu
                                             </div>
                                             <p className="text-sm font-medium truncate">{item.title}</p>
                                             <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
-                                                <span className="font-mono">{item.reference}</span>
+                                                <span className="font-sans tabular-nums">{item.reference}</span>
                                                 <span>·</span>
                                                 <span>{item.requestedBy}</span>
                                                 <span>·</span>
@@ -154,7 +154,7 @@ export function ApprovalsQueue({ data, onReview, currency = "USD" }: ApprovalsQu
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0 pt-1">
                                             {item.amount && (
-                                                <span className="font-mono text-xs font-medium">{formatCurrency(item.amount, currency)}</span>
+                                                <span className="font-sans tabular-nums text-xs font-medium">{formatCurrency(item.amount, currency)}</span>
                                             )}
                                             <StatusIcon className="w-4 h-4 text-muted-foreground" />
                                             <CaretRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />

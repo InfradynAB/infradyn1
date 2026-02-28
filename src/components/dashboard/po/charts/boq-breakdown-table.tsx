@@ -105,7 +105,7 @@ export function BOQBreakdownTable({
   }
 
   const BOQ_DEF: Record<string, { label: string; cell: (item: BOQTableRow) => ReactNode }> = {
-    itemNum:     { label: "#",           cell: (item) => <span className="font-mono text-muted-foreground">{item.itemNumber}{item.isCritical && <span className="ml-1 text-red-500 text-[10px]">●</span>}</span> },
+    itemNum:     { label: "#",           cell: (item) => <span className="font-sans tabular-nums text-muted-foreground">{item.itemNumber}{item.isCritical && <span className="ml-1 text-red-500 text-[10px]">●</span>}</span> },
     description: { label: "Description", cell: (item) => <span className="font-medium max-w-[200px] truncate block">{item.description}</span> },
     unitPrice:   { label: "Unit Price",  cell: (item) => <span className="text-right tabular-nums block">{fmt(item.unitPrice)}</span> },
     total:       { label: "Total",       cell: (item) => <span className="text-right tabular-nums font-medium block">{fmt(item.totalValue)}</span> },

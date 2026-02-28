@@ -204,7 +204,7 @@ export function ShipmentTrackingDashboard({
                                                     {shipment.carrier?.toUpperCase() || "Shipment"}
                                                 </p>
                                                 {shipment.trackingNumber && (
-                                                    <p className="text-sm text-muted-foreground font-mono">
+                                                    <p className="text-sm text-muted-foreground font-sans tabular-nums">
                                                         {shipment.trackingNumber}
                                                     </p>
                                                 )}

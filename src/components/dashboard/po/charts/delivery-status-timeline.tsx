@@ -60,7 +60,7 @@ export function DeliveryStatusTimeline({
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-muted-foreground">
+              <span className="text-xs font-sans tabular-nums text-muted-foreground">
                 {row.trackingNumber || row.shipmentId.slice(0, 8)}
               </span>
               <span className="text-xs text-muted-foreground">•</span>

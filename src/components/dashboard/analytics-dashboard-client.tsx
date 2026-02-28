@@ -688,7 +688,7 @@ function AlertsView({ data, onAlertClick }: { data: DashboardData; onAlertClick:
                 <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
                     Attention Queue
                 </h2>
-                <Badge variant="outline" className="font-mono">
+                <Badge variant="outline" className="font-sans tabular-nums">
                     {alerts.filter(a => a.severity === "critical").length} Critical
                 </Badge>
             </div>
@@ -815,7 +815,7 @@ function PrimaryKPICard({
                             <Icon className={cn("w-4 h-4", iconColorClasses[color])} />
                             {title}
                         </p>
-                        <p className="text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 font-mono">
+                        <p className="text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 font-sans tabular-nums">
                             {value}
                         </p>
                         <p className="text-xs text-muted-foreground">{description}</p>
@@ -872,7 +872,7 @@ function SecondaryKPICard({
             <CardContent className="py-4 px-4">
                 <p className="text-xs font-medium text-muted-foreground truncate">{title}</p>
                 <p className={cn(
-                    "text-lg font-semibold font-mono mt-1 truncate",
+                    "text-lg font-semibold font-sans tabular-nums mt-1 truncate",
                     alert ? "text-red-600 dark:text-red-400" : "text-slate-700 dark:text-slate-300"
                 )}>
                     {value}
@@ -901,7 +901,7 @@ function ProgressCard({
             <CardContent className="pt-5 pb-4">
                 <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-medium text-muted-foreground">{title}</p>
-                    <span className="text-2xl font-bold text-slate-800 dark:text-slate-200 font-mono">
+                    <span className="text-2xl font-bold text-slate-800 dark:text-slate-200 font-sans tabular-nums">
                         {value.toFixed(1)}%
                     </span>
                 </div>
@@ -1020,7 +1020,7 @@ function AlertCard({ alert, onClick }: { alert: Alert; onClick: () => void }) {
                     <p className="text-sm text-muted-foreground truncate">{alert.description}</p>
                 </div>
                 {alert.value && (
-                    <Badge variant={alert.severity === "critical" ? "destructive" : "secondary"} className="font-mono">
+                    <Badge variant={alert.severity === "critical" ? "destructive" : "secondary"} className="font-sans tabular-nums">
                         {alert.value}
                     </Badge>
                 )}
@@ -1056,7 +1056,7 @@ function AuditRow({
                 {label}
             </span>
             <span className={cn(
-                "font-mono",
+                "font-sans tabular-nums",
                 highlight && "font-bold text-lg",
                 alert && "text-red-600 dark:text-red-400",
                 !highlight && !alert && "text-slate-700 dark:text-slate-300"
@@ -1162,11 +1162,11 @@ function MilestoneTrackerView({
     const MS_VIEW_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (m: MilestoneRow) => ReactNode }> = {
         poMilestone: { label: "PO / Milestone", cell: (m) => (<div><p className="font-medium text-slate-800 dark:text-slate-200">{m.poNumber}</p><p className="text-sm text-muted-foreground truncate max-w-[200px]">{m.milestoneName}</p></div>) },
         supplier: { label: "Supplier", cell: (m) => <span className="text-sm">{m.supplierName}</span> },
-        progress: { label: "Progress", hCls: "text-center", cell: (m) => (<div className="flex items-center gap-2"><div className="w-16 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden"><div className={cn("h-full rounded-full transition-all", m.progressPercent >= 100 ? "bg-emerald-500" : m.progressPercent >= 50 ? "bg-amber-500" : "bg-slate-400")} style={{ width: `${Math.min(m.progressPercent, 100)}%` }} /></div><span className="text-sm font-mono w-12">{m.progressPercent.toFixed(0)}%</span></div>) },
+        progress: { label: "Progress", hCls: "text-center", cell: (m) => (<div className="flex items-center gap-2"><div className="w-16 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden"><div className={cn("h-full rounded-full transition-all", m.progressPercent >= 100 ? "bg-emerald-500" : m.progressPercent >= 50 ? "bg-amber-500" : "bg-slate-400")} style={{ width: `${Math.min(m.progressPercent, 100)}%` }} /></div><span className="text-sm font-sans tabular-nums w-12">{m.progressPercent.toFixed(0)}%</span></div>) },
         status: { label: "Status", hCls: "text-center", cCls: "text-center", cell: (m) => (<Badge variant={m.status === "COMPLETED" ? "default" : m.status === "DELAYED" ? "destructive" : m.status === "AT_RISK" ? "secondary" : "outline"} className="text-xs">{m.status}</Badge>) },
         expected: { label: "Expected", cell: (m) => <span className="text-sm">{m.expectedDate ? new Date(m.expectedDate).toLocaleDateString() : "—"}</span> },
         invoice: { label: "Invoice", cell: (m) => m.invoiceStatus ? (<Badge variant={m.invoiceStatus === "PAID" ? "default" : m.invoiceStatus === "APPROVED" ? "secondary" : "outline"} className="text-xs">{m.invoiceStatus}</Badge>) : (<span className="text-muted-foreground text-xs">No invoice</span>) },
-        amount: { label: "Amount", hCls: "text-right", cCls: "text-right font-mono text-sm", cell: (m) => formatCurrency(m.amount) },
+        amount: { label: "Amount", hCls: "text-right", cCls: "text-right font-sans tabular-nums text-sm", cell: (m) => formatCurrency(m.amount) },
     };
 
     return (
@@ -1281,17 +1281,17 @@ function RiskAssessmentView({
         po: { label: "PO", cell: (r) => <span className="font-medium">{r.poNumber}</span> },
         supplier: { label: "Supplier", cell: (r) => <span className="text-sm">{r.supplierName}</span> },
         risk: { label: "Risk", hCls: "text-center", cCls: "text-center", cell: (r) => <Badge className={riskLevelColors[r.riskLevel]}>{r.riskLevel}</Badge> },
-        score: { label: "Score", hCls: "text-center", cCls: "text-center font-mono", cell: (r) => `${r.riskScore}/100` },
+        score: { label: "Score", hCls: "text-center", cCls: "text-center font-sans tabular-nums", cell: (r) => `${r.riskScore}/100` },
         delay: { label: "Delay", hCls: "text-center", cCls: "text-center text-sm", cell: (r) => r.predictedDelay > 0 ? `+${r.predictedDelay}d` : "On track" },
     };
 
     const SUP_RISK_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (s: SupplierProgressRow) => ReactNode }> = {
         supplierName: { label: "Supplier", cell: (s) => <span className="font-medium">{s.supplierName}</span> },
         pos: { label: "POs", hCls: "text-center", cCls: "text-center", cell: (s) => s.poCount },
-        physical: { label: "Physical %", hCls: "text-center", cell: (s) => (<div className="flex items-center gap-2 justify-center"><div className="w-12 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(s.physicalProgress, 100)}%` }} /></div><span className="text-xs font-mono w-10">{s.physicalProgress.toFixed(0)}%</span></div>) },
-        financial: { label: "Financial %", hCls: "text-center", cell: (s) => (<div className="flex items-center gap-2 justify-center"><div className="w-12 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(s.financialProgress, 100)}%` }} /></div><span className="text-xs font-mono w-10">{s.financialProgress.toFixed(0)}%</span></div>) },
-        totalValue: { label: "Total Value", hCls: "text-right", cCls: "text-right font-mono text-sm", cell: (s) => formatCurrency(s.totalValue) },
-        paid: { label: "Paid", hCls: "text-right", cCls: "text-right font-mono text-sm text-emerald-600", cell: (s) => formatCurrency(s.paidAmount) },
+        physical: { label: "Physical %", hCls: "text-center", cell: (s) => (<div className="flex items-center gap-2 justify-center"><div className="w-12 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(s.physicalProgress, 100)}%` }} /></div><span className="text-xs font-sans tabular-nums w-10">{s.physicalProgress.toFixed(0)}%</span></div>) },
+        financial: { label: "Financial %", hCls: "text-center", cell: (s) => (<div className="flex items-center gap-2 justify-center"><div className="w-12 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(s.financialProgress, 100)}%` }} /></div><span className="text-xs font-sans tabular-nums w-10">{s.financialProgress.toFixed(0)}%</span></div>) },
+        totalValue: { label: "Total Value", hCls: "text-right", cCls: "text-right font-sans tabular-nums text-sm", cell: (s) => formatCurrency(s.totalValue) },
+        paid: { label: "Paid", hCls: "text-right", cCls: "text-right font-sans tabular-nums text-sm text-emerald-600", cell: (s) => formatCurrency(s.paidAmount) },
         riskScore: { label: "Risk", hCls: "text-center", cCls: "text-center", cell: (s) => (<Badge className={s.riskScore >= 60 ? "bg-red-100 text-red-700" : s.riskScore >= 40 ? "bg-orange-100 text-orange-700" : s.riskScore >= 20 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}>{s.riskScore}</Badge>) },
     };
 
@@ -1388,16 +1388,16 @@ function RiskAssessmentView({
                                 <div key={period.period} className="space-y-2">
                                     <div className="flex justify-between items-center">
                                         <span className="font-medium text-sm">{period.period}</span>
-                                        <span className="font-mono text-lg">{formatCurrency(period.expectedPayments + period.pendingInvoices)}</span>
+                                        <span className="font-sans tabular-nums text-lg">{formatCurrency(period.expectedPayments + period.pendingInvoices)}</span>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground">
                                         <div>
                                             <span>Approved: </span>
-                                            <span className="font-mono text-emerald-600">{formatCurrency(period.expectedPayments)}</span>
+                                            <span className="font-sans tabular-nums text-emerald-600">{formatCurrency(period.expectedPayments)}</span>
                                         </div>
                                         <div>
                                             <span>Pending: </span>
-                                            <span className="font-mono text-amber-600">{formatCurrency(period.pendingInvoices)}</span>
+                                            <span className="font-sans tabular-nums text-amber-600">{formatCurrency(period.pendingInvoices)}</span>
                                         </div>
                                     </div>
                                     <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden flex">

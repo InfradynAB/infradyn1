@@ -94,7 +94,7 @@ export function ProjectCard({ project, className }: ProjectCardProps) {
                             <h3 className="font-bold text-lg truncate group-hover:text-primary transition-colors">
                                 {project.name}
                             </h3>
-                            <p className="text-xs text-muted-foreground font-mono">
+                            <p className="text-xs text-muted-foreground font-sans tabular-nums">
                                 {project.code}
                             </p>
                         </div>

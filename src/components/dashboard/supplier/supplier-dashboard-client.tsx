@@ -410,7 +410,7 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
     const PO_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (po: POItem) => React.ReactNode }> = {
         poNumber: { label: "PO Number", cCls: "font-semibold", cell: (po) => po.poNumber },
         project: { label: "Project", cell: (po) => po.project },
-        value: { label: "Value", cCls: "font-mono", cell: (po) => fmt(po.totalValue) },
+        value: { label: "Value", cCls: "font-sans tabular-nums", cell: (po) => fmt(po.totalValue) },
         status: { label: "Status", cell: (po) => <StatusPill status={po.status.toLowerCase().replace(/_/g, "-")} /> },
         progress: { label: "Progress", cell: (po) => <div className="flex items-center gap-1.5"><div className="w-14 h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${po.deliveryProgress}%` }} /></div><span className="text-[10px]">{po.deliveryProgress}%</span></div> },
         date: { label: "Date", cCls: "text-muted-foreground", cell: (po) => new Date(po.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
@@ -427,7 +427,7 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
     const INV_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (inv: InvoiceItem) => React.ReactNode }> = {
         invoiceNum: { label: "Invoice #", cCls: "font-semibold", cell: (inv) => inv.invoiceNumber },
         po: { label: "PO", cell: (inv) => inv.poNumber },
-        amount: { label: "Amount", cCls: "font-mono", cell: (inv) => fmt(inv.amount) },
+        amount: { label: "Amount", cCls: "font-sans tabular-nums", cell: (inv) => fmt(inv.amount) },
         submitted: { label: "Submitted", cell: (inv) => new Date(inv.submittedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
         dueDate: { label: "Due Date", cell: (inv) => new Date(inv.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
         status: { label: "Status", cell: (inv) => <StatusPill status={inv.status.toLowerCase().replace(/_/g, "-")} /> },
@@ -444,7 +444,7 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
     const MS_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (m: MilestoneItem) => React.ReactNode }> = {
         milestone: { label: "Milestone", cCls: "font-semibold max-w-[200px] truncate", cell: (m) => m.title },
         po: { label: "PO", cell: (m) => m.poNumber },
-        amount: { label: "Amount", cCls: "font-mono", cell: (m) => fmt(m.amount) },
+        amount: { label: "Amount", cCls: "font-sans tabular-nums", cell: (m) => fmt(m.amount) },
         paymentPct: { label: "Payment %", cell: (m) => `${m.paymentPercentage}%` },
         dueDate: { label: "Due Date", cell: (m) => new Date(m.expectedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
         status: { label: "Status", cell: (m) => <StatusPill status={m.status.toLowerCase()} /> },
@@ -681,7 +681,7 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
                                             <p className="text-[10px] text-muted-foreground mt-0.5">{po.project}</p>
                                         </div>
                                         <div className="text-right shrink-0">
-                                            <p className="text-xs font-bold font-mono">{fmt(po.totalValue, "$")}</p>
+                                            <p className="text-xs font-bold font-sans tabular-nums">{fmt(po.totalValue, "$")}</p>
                                             <div className="flex items-center gap-1 mt-1 justify-end">
                                                 <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
                                                     <div className="h-full rounded-full bg-blue-500" style={{ width: `${po.deliveryProgress}%` }} />
@@ -805,7 +805,7 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
                                             <span className="text-[10px] text-muted-foreground ml-2">{inv.poNumber}</span>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs font-mono">{fmt(inv.amount)}</span>
+                                            <span className="text-xs font-sans tabular-nums">{fmt(inv.amount)}</span>
                                             <StatusPill status={inv.status.toLowerCase().replace(/_/g, "-")} />
                                         </div>
                                     </div>
@@ -946,7 +946,7 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
                                                 <span className="text-xs font-bold">{m.title}</span>
                                                 <StatusPill status={isOverdue ? "overdue" : m.status.toLowerCase()} />
                                             </div>
-                                            <span className="text-xs font-mono">{fmt(m.amount)}</span>
+                                            <span className="text-xs font-sans tabular-nums">{fmt(m.amount)}</span>
                                         </div>
                                         <div className="flex items-center gap-2 mb-1.5">
                                             <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">

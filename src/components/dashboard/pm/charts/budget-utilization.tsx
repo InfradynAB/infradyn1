@@ -46,7 +46,7 @@ export function BudgetUtilizationBar({ originalBudget, committed, invoiced, paid
             <div className="flex items-end justify-between">
                 <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Total Budget</p>
-                    <p className="text-2xl font-bold font-mono tabular-nums">{fmt(originalBudget)}</p>
+                    <p className="text-2xl font-bold font-sans tabular-nums">{fmt(originalBudget)}</p>
                 </div>
                 <p className="text-xs text-muted-foreground">
                     <span className="font-bold text-foreground">{((committed / max) * 100).toFixed(1)}%</span> committed
@@ -71,7 +71,7 @@ export function BudgetUtilizationBar({ originalBudget, committed, invoiced, paid
                             <span className={cn("w-2.5 h-2.5 rounded-sm", seg.color)} />
                             <span className="text-[10px] text-muted-foreground font-medium">{seg.label}</span>
                         </div>
-                        <p className={cn("text-sm font-bold font-mono tabular-nums", seg.textColor)}>{fmt(seg.value)}</p>
+                        <p className={cn("text-sm font-bold font-sans tabular-nums", seg.textColor)}>{fmt(seg.value)}</p>
                     </div>
                 ))}
             </div>

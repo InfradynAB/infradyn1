@@ -116,7 +116,7 @@ export function COImpactDonut({ data, currency = "USD" }: COImpactDonutProps) {
                                                             {item.name}
                                                         </p>
                                                         <p
-                                                            className={`text-lg font-mono ${
+                                                            className={`text-lg font-sans tabular-nums ${
                                                                 item.rawValue > 0
                                                                     ? "text-red-600"
                                                                     : "text-emerald-600"
@@ -169,7 +169,7 @@ export function COImpactDonut({ data, currency = "USD" }: COImpactDonutProps) {
                                                     {item.name}
                                                 </span>
                                                 <span
-                                                    className={`text-sm font-mono ${
+                                                    className={`text-sm font-sans tabular-nums ${
                                                         item.rawValue > 0
                                                             ? "text-red-600"
                                                             : "text-emerald-600"

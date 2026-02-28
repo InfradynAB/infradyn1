@@ -59,7 +59,7 @@ export function ComplianceGauge({ data }: { data: ComplianceData }) {
                     className="transition-all duration-1000 ease-out"
                 />
                 {/* Center text */}
-                <text x="110" y="95" textAnchor="middle" className="fill-foreground text-[28px] font-bold font-mono">
+                <text x="110" y="95" textAnchor="middle" className="fill-foreground text-[28px] font-bold font-sans tabular-nums">
                     {score}%
                 </text>
                 <text x="110" y="115" textAnchor="middle" className={cn("text-[11px] font-semibold", zoneColor)}>
@@ -77,7 +77,7 @@ export function ComplianceGauge({ data }: { data: ComplianceData }) {
                     const count = data.documents.filter(d => d.status === status).length;
                     return (
                         <div key={status} className={cn("rounded-xl px-3 py-2.5 text-center", color)}>
-                            <p className="text-lg font-bold font-mono">{count}</p>
+                            <p className="text-lg font-bold font-sans tabular-nums">{count}</p>
                             <p className="text-[10px] font-semibold">{label}</p>
                         </div>
                     );

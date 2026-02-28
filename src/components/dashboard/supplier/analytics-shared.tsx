@@ -256,7 +256,7 @@ export function KPICard({ label, value, icon: Icon, color, subtitle, alert }: {
                 <Icon className={cn("w-4 h-4", fg)} weight="duotone" />
                 <span className="text-[10px] text-muted-foreground font-medium">{label}</span>
             </div>
-            <p className="text-xl font-bold font-mono tabular-nums">{value}</p>
+            <p className="text-xl font-bold font-sans tabular-nums">{value}</p>
             {subtitle && <p className="text-[10px] text-muted-foreground mt-0.5">{subtitle}</p>}
         </div>
     );
@@ -272,7 +272,7 @@ export function StatCard({ label, value, color, alert }: { label: string; value:
     }[color];
     return (
         <div className={cn("rounded-xl border border-border/40 p-3 text-center bg-card/50", alert && "border-red-200/80 dark:border-red-800/40")}>
-            <p className={cn("text-lg font-bold font-mono tabular-nums", palette)}>{value}</p>
+            <p className={cn("text-lg font-bold font-sans tabular-nums", palette)}>{value}</p>
             <p className="text-[9px] text-muted-foreground font-medium">{label}</p>
         </div>
     );

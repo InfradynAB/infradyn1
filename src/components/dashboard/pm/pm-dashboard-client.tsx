@@ -419,36 +419,36 @@ export function PMDashboardClient() {
 
     // ── Column definition maps ──
     const DEL2_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (d: DeliveryItem) => React.ReactNode }> = {
-        poNum: { label: "PO #", cCls: "font-mono text-xs font-semibold", cell: (d) => d.poNumber },
+        poNum: { label: "PO #", cCls: "font-sans tabular-nums text-xs font-semibold", cell: (d) => d.poNumber },
         supplier: { label: "Supplier", cCls: "text-xs", cell: (d) => d.supplier },
         description: { label: "Description", cCls: "text-xs max-w-[200px] truncate", cell: (d) => d.description },
-        expected: { label: "Expected", cCls: "text-xs font-mono", cell: (d) => d.expectedDate.toLocaleDateString() },
-        qty: { label: "Qty", hCls: "text-right", cCls: "text-xs font-mono text-right", cell: (d) => `${d.quantity.toLocaleString()} ${d.unit}` },
+        expected: { label: "Expected", cCls: "text-xs font-sans tabular-nums", cell: (d) => d.expectedDate.toLocaleDateString() },
+        qty: { label: "Qty", hCls: "text-right", cCls: "text-xs font-sans tabular-nums text-right", cell: (d) => `${d.quantity.toLocaleString()} ${d.unit}` },
         status: { label: "Status", hCls: "text-center", cCls: "text-center", cell: (d) => <StatusPill status={d.status} /> },
-        tracking: { label: "Tracking", cCls: "text-xs font-mono text-muted-foreground", cell: (d) => d.trackingRef || "\u2014" },
+        tracking: { label: "Tracking", cCls: "text-xs font-sans tabular-nums text-muted-foreground", cell: (d) => d.trackingRef || "\u2014" },
     };
     const MAT_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (m: MaterialItem) => React.ReactNode }> = {
         material: { label: "Material", cCls: "font-semibold text-xs", cell: (m) => m.name },
-        ordered: { label: "Ordered", hCls: "text-right", cCls: "text-right font-mono text-xs", cell: (m) => m.ordered.toLocaleString() },
-        delivered: { label: "Delivered", hCls: "text-right", cCls: "text-right font-mono text-xs", cell: (m) => m.delivered.toLocaleString() },
-        installed: { label: "Installed", hCls: "text-right", cCls: "text-right font-mono text-xs", cell: (m) => m.installed.toLocaleString() },
-        remaining: { label: "Remaining", hCls: "text-right", cCls: "text-right font-mono text-xs text-amber-600 dark:text-amber-400", cell: (m) => m.remaining.toLocaleString() },
+        ordered: { label: "Ordered", hCls: "text-right", cCls: "text-right font-sans tabular-nums text-xs", cell: (m) => m.ordered.toLocaleString() },
+        delivered: { label: "Delivered", hCls: "text-right", cCls: "text-right font-sans tabular-nums text-xs", cell: (m) => m.delivered.toLocaleString() },
+        installed: { label: "Installed", hCls: "text-right", cCls: "text-right font-sans tabular-nums text-xs", cell: (m) => m.installed.toLocaleString() },
+        remaining: { label: "Remaining", hCls: "text-right", cCls: "text-right font-sans tabular-nums text-xs text-amber-600 dark:text-amber-400", cell: (m) => m.remaining.toLocaleString() },
         availability: { label: "Availability", hCls: "text-right", cCls: "text-right", cell: (m) => <ScorePill score={Math.round((m.delivered / Math.max(m.ordered, 1)) * 100)} /> },
     };
     const MS2_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (m: MilestoneItem) => React.ReactNode }> = {
         milestone: { label: "Milestone", cCls: "font-semibold text-xs", cell: (m) => m.name },
-        po: { label: "PO #", cCls: "font-mono text-xs", cell: (m) => m.poNumber },
-        dueDate: { label: "Due Date", cCls: "font-mono text-xs", cell: (m) => m.dueDate.toLocaleDateString() },
-        value: { label: "Value", hCls: "text-right", cCls: "text-right font-mono text-xs", cell: (m) => fmt(m.value) },
-        progress: { label: "Progress", hCls: "text-center", cCls: "text-center", cell: (m) => <div className="flex items-center gap-2 justify-center"><div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${m.progress}%` }} /></div><span className="text-[10px] font-mono">{m.progress}%</span></div> },
+        po: { label: "PO #", cCls: "font-sans tabular-nums text-xs", cell: (m) => m.poNumber },
+        dueDate: { label: "Due Date", cCls: "font-sans tabular-nums text-xs", cell: (m) => m.dueDate.toLocaleDateString() },
+        value: { label: "Value", hCls: "text-right", cCls: "text-right font-sans tabular-nums text-xs", cell: (m) => fmt(m.value) },
+        progress: { label: "Progress", hCls: "text-center", cCls: "text-center", cell: (m) => <div className="flex items-center gap-2 justify-center"><div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${m.progress}%` }} /></div><span className="text-[10px] font-sans tabular-nums">{m.progress}%</span></div> },
         status: { label: "Status", hCls: "text-center", cCls: "text-center", cell: (m) => <StatusPill status={m.status} /> },
     };
     const CO2_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (c: ChangeOrderItem) => React.ReactNode }> = {
-        reference: { label: "Reference", cCls: "font-mono text-xs font-semibold", cell: (c) => c.reference },
+        reference: { label: "Reference", cCls: "font-sans tabular-nums text-xs font-semibold", cell: (c) => c.reference },
         title: { label: "Title", cCls: "text-xs max-w-[200px] truncate", cell: (c) => c.title },
-        po: { label: "PO #", cCls: "font-mono text-xs", cell: (c) => c.poNumber },
-        costImpact: { label: "Cost Impact", hCls: "text-right", cCls: "", cell: (c) => <span className={cn("text-right font-mono text-xs", c.costImpact < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")}>{c.costImpact < 0 ? "-" : "+"}{fmt(Math.abs(c.costImpact))}</span> },
-        time: { label: "Time", hCls: "text-right", cCls: "text-right font-mono text-xs", cell: (c) => c.timeImpactDays > 0 ? `+${c.timeImpactDays}d` : "\u2014" },
+        po: { label: "PO #", cCls: "font-sans tabular-nums text-xs", cell: (c) => c.poNumber },
+        costImpact: { label: "Cost Impact", hCls: "text-right", cCls: "", cell: (c) => <span className={cn("text-right font-sans tabular-nums text-xs", c.costImpact < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")}>{c.costImpact < 0 ? "-" : "+"}{fmt(Math.abs(c.costImpact))}</span> },
+        time: { label: "Time", hCls: "text-right", cCls: "text-right font-sans tabular-nums text-xs", cell: (c) => c.timeImpactDays > 0 ? `+${c.timeImpactDays}d` : "\u2014" },
         status: { label: "Status", hCls: "text-center", cCls: "text-center", cell: (c) => <StatusPill status={c.status} /> },
     };
     const SUP_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (s: SupplierScorecard) => React.ReactNode }> = {
@@ -460,7 +460,7 @@ export function PMDashboardClient() {
         overall: { label: "Overall", hCls: "text-center", cCls: "text-center", cell: (s) => <ScorePill score={s.overall} bold /> },
     };
     const INSP_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (e: InspectionEvent) => React.ReactNode }> = {
-        date: { label: "Date", cCls: "font-mono text-xs", cell: (e) => e.date },
+        date: { label: "Date", cCls: "font-sans tabular-nums text-xs", cell: (e) => e.date },
         inspection: { label: "Inspection", cCls: "font-semibold text-xs", cell: (e) => e.title },
         supplier: { label: "Supplier", cCls: "text-xs", cell: (e) => e.supplier },
         status: { label: "Status", hCls: "text-center", cCls: "text-center", cell: (e) => <StatusPill status={e.status} /> },
@@ -1253,7 +1253,7 @@ function ScorePill({ score, bold }: { score: number; bold?: boolean }) {
         : score >= 60 ? "text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/15"
             : "text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-500/15";
     return (
-        <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-[11px] tabular-nums font-mono", color, bold && "font-bold")}>
+        <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-[11px] tabular-nums font-sans tabular-nums", color, bold && "font-bold")}>
             {score}
         </span>
     );

@@ -130,7 +130,7 @@ export function HealthGauge({ score, label = "Procurement Health", breakdown }: 
                         {/* Center score */}
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
                             <span
-                                className="text-4xl font-bold font-mono transition-all duration-700"
+                                className="text-4xl font-bold font-sans tabular-nums transition-all duration-700"
                                 style={{ color: config.color }}
                             >
                                 {animatedScore.toFixed(0)}
@@ -158,7 +158,7 @@ export function HealthGauge({ score, label = "Procurement Health", breakdown }: 
                                                 }}
                                             />
                                         </div>
-                                        <span className="text-xs font-mono text-muted-foreground w-8 text-right tabular-nums">
+                                        <span className="text-xs font-sans tabular-nums text-muted-foreground w-8 text-right tabular-nums">
                                             {item.score.toFixed(0)}
                                         </span>
                                     </div>
