@@ -168,18 +168,24 @@ function mockPOStatus(): POStatusData {
 
 function mockDeliveryTimeline(): DeliveryTimelineItem[] {
     return [
-        { id: "d1", poNumber: "PO-2024-001", description: "Steel reinforcement bars", stages: [
-            { name: "dispatch", date: "2026-01-20", status: "completed" }, { name: "transit", date: "2026-01-25", status: "completed" },
-            { name: "delivered", date: "2026-02-01", status: "completed" }, { name: "inspected", date: null, status: "in-progress" },
-        ]},
-        { id: "d2", poNumber: "PO-2024-001", description: "Concrete mix grade C40", stages: [
-            { name: "dispatch", date: "2026-02-03", status: "completed" }, { name: "transit", date: "2026-02-05", status: "in-progress" },
-            { name: "delivered", date: null, status: "pending" }, { name: "inspected", date: null, status: "pending" },
-        ]},
-        { id: "d3", poNumber: "PO-2024-002", description: "HVAC ductwork", stages: [
-            { name: "dispatch", date: "2026-01-28", status: "completed" }, { name: "transit", date: "2026-02-01", status: "delayed" },
-            { name: "delivered", date: null, status: "pending" }, { name: "inspected", date: null, status: "pending" },
-        ]},
+        {
+            id: "d1", poNumber: "PO-2024-001", description: "Steel reinforcement bars", stages: [
+                { name: "dispatch", date: "2026-01-20", status: "completed" }, { name: "transit", date: "2026-01-25", status: "completed" },
+                { name: "delivered", date: "2026-02-01", status: "completed" }, { name: "inspected", date: null, status: "in-progress" },
+            ]
+        },
+        {
+            id: "d2", poNumber: "PO-2024-001", description: "Concrete mix grade C40", stages: [
+                { name: "dispatch", date: "2026-02-03", status: "completed" }, { name: "transit", date: "2026-02-05", status: "in-progress" },
+                { name: "delivered", date: null, status: "pending" }, { name: "inspected", date: null, status: "pending" },
+            ]
+        },
+        {
+            id: "d3", poNumber: "PO-2024-002", description: "HVAC ductwork", stages: [
+                { name: "dispatch", date: "2026-01-28", status: "completed" }, { name: "transit", date: "2026-02-01", status: "delayed" },
+                { name: "delivered", date: null, status: "pending" }, { name: "inspected", date: null, status: "pending" },
+            ]
+        },
     ];
 }
 
@@ -402,52 +408,52 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
 
     // ── Column definition maps ──
     const PO_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (po: POItem) => React.ReactNode }> = {
-        poNumber:  { label: "PO Number",  cCls: "font-semibold",        cell: (po) => po.poNumber },
-        project:   { label: "Project",                                   cell: (po) => po.project },
-        value:     { label: "Value",      cCls: "font-mono",             cell: (po) => fmt(po.totalValue) },
-        status:    { label: "Status",                                    cell: (po) => <StatusPill status={po.status.toLowerCase().replace(/_/g, "-")} /> },
-        progress:  { label: "Progress",                                  cell: (po) => <div className="flex items-center gap-1.5"><div className="w-14 h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${po.deliveryProgress}%` }} /></div><span className="text-[10px]">{po.deliveryProgress}%</span></div> },
-        date:      { label: "Date",       cCls: "text-muted-foreground", cell: (po) => new Date(po.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
+        poNumber: { label: "PO Number", cCls: "font-semibold", cell: (po) => po.poNumber },
+        project: { label: "Project", cell: (po) => po.project },
+        value: { label: "Value", cCls: "font-mono", cell: (po) => fmt(po.totalValue) },
+        status: { label: "Status", cell: (po) => <StatusPill status={po.status.toLowerCase().replace(/_/g, "-")} /> },
+        progress: { label: "Progress", cell: (po) => <div className="flex items-center gap-1.5"><div className="w-14 h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${po.deliveryProgress}%` }} /></div><span className="text-[10px]">{po.deliveryProgress}%</span></div> },
+        date: { label: "Date", cCls: "text-muted-foreground", cell: (po) => new Date(po.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
     };
     const DEL_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (d: DeliveryTimelineItem) => React.ReactNode }> = {
-        po:          { label: "PO",          cCls: "font-semibold",             cell: (d) => d.poNumber },
-        description: { label: "Description", cCls: "max-w-[180px] truncate",   cell: (d) => d.description },
-        dispatched:  { label: "Dispatched",                                     cell: (d) => d.stages[0]?.date ? new Date(d.stages[0].date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
-        transit:     { label: "Transit",                                        cell: (d) => d.stages[1]?.date ? new Date(d.stages[1].date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
-        delivered:   { label: "Delivered",                                      cell: (d) => d.stages[2]?.date ? new Date(d.stages[2].date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
-        inspected:   { label: "Inspected",                                      cell: (d) => d.stages[3]?.date ? new Date(d.stages[3].date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
-        status:      { label: "Status",                                         cell: (d) => { const hasDelayed = d.stages.some(s => s.status === "delayed"); const allDone = d.stages.every(s => s.status === "completed"); return <StatusPill status={hasDelayed ? "delayed" : allDone ? "completed" : "in-progress"} />; } },
+        po: { label: "PO", cCls: "font-semibold", cell: (d) => d.poNumber },
+        description: { label: "Description", cCls: "max-w-[180px] truncate", cell: (d) => d.description },
+        dispatched: { label: "Dispatched", cell: (d) => d.stages[0]?.date ? new Date(d.stages[0].date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
+        transit: { label: "Transit", cell: (d) => d.stages[1]?.date ? new Date(d.stages[1].date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
+        delivered: { label: "Delivered", cell: (d) => d.stages[2]?.date ? new Date(d.stages[2].date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
+        inspected: { label: "Inspected", cell: (d) => d.stages[3]?.date ? new Date(d.stages[3].date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
+        status: { label: "Status", cell: (d) => { const hasDelayed = d.stages.some(s => s.status === "delayed"); const allDone = d.stages.every(s => s.status === "completed"); return <StatusPill status={hasDelayed ? "delayed" : allDone ? "completed" : "in-progress"} />; } },
     };
     const INV_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (inv: InvoiceItem) => React.ReactNode }> = {
-        invoiceNum: { label: "Invoice #",  cCls: "font-semibold",        cell: (inv) => inv.invoiceNumber },
-        po:         { label: "PO",                                       cell: (inv) => inv.poNumber },
-        amount:     { label: "Amount",     cCls: "font-mono",            cell: (inv) => fmt(inv.amount) },
-        submitted:  { label: "Submitted",                                cell: (inv) => new Date(inv.submittedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
-        dueDate:    { label: "Due Date",                                 cell: (inv) => new Date(inv.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
-        status:     { label: "Status",                                   cell: (inv) => <StatusPill status={inv.status.toLowerCase().replace(/_/g, "-")} /> },
-        paid:       { label: "Paid",                                     cell: (inv) => inv.paidAt ? new Date(inv.paidAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
+        invoiceNum: { label: "Invoice #", cCls: "font-semibold", cell: (inv) => inv.invoiceNumber },
+        po: { label: "PO", cell: (inv) => inv.poNumber },
+        amount: { label: "Amount", cCls: "font-mono", cell: (inv) => fmt(inv.amount) },
+        submitted: { label: "Submitted", cell: (inv) => new Date(inv.submittedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
+        dueDate: { label: "Due Date", cell: (inv) => new Date(inv.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
+        status: { label: "Status", cell: (inv) => <StatusPill status={inv.status.toLowerCase().replace(/_/g, "-")} /> },
+        paid: { label: "Paid", cell: (inv) => inv.paidAt ? new Date(inv.paidAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
     };
     const NCR_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (ncr: NCRItem) => React.ReactNode }> = {
-        ncrNum:   { label: "NCR #",    cCls: "font-semibold",          cell: (ncr) => ncr.ncrNumber },
-        title:    { label: "Title",    cCls: "max-w-[200px] truncate", cell: (ncr) => ncr.title },
-        severity: { label: "Severity",                                 cell: (ncr) => <SeverityBadge severity={ncr.severity} /> },
-        status:   { label: "Status",                                   cell: (ncr) => <StatusPill status={ncr.status.toLowerCase().replace(/_/g, "-")} /> },
-        reported: { label: "Reported",                                 cell: (ncr) => new Date(ncr.reportedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
-        slaDue:   { label: "SLA Due",                                  cell: (ncr) => ncr.slaDueAt ? new Date(ncr.slaDueAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
+        ncrNum: { label: "NCR #", cCls: "font-semibold", cell: (ncr) => ncr.ncrNumber },
+        title: { label: "Title", cCls: "max-w-[200px] truncate", cell: (ncr) => ncr.title },
+        severity: { label: "Severity", cell: (ncr) => <SeverityBadge severity={ncr.severity} /> },
+        status: { label: "Status", cell: (ncr) => <StatusPill status={ncr.status.toLowerCase().replace(/_/g, "-")} /> },
+        reported: { label: "Reported", cell: (ncr) => new Date(ncr.reportedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
+        slaDue: { label: "SLA Due", cell: (ncr) => ncr.slaDueAt ? new Date(ncr.slaDueAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "\u2014" },
     };
     const MS_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (m: MilestoneItem) => React.ReactNode }> = {
-        milestone:  { label: "Milestone",  cCls: "font-semibold max-w-[200px] truncate", cell: (m) => m.title },
-        po:         { label: "PO",                                                       cell: (m) => m.poNumber },
-        amount:     { label: "Amount",     cCls: "font-mono",                            cell: (m) => fmt(m.amount) },
-        paymentPct: { label: "Payment %",                                                cell: (m) => `${m.paymentPercentage}%` },
-        dueDate:    { label: "Due Date",                                                 cell: (m) => new Date(m.expectedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
-        status:     { label: "Status",                                                   cell: (m) => <StatusPill status={m.status.toLowerCase()} /> },
+        milestone: { label: "Milestone", cCls: "font-semibold max-w-[200px] truncate", cell: (m) => m.title },
+        po: { label: "PO", cell: (m) => m.poNumber },
+        amount: { label: "Amount", cCls: "font-mono", cell: (m) => fmt(m.amount) },
+        paymentPct: { label: "Payment %", cell: (m) => `${m.paymentPercentage}%` },
+        dueDate: { label: "Due Date", cell: (m) => new Date(m.expectedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) },
+        status: { label: "Status", cell: (m) => <StatusPill status={m.status.toLowerCase()} /> },
     };
     const DOC_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (doc: DocumentStatusItem) => React.ReactNode }> = {
         document: { label: "Document", cCls: "font-semibold", cell: (doc) => doc.type },
-        status:   { label: "Status",                          cell: (doc) => <StatusPill status={doc.status} /> },
-        expiry:   { label: "Expiry",                          cell: (doc) => doc.expiryDate ? new Date(doc.expiryDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) : "\u2014" },
-        uploaded: { label: "Uploaded",                        cell: (doc) => doc.uploadDate ? new Date(doc.uploadDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) : "\u2014" },
+        status: { label: "Status", cell: (doc) => <StatusPill status={doc.status} /> },
+        expiry: { label: "Expiry", cell: (doc) => doc.expiryDate ? new Date(doc.expiryDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) : "\u2014" },
+        uploaded: { label: "Uploaded", cell: (doc) => doc.uploadDate ? new Date(doc.uploadDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) : "\u2014" },
     };
 
     if (loading) return <DashboardSkeleton />;
@@ -1095,7 +1101,7 @@ function KPICard({ label, value, icon: Icon, color, subtitle, alert }: {
                 <Icon className={cn("w-4 h-4", fg)} weight="duotone" />
                 <span className="text-[10px] text-muted-foreground font-medium">{label}</span>
             </div>
-            <p className="text-xl font-bold font-mono tabular-nums">{value}</p>
+            <p className="text-xl font-bold font-sans tabular-nums">{value}</p>
             {subtitle && <p className="text-[10px] text-muted-foreground mt-0.5">{subtitle}</p>}
         </div>
     );
@@ -1111,7 +1117,7 @@ function StatCard({ label, value, color, alert }: { label: string; value: string
     }[color];
     return (
         <div className={cn("rounded-xl border border-border/40 p-3 text-center bg-card/50", alert && "border-red-200/80 dark:border-red-800/40")}>
-            <p className={cn("text-lg font-bold font-mono tabular-nums", palette)}>{value}</p>
+            <p className={cn("text-lg font-bold font-sans tabular-nums", palette)}>{value}</p>
             <p className="text-[9px] text-muted-foreground font-medium">{label}</p>
         </div>
     );

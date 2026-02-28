@@ -166,4 +166,12 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Globally disable slashed zeros, force tabular numbers, and explicitly disable zero-slash */
+  html,
+  body,
+  *:not(.lucide) {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "zero" 0 !important;
+  }
 }

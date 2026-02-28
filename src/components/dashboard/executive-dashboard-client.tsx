@@ -169,8 +169,8 @@ export function ExecutiveDashboardClient() {
     const [, setExporting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [timeframe, setTimeframe] = useState("all");
-        const [customFrom, setCustomFrom] = useState<Date | undefined>(undefined);
-        const [customTo, setCustomTo] = useState<Date | undefined>(undefined);
+    const [customFrom, setCustomFrom] = useState<Date | undefined>(undefined);
+    const [customTo, setCustomTo] = useState<Date | undefined>(undefined);
     const [projectFilter, setProjectFilter] = useState("all");
     const [searchQuery, setSearchQuery] = useState("");
     const [viewModes, setViewModes] = useState<Record<string, "chart" | "table">>({
@@ -307,45 +307,45 @@ export function ExecutiveDashboardClient() {
     const [alertCols, setAlertCols] = useState(["alert", "severity", "entity"]);
     const [finCols, setFinCols] = useState(["metric", "value", "context"]);
     const finRows: { id: string; metric: string; value: string; context: string }[] = data ? [
-        { id: "committed",    metric: "Total Committed",      value: fmt(data.kpis.financial.totalCommitted),    context: "Approved portfolio commitment" },
-        { id: "paid",         metric: "Total Paid",           value: fmt(data.kpis.financial.totalPaid),          context: "Invoices processed" },
-        { id: "unpaid",       metric: "Total Unpaid",         value: fmt(data.kpis.financial.totalUnpaid),        context: "Open payment obligations" },
-        { id: "retention",    metric: "Retention Held",       value: fmt(data.kpis.financial.retentionHeld),      context: "Held against contractual milestones" },
-        { id: "co",           metric: "Change Order Impact",  value: fmt(data.kpis.financial.changeOrderImpact),  context: "Budget variation pressure" },
+        { id: "committed", metric: "Total Committed", value: fmt(data.kpis.financial.totalCommitted), context: "Approved portfolio commitment" },
+        { id: "paid", metric: "Total Paid", value: fmt(data.kpis.financial.totalPaid), context: "Invoices processed" },
+        { id: "unpaid", metric: "Total Unpaid", value: fmt(data.kpis.financial.totalUnpaid), context: "Open payment obligations" },
+        { id: "retention", metric: "Retention Held", value: fmt(data.kpis.financial.retentionHeld), context: "Held against contractual milestones" },
+        { id: "co", metric: "Change Order Impact", value: fmt(data.kpis.financial.changeOrderImpact), context: "Budget variation pressure" },
     ] : [];
     const PROJ_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (p: ProjectSummary) => React.ReactNode }> = {
-        project:       { label: "Project",        cCls: "font-semibold",                    cell: (p) => p.name },
-        status:        { label: "Status",                                                   cell: (p) => <StatusBadge status={p.status} /> },
+        project: { label: "Project", cCls: "font-semibold", cell: (p) => p.name },
+        status: { label: "Status", cell: (p) => <StatusBadge status={p.status} /> },
         contractValue: { label: "Contract Value", hCls: "text-right", cCls: "text-right font-mono text-sm tabular-nums", cell: (p) => fmt(p.totalValue) },
-        spent:         { label: "Spent",          hCls: "text-right", cCls: "text-right font-mono text-sm tabular-nums", cell: (p) => fmt(p.spend) },
-        physical:      { label: "Physical",                                                 cell: (p) => <ProgressBar value={p.physicalProgress} showLabel /> },
-        financial:     { label: "Financial",                                                cell: (p) => <ProgressBar value={p.financialProgress} showLabel /> },
-        link:          { label: "",               cCls: "",                                cell: () => <CaretRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" /> },
+        spent: { label: "Spent", hCls: "text-right", cCls: "text-right font-mono text-sm tabular-nums", cell: (p) => fmt(p.spend) },
+        physical: { label: "Physical", cell: (p) => <ProgressBar value={p.physicalProgress} showLabel /> },
+        financial: { label: "Financial", cell: (p) => <ProgressBar value={p.financialProgress} showLabel /> },
+        link: { label: "", cCls: "", cell: () => <CaretRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" /> },
     };
     const APPROV_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (a: ApprovalItem) => React.ReactNode }> = {
-        type:        { label: "Type",         cCls: "uppercase text-xs font-semibold text-muted-foreground", cell: (a) => a.type.replace("_", " ") },
-        title:       { label: "Title",        cCls: "font-medium",                                           cell: (a) => a.title },
-        requestedBy: { label: "Requested By",                                                                  cell: (a) => a.requestedBy },
-        requestedAt: { label: "Requested At", cCls: "text-muted-foreground",                                  cell: (a) => new Date(a.requestedAt).toLocaleDateString() },
-        amount:      { label: "Amount",       hCls: "text-right", cCls: "text-right font-mono",               cell: (a) => a.amount ? fmt(a.amount) : "\u2014" },
-        priority:    { label: "Priority",                                                                      cell: (a) => <Badge variant="outline" className="capitalize">{a.priority}</Badge> },
-        status:      { label: "Status",                                                                        cell: (a) => <Badge variant="secondary" className="capitalize">{a.status.replace("-", " ")}</Badge> },
+        type: { label: "Type", cCls: "uppercase text-xs font-semibold text-muted-foreground", cell: (a) => a.type.replace("_", " ") },
+        title: { label: "Title", cCls: "font-medium", cell: (a) => a.title },
+        requestedBy: { label: "Requested By", cell: (a) => a.requestedBy },
+        requestedAt: { label: "Requested At", cCls: "text-muted-foreground", cell: (a) => new Date(a.requestedAt).toLocaleDateString() },
+        amount: { label: "Amount", hCls: "text-right", cCls: "text-right font-mono", cell: (a) => a.amount ? fmt(a.amount) : "\u2014" },
+        priority: { label: "Priority", cell: (a) => <Badge variant="outline" className="capitalize">{a.priority}</Badge> },
+        status: { label: "Status", cell: (a) => <Badge variant="secondary" className="capitalize">{a.status.replace("-", " ")}</Badge> },
     };
     const RISK_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (r: RiskItem) => React.ReactNode }> = {
-        risk:          { label: "Risk",           cCls: "font-medium",                        cell: (r) => r.name },
-        category:      { label: "Category",                                                   cell: (r) => r.category },
-        supplierRisk:  { label: "Supplier Risk",  hCls: "text-right", cCls: "text-right font-mono", cell: (r) => r.supplierRisk },
+        risk: { label: "Risk", cCls: "font-medium", cell: (r) => r.name },
+        category: { label: "Category", cell: (r) => r.category },
+        supplierRisk: { label: "Supplier Risk", hCls: "text-right", cCls: "text-right font-mono", cell: (r) => r.supplierRisk },
         projectImpact: { label: "Project Impact", hCls: "text-right", cCls: "text-right font-mono", cell: (r) => r.projectImpact },
     };
     const ALERT_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (a: ComplianceAlert) => React.ReactNode }> = {
-        alert:    { label: "Alert",    cCls: "font-medium",           cell: (a) => a.title },
-        severity: { label: "Severity",                               cell: (a) => <Badge variant={a.severity === "critical" ? "destructive" : "outline"} className="capitalize">{a.severity}</Badge> },
-        entity:   { label: "Entity",   cCls: "text-muted-foreground", cell: (a) => a.relatedEntity },
+        alert: { label: "Alert", cCls: "font-medium", cell: (a) => a.title },
+        severity: { label: "Severity", cell: (a) => <Badge variant={a.severity === "critical" ? "destructive" : "outline"} className="capitalize">{a.severity}</Badge> },
+        entity: { label: "Entity", cCls: "text-muted-foreground", cell: (a) => a.relatedEntity },
     };
     const FIN_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (r: { id: string; metric: string; value: string; context: string }) => React.ReactNode }> = {
-        metric:  { label: "Metric",                                             cell: (r) => r.metric },
-        value:   { label: "Value",   hCls: "text-right", cCls: "text-right font-mono", cell: (r) => r.value },
-        context: { label: "Context", cCls: "text-muted-foreground",             cell: (r) => r.context },
+        metric: { label: "Metric", cell: (r) => r.metric },
+        value: { label: "Value", hCls: "text-right", cCls: "text-right font-mono", cell: (r) => r.value },
+        context: { label: "Context", cCls: "text-muted-foreground", cell: (r) => r.context },
     };
     const tableDatasets = useMemo(() => {
         if (!data) {
@@ -551,361 +551,361 @@ export function ExecutiveDashboardClient() {
             {/* ─── BODY ─── */}
             {loading ? <DashboardSkeleton /> : data ? (
                 <ExecutiveWorkspace datasets={tableDatasets} initialDataset={currentSection}>
-                <div className="space-y-12 pt-8 pb-24">
+                    <div className="space-y-12 pt-8 pb-24">
 
-                    {/* ═══════════ SECTION 1: OVERVIEW ═══════════ */}
-                    <section id="overview" ref={(el) => { sectionRefs.current.overview = el; }} className={cn("scroll-mt-32 space-y-6", currentSection !== "overview" && "hidden")}>
+                        {/* ═══════════ SECTION 1: OVERVIEW ═══════════ */}
+                        <section id="overview" ref={(el) => { sectionRefs.current.overview = el; }} className={cn("scroll-mt-32 space-y-6", currentSection !== "overview" && "hidden")}>
 
-                        {/* KPI Cards */}
-                        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-                            <GlowKPI
-                                label="Total Committed"
-                                value={fmt(data.kpis.financial.totalCommitted)}
-                                trend="+6%"
-                                trendDir="up"
-                                sideStat={`${projects.length}`}
-                                sideLabel="active projects"
-                                subText={`${data.kpis.progress.activePOs} active POs`}
-                                subHref="/dashboard/executive/projects"
-                            />
-                            <GlowKPI
-                                label="Total Paid"
-                                value={fmt(data.kpis.financial.totalPaid)}
-                                trend="+4.2%"
-                                trendDir="up"
-                                sideStat={pct((data.kpis.financial.totalPaid / Math.max(data.kpis.financial.totalCommitted, 1)) * 100)}
-                                sideLabel="paid / committed"
-                                subText={`${data.kpis.payments.pendingInvoiceCount} pending invoices`}
-                                subHref="/dashboard/executive/financials"
-                            />
-                            <GlowKPI
-                                label="Unpaid / Pending"
-                                value={fmt(data.kpis.financial.totalUnpaid)}
-                                trend={data.kpis.financial.totalUnpaid > data.kpis.financial.totalPaid ? "High" : "Normal"}
-                                trendDir={data.kpis.financial.totalUnpaid > data.kpis.financial.totalPaid ? "alert" : "neutral"}
-                                sideStat={`${data.kpis.payments.overdueInvoiceCount}`}
-                                sideLabel="overdue invoices"
-                                subText={fmt(data.kpis.payments.overdueAmount)}
-                                subHref="/dashboard/executive/financials"
-                            />
-                            <GlowKPI
-                                label="Health Score"
-                                value={`${healthScore.toFixed(0)}/100`}
-                                trend={healthScore >= 70 ? "Healthy" : healthScore >= 40 ? "Fair" : "Critical"}
-                                trendDir={healthScore >= 70 ? "up" : healthScore >= 40 ? "neutral" : "alert"}
-                                sideStat={`${data.kpis.quality.criticalNCRs}`}
-                                sideLabel="critical NCRs"
-                                subText={`${data.kpis.logistics.delayedShipments} delayed shipments`}
-                                subHref="/dashboard/executive/risks"
-                            />
-                        </div>
-
-                        {/* Health + Portfolio */}
-                        <div className="grid gap-5 lg:grid-cols-2">
-                            <GlowCard><HealthGauge score={healthScore} label="Procurement Health" breakdown={healthBreakdown} /></GlowCard>
-                            <GlowCard>
-                                <PortfolioDonut
-                                    data={projects.map(p => ({ id: p.id, name: p.name, spend: p.spend, percentage: p.percentage, status: p.status }))}
-                                    totalSpend={data.kpis.financial.totalCommitted}
+                            {/* KPI Cards */}
+                            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+                                <GlowKPI
+                                    label="Total Committed"
+                                    value={fmt(data.kpis.financial.totalCommitted)}
+                                    trend="+6%"
+                                    trendDir="up"
+                                    sideStat={`${projects.length}`}
+                                    sideLabel="active projects"
+                                    subText={`${data.kpis.progress.activePOs} active POs`}
+                                    subHref="/dashboard/executive/projects"
                                 />
-                            </GlowCard>
-                        </div>
-
-                        {/* Secondary KPIs */}
-                        <div className="grid gap-3 grid-cols-3 md:grid-cols-6">
-                            <MiniKPI icon={Package} label="Active POs" value={`${data.kpis.progress.activePOs}/${data.kpis.progress.totalPOs}`} />
-                            <MiniKPI icon={CurrencyDollar} label="Retention" value={fmt(data.kpis.financial.retentionHeld)} />
-                            <MiniKPI icon={ShieldWarning} label="NCR Rate" value={pct(data.kpis.quality.ncrRate)} alert={data.kpis.quality.ncrRate > 5} />
-                            <MiniKPI icon={Truck} label="On-Time" value={pct(data.kpis.logistics.onTimeRate)} alert={data.kpis.logistics.onTimeRate < 80} />
-                            <MiniKPI icon={Receipt} label="Overdue" value={`${data.kpis.payments.overdueInvoiceCount}`} alert={data.kpis.payments.overdueInvoiceCount > 0} />
-                            <MiniKPI icon={Clock} label="Avg Pay" value={`${data.kpis.payments.avgPaymentCycleDays}d`} />
-                        </div>
-                    </section>
-
-                    {/* ═══════════ SECTION 2: PROJECTS ═══════════ */}
-                    <section id="projects" ref={(el) => { sectionRefs.current.projects = el; }} className={cn("scroll-mt-32 space-y-5", currentSection !== "projects" && "hidden")}>
-                        <SectionHeader
-                            icon={Buildings}
-                            iconBg="bg-indigo-100 dark:bg-indigo-500/20"
-                            iconColor="text-indigo-600 dark:text-indigo-400"
-                            title="Projects"
-                            subtitle={`${projects.length} active projects across your portfolio`}
-                            rightContent={<ViewToggle section="projects" current={viewModes.projects} onChange={toggleView} />}
-                        />
-                        {viewModes.projects === "chart" ? (
-                            <GlowCard><ProjectBarChart data={projects} onProjectClick={(id) => router.push(`/dashboard/projects/${id}`)} /></GlowCard>
-                        ) : (
-                            <>
-                                <ExplainView
-                                    title="Projects Table View"
-                                    description="Compare project health and spend line-by-line. You can sort and scan contract value, actual spend, and progress columns before exporting."
-                                    columns={["Project", "Status", "Contract Value", "Spent", "Physical", "Financial"]}
-                                    onExport={() => handleExport("xlsx")}
+                                <GlowKPI
+                                    label="Total Paid"
+                                    value={fmt(data.kpis.financial.totalPaid)}
+                                    trend="+4.2%"
+                                    trendDir="up"
+                                    sideStat={pct((data.kpis.financial.totalPaid / Math.max(data.kpis.financial.totalCommitted, 1)) * 100)}
+                                    sideLabel="paid / committed"
+                                    subText={`${data.kpis.payments.pendingInvoiceCount} pending invoices`}
+                                    subHref="/dashboard/executive/financials"
                                 />
-                                <GlowCard noPad>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                                {projCols.map(col => (
-                                                    <TableHead key={col} draggable
-                                                        onDragStart={() => setDragCol(col)}
-                                                        onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
-                                                        onDrop={() => { reorderCols(projCols, dragCol!, col, setProjCols); setDragCol(null); setDragOverCol(null); }}
-                                                        onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
-                                                        className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", PROJ_DEF[col].hCls,
-                                                            dragCol === col && "opacity-40 bg-muted/60",
-                                                            dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
-                                                        )}>
-                                                        {col === "link" ? <span className="w-10" /> : <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{PROJ_DEF[col].label}</span>}
-                                                    </TableHead>
-                                                ))}
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {projects.length === 0 ? (
-                                                <TableRow><TableCell colSpan={projCols.length} className="text-center py-10 text-muted-foreground">No projects found</TableCell></TableRow>
-                                            ) : projects.map((p) => (
-                                                <TableRow key={p.id} className="cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => router.push(`/dashboard/projects/${p.id}`)  }>
-                                                    {projCols.map(col => <TableCell key={col} className={PROJ_DEF[col].cCls}>{PROJ_DEF[col].cell(p)}</TableCell>)}
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
+                                <GlowKPI
+                                    label="Unpaid / Pending"
+                                    value={fmt(data.kpis.financial.totalUnpaid)}
+                                    trend={data.kpis.financial.totalUnpaid > data.kpis.financial.totalPaid ? "High" : "Normal"}
+                                    trendDir={data.kpis.financial.totalUnpaid > data.kpis.financial.totalPaid ? "alert" : "neutral"}
+                                    sideStat={`${data.kpis.payments.overdueInvoiceCount}`}
+                                    sideLabel="overdue invoices"
+                                    subText={fmt(data.kpis.payments.overdueAmount)}
+                                    subHref="/dashboard/executive/financials"
+                                />
+                                <GlowKPI
+                                    label="Health Score"
+                                    value={`${healthScore.toFixed(0)}/100`}
+                                    trend={healthScore >= 70 ? "Healthy" : healthScore >= 40 ? "Fair" : "Critical"}
+                                    trendDir={healthScore >= 70 ? "up" : healthScore >= 40 ? "neutral" : "alert"}
+                                    sideStat={`${data.kpis.quality.criticalNCRs}`}
+                                    sideLabel="critical NCRs"
+                                    subText={`${data.kpis.logistics.delayedShipments} delayed shipments`}
+                                    subHref="/dashboard/executive/risks"
+                                />
+                            </div>
+
+                            {/* Health + Portfolio */}
+                            <div className="grid gap-5 lg:grid-cols-2">
+                                <GlowCard><HealthGauge score={healthScore} label="Procurement Health" breakdown={healthBreakdown} /></GlowCard>
+                                <GlowCard>
+                                    <PortfolioDonut
+                                        data={projects.map(p => ({ id: p.id, name: p.name, spend: p.spend, percentage: p.percentage, status: p.status }))}
+                                        totalSpend={data.kpis.financial.totalCommitted}
+                                    />
                                 </GlowCard>
-                            </>
-                        )}
-                    </section>
+                            </div>
 
-                    {/* ═══════════ SECTION 3: APPROVALS ═══════════ */}
-                    <section id="approvals" ref={(el) => { sectionRefs.current.approvals = el; }} className={cn("scroll-mt-32 space-y-5", currentSection !== "approvals" && "hidden")}>
-                        <SectionHeader
-                            icon={Bell} iconBg="bg-amber-100 dark:bg-amber-500/20" iconColor="text-amber-600 dark:text-amber-400"
-                            title="Pending Approvals"
-                            subtitle={`${approvals.length} items awaiting your action`}
-                            badge={urgentCount > 0 ? { label: `${urgentCount} Urgent`, variant: "destructive" as const } : undefined}
-                            rightContent={<ViewToggle section="approvals" current={viewModes.approvals} onChange={toggleView} />}
-                        />
-                        {viewModes.approvals === "chart" ? (
-                            <GlowCard>
-                                <ApprovalsQueue data={approvals.length > 0 ? approvals : generateMockApprovals()} onReview={(id) => console.log("Review:", id)} />
-                            </GlowCard>
-                        ) : (
-                            <>
-                                <ExplainView
-                                    title="Approvals Table View"
-                                    description="Track who requested each approval, its priority, and financial exposure. Use this list to process queues quickly and export for follow-ups."
-                                    columns={["Type", "Title", "Requested By", "Requested At", "Amount", "Priority", "Status"]}
-                                    onExport={() => handleExport("csv")}
-                                />
-                                <GlowCard noPad>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                                {approvCols.map(col => (
-                                                    <TableHead key={col} draggable
-                                                        onDragStart={() => setDragCol(col)}
-                                                        onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
-                                                        onDrop={() => { reorderCols(approvCols, dragCol!, col, setApprovCols); setDragCol(null); setDragOverCol(null); }}
-                                                        onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
-                                                        className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", APPROV_DEF[col].hCls,
-                                                            dragCol === col && "opacity-40 bg-muted/60",
-                                                            dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
-                                                        )}>
-                                                        <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{APPROV_DEF[col].label}</span>
-                                                    </TableHead>
-                                                ))}
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {(approvals.length > 0 ? approvals : generateMockApprovals()).map((item) => (
-                                                <TableRow key={item.id} className="hover:bg-muted/20">
-                                                    {approvCols.map(col => <TableCell key={col} className={APPROV_DEF[col].cCls}>{APPROV_DEF[col].cell(item)}</TableCell>)}
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </GlowCard>
-                            </>
-                        )}
-                    </section>
+                            {/* Secondary KPIs */}
+                            <div className="grid gap-3 grid-cols-3 md:grid-cols-6">
+                                <MiniKPI icon={Package} label="Active POs" value={`${data.kpis.progress.activePOs}/${data.kpis.progress.totalPOs}`} />
+                                <MiniKPI icon={CurrencyDollar} label="Retention" value={fmt(data.kpis.financial.retentionHeld)} />
+                                <MiniKPI icon={ShieldWarning} label="NCR Rate" value={pct(data.kpis.quality.ncrRate)} alert={data.kpis.quality.ncrRate > 5} />
+                                <MiniKPI icon={Truck} label="On-Time" value={pct(data.kpis.logistics.onTimeRate)} alert={data.kpis.logistics.onTimeRate < 80} />
+                                <MiniKPI icon={Receipt} label="Overdue" value={`${data.kpis.payments.overdueInvoiceCount}`} alert={data.kpis.payments.overdueInvoiceCount > 0} />
+                                <MiniKPI icon={Clock} label="Avg Pay" value={`${data.kpis.payments.avgPaymentCycleDays}d`} />
+                            </div>
+                        </section>
 
-                    {/* ═══════════ SECTION 4: RISKS ═══════════ */}
-                    <section id="risks" ref={(el) => { sectionRefs.current.risks = el; }} className={cn("scroll-mt-32 space-y-5", currentSection !== "risks" && "hidden")}>
-                        <SectionHeader
-                            icon={ShieldWarning} iconBg="bg-red-100 dark:bg-red-500/20" iconColor="text-red-600 dark:text-red-400"
-                            title="Risks & Compliance"
-                            subtitle="Supplier risk matrix, compliance alerts, and trend analysis"
-                            badge={alerts.filter(a => a.severity === "critical").length > 0 ? { label: `${alerts.filter(a => a.severity === "critical").length} Critical`, variant: "destructive" as const } : undefined}
-                            rightContent={<ViewToggle section="risks" current={viewModes.risks} onChange={toggleView} />}
-                        />
-                        {viewModes.risks === "chart" ? (
-                            <>
-                                <div className="grid gap-4 md:grid-cols-3">
-                                    <RiskStatCard icon={Lightning} title="Critical NCRs" value={data.kpis.quality.criticalNCRs} subtitle={`${data.kpis.quality.openNCRs} open · ${data.kpis.quality.closedNCRs} closed`} alert={data.kpis.quality.criticalNCRs > 0} color="red" />
-                                    <RiskStatCard icon={Truck} title="Delayed Shipments" value={data.kpis.logistics.delayedShipments} subtitle={`Avg delay: ${data.kpis.logistics.avgDeliveryDelay}d`} alert={data.kpis.logistics.delayedShipments > 0} color="amber" />
-                                    <RiskStatCard icon={Receipt} title="Overdue Payments" value={data.kpis.payments.overdueInvoiceCount} subtitle={`${fmt(data.kpis.payments.overdueAmount)} outstanding`} alert={data.kpis.payments.overdueInvoiceCount > 0} color="orange" />
-                                </div>
-                                <div className="grid gap-5 lg:grid-cols-2">
-                                    <GlowCard><RiskHeatmap data={risks} onCellClick={(items) => console.log("Risk:", items)} /></GlowCard>
-                                    <GlowCard><ComplianceAlerts data={alerts} onAlertClick={(a) => console.log("Alert:", a)} /></GlowCard>
-                                </div>
-                                <GlowCard><SupplierTrendChart data={supplierTrend} suppliers={[]} /></GlowCard>
-                            </>
-                        ) : (
-                            <>
-                                <ExplainView
-                                    title="Risks Table View"
-                                    description="Review risk severity and compliance alerts as rows. This is optimized for operational follow-up and export to external action trackers."
-                                    columns={["Risk", "Category", "Supplier Risk", "Project Impact", "Alert Severity", "Related Entity"]}
-                                    onExport={() => handleExport("xlsx")}
-                                />
-                                <div className="grid gap-5 lg:grid-cols-2">
+                        {/* ═══════════ SECTION 2: PROJECTS ═══════════ */}
+                        <section id="projects" ref={(el) => { sectionRefs.current.projects = el; }} className={cn("scroll-mt-32 space-y-5", currentSection !== "projects" && "hidden")}>
+                            <SectionHeader
+                                icon={Buildings}
+                                iconBg="bg-indigo-100 dark:bg-indigo-500/20"
+                                iconColor="text-indigo-600 dark:text-indigo-400"
+                                title="Projects"
+                                subtitle={`${projects.length} active projects across your portfolio`}
+                                rightContent={<ViewToggle section="projects" current={viewModes.projects} onChange={toggleView} />}
+                            />
+                            {viewModes.projects === "chart" ? (
+                                <GlowCard><ProjectBarChart data={projects} onProjectClick={(id) => router.push(`/dashboard/projects/${id}`)} /></GlowCard>
+                            ) : (
+                                <>
+                                    <ExplainView
+                                        title="Projects Table View"
+                                        description="Compare project health and spend line-by-line. You can sort and scan contract value, actual spend, and progress columns before exporting."
+                                        columns={["Project", "Status", "Contract Value", "Spent", "Physical", "Financial"]}
+                                        onExport={() => handleExport("xlsx")}
+                                    />
                                     <GlowCard noPad>
                                         <Table>
                                             <TableHeader>
                                                 <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                                    {riskCols.map(col => (
+                                                    {projCols.map(col => (
                                                         <TableHead key={col} draggable
                                                             onDragStart={() => setDragCol(col)}
                                                             onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
-                                                            onDrop={() => { reorderCols(riskCols, dragCol!, col, setRiskCols); setDragCol(null); setDragOverCol(null); }}
+                                                            onDrop={() => { reorderCols(projCols, dragCol!, col, setProjCols); setDragCol(null); setDragOverCol(null); }}
                                                             onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
-                                                            className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", RISK_DEF[col].hCls,
+                                                            className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", PROJ_DEF[col].hCls,
                                                                 dragCol === col && "opacity-40 bg-muted/60",
                                                                 dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
                                                             )}>
-                                                            <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{RISK_DEF[col].label}</span>
+                                                            {col === "link" ? <span className="w-10" /> : <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{PROJ_DEF[col].label}</span>}
                                                         </TableHead>
                                                     ))}
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {(risks.length > 0 ? risks : generateMockRisks()).map((risk) => (
-                                                    <TableRow key={risk.id} className="hover:bg-muted/20">
-                                                        {riskCols.map(col => <TableCell key={col} className={RISK_DEF[col].cCls}>{RISK_DEF[col].cell(risk)}</TableCell>)}
+                                                {projects.length === 0 ? (
+                                                    <TableRow><TableCell colSpan={projCols.length} className="text-center py-10 text-muted-foreground">No projects found</TableCell></TableRow>
+                                                ) : projects.map((p) => (
+                                                    <TableRow key={p.id} className="cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => router.push(`/dashboard/projects/${p.id}`)}>
+                                                        {projCols.map(col => <TableCell key={col} className={PROJ_DEF[col].cCls}>{PROJ_DEF[col].cell(p)}</TableCell>)}
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
                                         </Table>
                                     </GlowCard>
+                                </>
+                            )}
+                        </section>
+
+                        {/* ═══════════ SECTION 3: APPROVALS ═══════════ */}
+                        <section id="approvals" ref={(el) => { sectionRefs.current.approvals = el; }} className={cn("scroll-mt-32 space-y-5", currentSection !== "approvals" && "hidden")}>
+                            <SectionHeader
+                                icon={Bell} iconBg="bg-amber-100 dark:bg-amber-500/20" iconColor="text-amber-600 dark:text-amber-400"
+                                title="Pending Approvals"
+                                subtitle={`${approvals.length} items awaiting your action`}
+                                badge={urgentCount > 0 ? { label: `${urgentCount} Urgent`, variant: "destructive" as const } : undefined}
+                                rightContent={<ViewToggle section="approvals" current={viewModes.approvals} onChange={toggleView} />}
+                            />
+                            {viewModes.approvals === "chart" ? (
+                                <GlowCard>
+                                    <ApprovalsQueue data={approvals.length > 0 ? approvals : generateMockApprovals()} onReview={(id) => console.log("Review:", id)} />
+                                </GlowCard>
+                            ) : (
+                                <>
+                                    <ExplainView
+                                        title="Approvals Table View"
+                                        description="Track who requested each approval, its priority, and financial exposure. Use this list to process queues quickly and export for follow-ups."
+                                        columns={["Type", "Title", "Requested By", "Requested At", "Amount", "Priority", "Status"]}
+                                        onExport={() => handleExport("csv")}
+                                    />
                                     <GlowCard noPad>
                                         <Table>
                                             <TableHeader>
                                                 <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                                    {alertCols.map(col => (
+                                                    {approvCols.map(col => (
                                                         <TableHead key={col} draggable
                                                             onDragStart={() => setDragCol(col)}
                                                             onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
-                                                            onDrop={() => { reorderCols(alertCols, dragCol!, col, setAlertCols); setDragCol(null); setDragOverCol(null); }}
+                                                            onDrop={() => { reorderCols(approvCols, dragCol!, col, setApprovCols); setDragCol(null); setDragOverCol(null); }}
                                                             onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
-                                                            className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", ALERT_DEF[col].hCls,
+                                                            className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", APPROV_DEF[col].hCls,
                                                                 dragCol === col && "opacity-40 bg-muted/60",
                                                                 dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
                                                             )}>
-                                                            <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{ALERT_DEF[col].label}</span>
+                                                            <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{APPROV_DEF[col].label}</span>
                                                         </TableHead>
                                                     ))}
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {(alerts.length > 0 ? alerts : generateMockAlerts(data.kpis)).map((alert) => (
-                                                    <TableRow key={alert.id} className="hover:bg-muted/20">
-                                                        {alertCols.map(col => <TableCell key={col} className={ALERT_DEF[col].cCls}>{ALERT_DEF[col].cell(alert)}</TableCell>)}
+                                                {(approvals.length > 0 ? approvals : generateMockApprovals()).map((item) => (
+                                                    <TableRow key={item.id} className="hover:bg-muted/20">
+                                                        {approvCols.map(col => <TableCell key={col} className={APPROV_DEF[col].cCls}>{APPROV_DEF[col].cell(item)}</TableCell>)}
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
                                         </Table>
                                     </GlowCard>
-                                </div>
-                            </>
-                        )}
-                    </section>
+                                </>
+                            )}
+                        </section>
 
-                    {/* ═══════════ SECTION 5: FINANCIALS ═══════════ */}
-                    <section id="financials" ref={(el) => { sectionRefs.current.financials = el; }} className={cn("scroll-mt-32 space-y-5", currentSection !== "financials" && "hidden")}>
-                        <SectionHeader
-                            icon={CurrencyDollar}
-                            iconBg="bg-emerald-100 dark:bg-emerald-500/20"
-                            iconColor="text-emerald-600 dark:text-emerald-400"
-                            title="Financial Intelligence"
-                            subtitle="Spend curves, change orders, and payment analytics"
-                            rightContent={<ViewToggle section="financials" current={viewModes.financials} onChange={toggleView} />}
-                        />
-                        {viewModes.financials === "chart" ? (
-                            <>
-                                <div className="grid gap-5 lg:grid-cols-2">
-                                    <GlowCard><SCurveChart data={data.charts.sCurve} /></GlowCard>
-                                    <GlowCard><COImpactDonut data={data.charts.coBreakdown} /></GlowCard>
-                                </div>
-                                <div className="grid gap-4 md:grid-cols-4">
-                                    <FinCard label="Total Committed" value={fmt(data.kpis.financial.totalCommitted)} icon={CurrencyDollar} />
-                                    <FinCard label="Total Invoiced" value={fmt(data.kpis.financial.totalPaid)} icon={CheckCircle} />
-                                    <FinCard label="Retention Held" value={fmt(data.kpis.financial.retentionHeld)} icon={Clock} />
-                                    <FinCard label="CO Impact" value={fmt(data.kpis.financial.changeOrderImpact)} icon={Lightning} />
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <ExplainView
-                                    title="Financial Table View"
-                                    description="This table gives a finance-first snapshot for committed, paid, unpaid, retention and change-order impact. Use it to export quickly for leadership review."
-                                    columns={["Metric", "Value", "Context"]}
-                                    onExport={() => handleExport("csv")}
-                                />
-                                <GlowCard noPad>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow className="bg-muted/40 dark:bg-muted/20">
-                                                {finCols.map(col => (
-                                                    <TableHead key={col} draggable
-                                                        onDragStart={() => setDragCol(col)}
-                                                        onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
-                                                        onDrop={() => { reorderCols(finCols, dragCol!, col, setFinCols); setDragCol(null); setDragOverCol(null); }}
-                                                        onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
-                                                        className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", FIN_DEF[col].hCls,
-                                                            dragCol === col && "opacity-40 bg-muted/60",
-                                                            dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
-                                                        )}>
-                                                        <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{FIN_DEF[col].label}</span>
-                                                    </TableHead>
-                                                ))}
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {finRows.map(r => (
-                                                <TableRow key={r.id} className="hover:bg-muted/20">
-                                                    {finCols.map(col => <TableCell key={col} className={FIN_DEF[col].cCls}>{FIN_DEF[col].cell(r)}</TableCell>)}
+                        {/* ═══════════ SECTION 4: RISKS ═══════════ */}
+                        <section id="risks" ref={(el) => { sectionRefs.current.risks = el; }} className={cn("scroll-mt-32 space-y-5", currentSection !== "risks" && "hidden")}>
+                            <SectionHeader
+                                icon={ShieldWarning} iconBg="bg-red-100 dark:bg-red-500/20" iconColor="text-red-600 dark:text-red-400"
+                                title="Risks & Compliance"
+                                subtitle="Supplier risk matrix, compliance alerts, and trend analysis"
+                                badge={alerts.filter(a => a.severity === "critical").length > 0 ? { label: `${alerts.filter(a => a.severity === "critical").length} Critical`, variant: "destructive" as const } : undefined}
+                                rightContent={<ViewToggle section="risks" current={viewModes.risks} onChange={toggleView} />}
+                            />
+                            {viewModes.risks === "chart" ? (
+                                <>
+                                    <div className="grid gap-4 md:grid-cols-3">
+                                        <RiskStatCard icon={Lightning} title="Critical NCRs" value={data.kpis.quality.criticalNCRs} subtitle={`${data.kpis.quality.openNCRs} open · ${data.kpis.quality.closedNCRs} closed`} alert={data.kpis.quality.criticalNCRs > 0} color="red" />
+                                        <RiskStatCard icon={Truck} title="Delayed Shipments" value={data.kpis.logistics.delayedShipments} subtitle={`Avg delay: ${data.kpis.logistics.avgDeliveryDelay}d`} alert={data.kpis.logistics.delayedShipments > 0} color="amber" />
+                                        <RiskStatCard icon={Receipt} title="Overdue Payments" value={data.kpis.payments.overdueInvoiceCount} subtitle={`${fmt(data.kpis.payments.overdueAmount)} outstanding`} alert={data.kpis.payments.overdueInvoiceCount > 0} color="orange" />
+                                    </div>
+                                    <div className="grid gap-5 lg:grid-cols-2">
+                                        <GlowCard><RiskHeatmap data={risks} onCellClick={(items) => console.log("Risk:", items)} /></GlowCard>
+                                        <GlowCard><ComplianceAlerts data={alerts} onAlertClick={(a) => console.log("Alert:", a)} /></GlowCard>
+                                    </div>
+                                    <GlowCard><SupplierTrendChart data={supplierTrend} suppliers={[]} /></GlowCard>
+                                </>
+                            ) : (
+                                <>
+                                    <ExplainView
+                                        title="Risks Table View"
+                                        description="Review risk severity and compliance alerts as rows. This is optimized for operational follow-up and export to external action trackers."
+                                        columns={["Risk", "Category", "Supplier Risk", "Project Impact", "Alert Severity", "Related Entity"]}
+                                        onExport={() => handleExport("xlsx")}
+                                    />
+                                    <div className="grid gap-5 lg:grid-cols-2">
+                                        <GlowCard noPad>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow className="bg-muted/40 dark:bg-muted/20">
+                                                        {riskCols.map(col => (
+                                                            <TableHead key={col} draggable
+                                                                onDragStart={() => setDragCol(col)}
+                                                                onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                                                onDrop={() => { reorderCols(riskCols, dragCol!, col, setRiskCols); setDragCol(null); setDragOverCol(null); }}
+                                                                onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                                                className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", RISK_DEF[col].hCls,
+                                                                    dragCol === col && "opacity-40 bg-muted/60",
+                                                                    dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                                                )}>
+                                                                <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{RISK_DEF[col].label}</span>
+                                                            </TableHead>
+                                                        ))}
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {(risks.length > 0 ? risks : generateMockRisks()).map((risk) => (
+                                                        <TableRow key={risk.id} className="hover:bg-muted/20">
+                                                            {riskCols.map(col => <TableCell key={col} className={RISK_DEF[col].cCls}>{RISK_DEF[col].cell(risk)}</TableCell>)}
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </GlowCard>
+                                        <GlowCard noPad>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow className="bg-muted/40 dark:bg-muted/20">
+                                                        {alertCols.map(col => (
+                                                            <TableHead key={col} draggable
+                                                                onDragStart={() => setDragCol(col)}
+                                                                onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                                                onDrop={() => { reorderCols(alertCols, dragCol!, col, setAlertCols); setDragCol(null); setDragOverCol(null); }}
+                                                                onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                                                className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", ALERT_DEF[col].hCls,
+                                                                    dragCol === col && "opacity-40 bg-muted/60",
+                                                                    dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                                                )}>
+                                                                <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{ALERT_DEF[col].label}</span>
+                                                            </TableHead>
+                                                        ))}
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {(alerts.length > 0 ? alerts : generateMockAlerts(data.kpis)).map((alert) => (
+                                                        <TableRow key={alert.id} className="hover:bg-muted/20">
+                                                            {alertCols.map(col => <TableCell key={col} className={ALERT_DEF[col].cCls}>{ALERT_DEF[col].cell(alert)}</TableCell>)}
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </GlowCard>
+                                    </div>
+                                </>
+                            )}
+                        </section>
+
+                        {/* ═══════════ SECTION 5: FINANCIALS ═══════════ */}
+                        <section id="financials" ref={(el) => { sectionRefs.current.financials = el; }} className={cn("scroll-mt-32 space-y-5", currentSection !== "financials" && "hidden")}>
+                            <SectionHeader
+                                icon={CurrencyDollar}
+                                iconBg="bg-emerald-100 dark:bg-emerald-500/20"
+                                iconColor="text-emerald-600 dark:text-emerald-400"
+                                title="Financial Intelligence"
+                                subtitle="Spend curves, change orders, and payment analytics"
+                                rightContent={<ViewToggle section="financials" current={viewModes.financials} onChange={toggleView} />}
+                            />
+                            {viewModes.financials === "chart" ? (
+                                <>
+                                    <div className="grid gap-5 lg:grid-cols-2">
+                                        <GlowCard><SCurveChart data={data.charts.sCurve} /></GlowCard>
+                                        <GlowCard><COImpactDonut data={data.charts.coBreakdown} /></GlowCard>
+                                    </div>
+                                    <div className="grid gap-4 md:grid-cols-4">
+                                        <FinCard label="Total Committed" value={fmt(data.kpis.financial.totalCommitted)} icon={CurrencyDollar} />
+                                        <FinCard label="Total Invoiced" value={fmt(data.kpis.financial.totalPaid)} icon={CheckCircle} />
+                                        <FinCard label="Retention Held" value={fmt(data.kpis.financial.retentionHeld)} icon={Clock} />
+                                        <FinCard label="CO Impact" value={fmt(data.kpis.financial.changeOrderImpact)} icon={Lightning} />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <ExplainView
+                                        title="Financial Table View"
+                                        description="This table gives a finance-first snapshot for committed, paid, unpaid, retention and change-order impact. Use it to export quickly for leadership review."
+                                        columns={["Metric", "Value", "Context"]}
+                                        onExport={() => handleExport("csv")}
+                                    />
+                                    <GlowCard noPad>
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow className="bg-muted/40 dark:bg-muted/20">
+                                                    {finCols.map(col => (
+                                                        <TableHead key={col} draggable
+                                                            onDragStart={() => setDragCol(col)}
+                                                            onDragOver={e => { e.preventDefault(); setDragOverCol(col); }}
+                                                            onDrop={() => { reorderCols(finCols, dragCol!, col, setFinCols); setDragCol(null); setDragOverCol(null); }}
+                                                            onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                                                            className={cn("font-semibold text-xs uppercase tracking-wider cursor-grab active:cursor-grabbing select-none", FIN_DEF[col].hCls,
+                                                                dragCol === col && "opacity-40 bg-muted/60",
+                                                                dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]",
+                                                            )}>
+                                                            <span className="flex items-center gap-1"><DotsSixVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />{FIN_DEF[col].label}</span>
+                                                        </TableHead>
+                                                    ))}
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </GlowCard>
-                            </>
-                        )}
-                    </section>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {finRows.map(r => (
+                                                    <TableRow key={r.id} className="hover:bg-muted/20">
+                                                        {finCols.map(col => <TableCell key={col} className={FIN_DEF[col].cCls}>{FIN_DEF[col].cell(r)}</TableCell>)}
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </GlowCard>
+                                </>
+                            )}
+                        </section>
 
-                    {/* ═══════════ SECTION 6: ALL METRICS ═══════════ */}
-                    <section id="data" ref={(el) => { sectionRefs.current.data = el; }} className={cn("scroll-mt-32 space-y-5", currentSection !== "data" && "hidden")}>
-                        <SectionHeader icon={Receipt} iconBg="bg-slate-200 dark:bg-slate-500/20" iconColor="text-slate-600 dark:text-slate-400" title="All Metrics" subtitle="Complete KPI breakdown across every category" />
-                        <ExplainView
-                            title="Metrics Table View"
-                            description="Use search to filter KPI rows by category or metric name. This view is optimized for auditing and quick exports."
-                            columns={["Category", "Metric", "Value"]}
-                            onExport={() => handleExport("xlsx")}
-                        />
-                        <div className="relative max-w-sm">
-                            <MagnifyingGlass className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input placeholder="Search metrics..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10 h-10 rounded-xl text-sm bg-card" />
+                        {/* ═══════════ SECTION 6: ALL METRICS ═══════════ */}
+                        <section id="data" ref={(el) => { sectionRefs.current.data = el; }} className={cn("scroll-mt-32 space-y-5", currentSection !== "data" && "hidden")}>
+                            <SectionHeader icon={Receipt} iconBg="bg-slate-200 dark:bg-slate-500/20" iconColor="text-slate-600 dark:text-slate-400" title="All Metrics" subtitle="Complete KPI breakdown across every category" />
+                            <ExplainView
+                                title="Metrics Table View"
+                                description="Use search to filter KPI rows by category or metric name. This view is optimized for auditing and quick exports."
+                                columns={["Category", "Metric", "Value"]}
+                                onExport={() => handleExport("xlsx")}
+                            />
+                            <div className="relative max-w-sm">
+                                <MagnifyingGlass className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input placeholder="Search metrics..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10 h-10 rounded-xl text-sm bg-card" />
+                            </div>
+                            <GlowCard noPad><MetricsTable kpis={data.kpis} searchQuery={searchQuery} /></GlowCard>
+                        </section>
+
+                        <div className="flex justify-center pt-6">
+                            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground gap-2 rounded-xl hover:bg-muted" onClick={() => router.push("/dashboard/executive")}>
+                                <ArrowUp className="w-4 h-4" /> Back to top
+                            </Button>
                         </div>
-                        <GlowCard noPad><MetricsTable kpis={data.kpis} searchQuery={searchQuery} /></GlowCard>
-                    </section>
-
-                    <div className="flex justify-center pt-6">
-                        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground gap-2 rounded-xl hover:bg-muted" onClick={() => router.push("/dashboard/executive")}>
-                            <ArrowUp className="w-4 h-4" /> Back to top
-                        </Button>
                     </div>
-                </div>
                 </ExecutiveWorkspace>
             ) : null}
         </div>
@@ -967,10 +967,10 @@ function GlowKPI({
             </div>
 
             <div className="mt-3 flex items-end justify-between gap-3">
-                <p className="text-[1.75rem] lg:text-[1.95rem] font-semibold font-mono tracking-tight tabular-nums leading-none">{value}</p>
+                <p className="text-[1.75rem] lg:text-[1.95rem] font-semibold font-sans tracking-tight tabular-nums leading-none">{value}</p>
                 {sideStat && (
                     <div className="text-right">
-                        <p className="text-[1.85rem] font-medium font-mono tabular-nums leading-none">{sideStat}</p>
+                        <p className="text-[1.85rem] font-medium font-sans tabular-nums leading-none">{sideStat}</p>
                     </div>
                 )}
             </div>
@@ -1008,7 +1008,7 @@ function MiniKPI({ icon: Icon, label, value, alert }: { icon: React.ElementType;
                 <Icon className={cn("w-4 h-4", alert ? "text-red-500" : "text-muted-foreground/70")} weight="duotone" />
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</span>
             </div>
-            <p className={cn("text-lg font-bold font-mono tabular-nums", alert && "text-red-600 dark:text-red-400")}>{value}</p>
+            <p className={cn("text-lg font-bold font-sans tabular-nums", alert && "text-red-600 dark:text-red-400")}>{value}</p>
         </div>
     );
 }
@@ -1098,7 +1098,7 @@ function FinCard({ label, value, icon: Icon }: { label: string; value: string; i
                 </div>
                 <span className="text-xs text-muted-foreground font-medium">{label}</span>
             </div>
-            <p className="text-xl font-bold font-mono tabular-nums">{value}</p>
+            <p className="text-xl font-bold font-sans tabular-nums">{value}</p>
         </div>
     );
 }
@@ -1126,7 +1126,7 @@ function RiskStatCard({ icon: Icon, title, value, subtitle, alert, color }: {
                 </div>
                 <span className="text-xs font-semibold text-muted-foreground">{title}</span>
             </div>
-            <p className={cn("text-4xl font-bold font-mono tabular-nums leading-none", alert ? palette.valFg : "text-emerald-600 dark:text-emerald-400")}>
+            <p className={cn("text-4xl font-bold font-sans tabular-nums leading-none", alert ? palette.valFg : "text-emerald-600 dark:text-emerald-400")}>
                 {value}
             </p>
             <p className="text-xs text-muted-foreground mt-2">{subtitle}</p>
@@ -1163,7 +1163,7 @@ function MetricsTable({ kpis, searchQuery }: { kpis: DashboardKPIs; searchQuery:
                     <TableRow key={i} className="hover:bg-muted/20">
                         <TableCell><Badge variant="outline" className={cn("text-[10px] px-2 py-0.5 rounded-md font-semibold", catBadge[m.cat])}>{m.cat}</Badge></TableCell>
                         <TableCell className="font-medium text-sm">{m.label}</TableCell>
-                        <TableCell className="text-right font-mono text-sm tabular-nums font-bold">{m.value}</TableCell>
+                        <TableCell className="text-right font-sans text-sm tabular-nums font-bold">{m.value}</TableCell>
                     </TableRow>
                 ))}
             </TableBody>
@@ -1195,7 +1195,7 @@ function ProgressBar({ value, showLabel }: { value: number; showLabel?: boolean 
                     style={{ width: `${Math.min(value, 100)}%` }}
                 />
             </div>
-            {showLabel && <span className="text-[11px] font-mono text-muted-foreground w-9 text-right tabular-nums font-bold">{value.toFixed(0)}%</span>}
+            {showLabel && <span className="text-[11px] font-sans text-muted-foreground w-9 text-right tabular-nums font-bold">{value.toFixed(0)}%</span>}
         </div>
     );
 }

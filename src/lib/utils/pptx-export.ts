@@ -877,6 +877,170 @@ export async function generatePptxReport(
                 );
             }
         }
+
+        // Gantt Chart (Milestones Timeline)
+        if (exportData.milestones && exportData.milestones.length > 0) {
+            const slide = nextSlide(options.timeframeLabel);
+            addHeader(slide, "Milestones Timeline", options.timeframeLabel);
+
+            const milestones = [...exportData.milestones]
+                .filter(m => m.expectedDate)
+                .sort((a, b) => new Date(a.expectedDate!).getTime() - new Date(b.expectedDate!).getTime())
+                .slice(0, 10); // Display top 10 milestones sequentially
+
+            if (milestones.length === 0) {
+                addEmptyChartState(slide, "No dated milestones available for timeline.");
+            } else {
+                // Determine timeline range
+                const dates = milestones.map(m => new Date(m.expectedDate!).getTime());
+                const minDateRaw = Math.min(...dates);
+                const maxDateRaw = Math.max(...dates);
+
+                const minDate = minDateRaw;
+                // Add a slightly extended maximum date to allow for the horizontal bars to stretch
+                const maxDate = maxDateRaw + (30 * 24 * 60 * 60 * 1000);
+                const totalDuration = maxDate - minDate || 1; // prevent div by zero
+
+                // Layout constants for Gantt matching the reference
+                const plotX = 3.5;
+                const plotY = 1.6;
+                const plotW = 7.0;
+                const plotH = 5.3;
+                const rowH = plotH / Math.max(10, milestones.length);
+
+                // L-shaped Axis Lines
+                // Vertical Line
+                slide.addShape("line" as PptxShapeType, {
+                    x: plotX,
+                    y: plotY,
+                    w: 0,
+                    h: plotH,
+                    line: { color: "CBD5E1", pt: 1.5 }, // softer border
+                });
+                // Horizontal Line
+                slide.addShape("line" as PptxShapeType, {
+                    x: plotX,
+                    y: plotY + plotH,
+                    w: plotW + 1.5, // Extend slightly past plot area
+                    h: 0,
+                    line: { color: "CBD5E1", pt: 1.5 },
+                });
+
+                // Generate 5 evenly spaced axis markers along the bottom X-axis
+                for (let i = 0; i <= 4; i++) {
+                    const t = minDate + (totalDuration * (i / 4));
+                    const d = new Date(t);
+                    const label = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    const markerX = plotX + (plotW * (i / 4));
+
+                    slide.addText(label, {
+                        x: markerX - 0.5,
+                        y: plotY + plotH + 0.1,
+                        w: 1.0,
+                        h: 0.3,
+                        fontFace: "Calibri",
+                        fontSize: 9,
+                        bold: true,
+                        color: THEME.muted,
+                        align: "center",
+                    });
+
+                    // Faint Grid line descending into plot area
+                    slide.addShape("line" as PptxShapeType, {
+                        x: markerX,
+                        y: plotY,
+                        w: 0,
+                        h: plotH + 0.05,
+                        line: { color: "F1F5F9", pt: 0.5, dashType: "dash" },
+                    });
+                }
+
+                // Colors from theme
+                const greenColor = "10B981"; // Emerald green for completion
+                const redColor = "E2E8F0";   // Subtle gray for remaining scope
+
+                // Draw Milestones
+                milestones.forEach((m, idx) => {
+                    const yPos = plotY + (idx * rowH) + 0.1; // Add slight padding
+                    const barHeight = rowH * 0.45; // Make bars thinner than full row height
+
+                    // Left Side Label (Event Name)
+                    slide.addText(String(m.milestoneName || "Unnamed").slice(0, 30), {
+                        x: 0.2,
+                        y: yPos,
+                        w: plotX - 0.4, // padding from axis
+                        h: barHeight,
+                        fontFace: "Calibri",
+                        fontSize: 13,
+                        color: THEME.text,
+                        align: "right",
+                        valign: "middle",
+                    });
+
+                    const mTime = new Date(m.expectedDate!).getTime();
+                    const clampedTime = Math.max(minDate, Math.min(maxDate, mTime));
+
+                    // Use the date to decide where the bar *ends*, not begins. 
+                    // Gantt charts show progression *up to* the current date. 
+                    // To do this simply while looking like the mockup, we draw a bar traversing from 
+                    // the start of the X-axis up to the event date, split into completed vs pending.
+                    const endPercent = (clampedTime - minDate) / totalDuration;
+
+                    // Cap the maximum width to not extend endlessly 
+                    const maxBarW = plotW * endPercent;
+
+                    // Prevent 0 width bars from rendering completely invisible by giving them a minimum pip
+                    const baseBarW = Math.max(0.2, maxBarW);
+                    const bX = plotX; // Starts at axis
+
+                    // Progress Calculation
+                    const pctRaw = Number(m.progressPercent ?? 0);
+                    // clamp 0 - 100
+                    const pct = Math.max(0, Math.min(100, pctRaw));
+
+                    const greenW = baseBarW * (pct / 100);
+                    const redW = baseBarW - greenW;
+
+                    let labelText = "";
+
+                    // Draw Green (Completed) portion
+                    if (greenW > 0.05) {
+                        slide.addShape("rect" as PptxShapeType, {
+                            x: bX,
+                            y: yPos,
+                            w: greenW,
+                            h: barHeight,
+                            fill: { color: greenColor },
+                        });
+                        labelText = `Completed ${pct.toFixed(0)}%`;
+                    }
+
+                    // Draw Red (Pending) portion
+                    if (redW > 0.05) {
+                        slide.addShape("rect" as PptxShapeType, {
+                            x: bX + greenW, // start where green ends
+                            y: yPos,
+                            w: redW,
+                            h: barHeight,
+                            fill: { color: redColor },
+                        });
+                        if (pct === 0) labelText = "NEW";
+                    }
+
+                    // Right Side Completion Label
+                    slide.addText(labelText, {
+                        x: bX + baseBarW + 0.15, // Add slightly after the bar
+                        y: yPos,
+                        w: 2.5,
+                        h: barHeight,
+                        fontFace: "Calibri",
+                        fontSize: 11,
+                        color: "000000",
+                        valign: "middle",
+                    });
+                });
+            }
+        }
     }
 
     // ── Tables ────────────────────────────────────────────────────────────

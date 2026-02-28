@@ -419,51 +419,51 @@ export function PMDashboardClient() {
 
     // ── Column definition maps ──
     const DEL2_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (d: DeliveryItem) => React.ReactNode }> = {
-        poNum:       { label: "PO #",        cCls: "font-mono text-xs font-semibold",               cell: (d) => d.poNumber },
-        supplier:    { label: "Supplier",    cCls: "text-xs",                                        cell: (d) => d.supplier },
-        description: { label: "Description", cCls: "text-xs max-w-[200px] truncate",               cell: (d) => d.description },
-        expected:    { label: "Expected",    cCls: "text-xs font-mono",                             cell: (d) => d.expectedDate.toLocaleDateString() },
-        qty:         { label: "Qty",         hCls: "text-right", cCls: "text-xs font-mono text-right", cell: (d) => `${d.quantity.toLocaleString()} ${d.unit}` },
-        status:      { label: "Status",      hCls: "text-center", cCls: "text-center",               cell: (d) => <StatusPill status={d.status} /> },
-        tracking:    { label: "Tracking",    cCls: "text-xs font-mono text-muted-foreground",       cell: (d) => d.trackingRef || "\u2014" },
+        poNum: { label: "PO #", cCls: "font-mono text-xs font-semibold", cell: (d) => d.poNumber },
+        supplier: { label: "Supplier", cCls: "text-xs", cell: (d) => d.supplier },
+        description: { label: "Description", cCls: "text-xs max-w-[200px] truncate", cell: (d) => d.description },
+        expected: { label: "Expected", cCls: "text-xs font-mono", cell: (d) => d.expectedDate.toLocaleDateString() },
+        qty: { label: "Qty", hCls: "text-right", cCls: "text-xs font-mono text-right", cell: (d) => `${d.quantity.toLocaleString()} ${d.unit}` },
+        status: { label: "Status", hCls: "text-center", cCls: "text-center", cell: (d) => <StatusPill status={d.status} /> },
+        tracking: { label: "Tracking", cCls: "text-xs font-mono text-muted-foreground", cell: (d) => d.trackingRef || "\u2014" },
     };
     const MAT_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (m: MaterialItem) => React.ReactNode }> = {
-        material:     { label: "Material",     cCls: "font-semibold text-xs",                                        cell: (m) => m.name },
-        ordered:      { label: "Ordered",      hCls: "text-right", cCls: "text-right font-mono text-xs",           cell: (m) => m.ordered.toLocaleString() },
-        delivered:    { label: "Delivered",    hCls: "text-right", cCls: "text-right font-mono text-xs",           cell: (m) => m.delivered.toLocaleString() },
-        installed:    { label: "Installed",    hCls: "text-right", cCls: "text-right font-mono text-xs",           cell: (m) => m.installed.toLocaleString() },
-        remaining:    { label: "Remaining",    hCls: "text-right", cCls: "text-right font-mono text-xs text-amber-600 dark:text-amber-400", cell: (m) => m.remaining.toLocaleString() },
-        availability: { label: "Availability", hCls: "text-right", cCls: "text-right",                             cell: (m) => <ScorePill score={Math.round((m.delivered / Math.max(m.ordered, 1)) * 100)} /> },
+        material: { label: "Material", cCls: "font-semibold text-xs", cell: (m) => m.name },
+        ordered: { label: "Ordered", hCls: "text-right", cCls: "text-right font-mono text-xs", cell: (m) => m.ordered.toLocaleString() },
+        delivered: { label: "Delivered", hCls: "text-right", cCls: "text-right font-mono text-xs", cell: (m) => m.delivered.toLocaleString() },
+        installed: { label: "Installed", hCls: "text-right", cCls: "text-right font-mono text-xs", cell: (m) => m.installed.toLocaleString() },
+        remaining: { label: "Remaining", hCls: "text-right", cCls: "text-right font-mono text-xs text-amber-600 dark:text-amber-400", cell: (m) => m.remaining.toLocaleString() },
+        availability: { label: "Availability", hCls: "text-right", cCls: "text-right", cell: (m) => <ScorePill score={Math.round((m.delivered / Math.max(m.ordered, 1)) * 100)} /> },
     };
     const MS2_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (m: MilestoneItem) => React.ReactNode }> = {
-        milestone: { label: "Milestone", cCls: "font-semibold text-xs",             cell: (m) => m.name },
-        po:        { label: "PO #",       cCls: "font-mono text-xs",                cell: (m) => m.poNumber },
-        dueDate:   { label: "Due Date",   cCls: "font-mono text-xs",                cell: (m) => m.dueDate.toLocaleDateString() },
-        value:     { label: "Value",      hCls: "text-right", cCls: "text-right font-mono text-xs", cell: (m) => fmt(m.value) },
-        progress:  { label: "Progress",   hCls: "text-center", cCls: "text-center", cell: (m) => <div className="flex items-center gap-2 justify-center"><div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${m.progress}%` }} /></div><span className="text-[10px] font-mono">{m.progress}%</span></div> },
-        status:    { label: "Status",     hCls: "text-center", cCls: "text-center", cell: (m) => <StatusPill status={m.status} /> },
+        milestone: { label: "Milestone", cCls: "font-semibold text-xs", cell: (m) => m.name },
+        po: { label: "PO #", cCls: "font-mono text-xs", cell: (m) => m.poNumber },
+        dueDate: { label: "Due Date", cCls: "font-mono text-xs", cell: (m) => m.dueDate.toLocaleDateString() },
+        value: { label: "Value", hCls: "text-right", cCls: "text-right font-mono text-xs", cell: (m) => fmt(m.value) },
+        progress: { label: "Progress", hCls: "text-center", cCls: "text-center", cell: (m) => <div className="flex items-center gap-2 justify-center"><div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${m.progress}%` }} /></div><span className="text-[10px] font-mono">{m.progress}%</span></div> },
+        status: { label: "Status", hCls: "text-center", cCls: "text-center", cell: (m) => <StatusPill status={m.status} /> },
     };
     const CO2_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (c: ChangeOrderItem) => React.ReactNode }> = {
-        reference:  { label: "Reference",    cCls: "font-mono text-xs font-semibold",   cell: (c) => c.reference },
-        title:      { label: "Title",         cCls: "text-xs max-w-[200px] truncate",   cell: (c) => c.title },
-        po:         { label: "PO #",          cCls: "font-mono text-xs",                cell: (c) => c.poNumber },
-        costImpact: { label: "Cost Impact",   hCls: "text-right", cCls: "",             cell: (c) => <span className={cn("text-right font-mono text-xs", c.costImpact < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")}>{c.costImpact < 0 ? "-" : "+"}{fmt(Math.abs(c.costImpact))}</span> },
-        time:       { label: "Time",          hCls: "text-right", cCls: "text-right font-mono text-xs", cell: (c) => c.timeImpactDays > 0 ? `+${c.timeImpactDays}d` : "\u2014" },
-        status:     { label: "Status",        hCls: "text-center", cCls: "text-center", cell: (c) => <StatusPill status={c.status} /> },
+        reference: { label: "Reference", cCls: "font-mono text-xs font-semibold", cell: (c) => c.reference },
+        title: { label: "Title", cCls: "text-xs max-w-[200px] truncate", cell: (c) => c.title },
+        po: { label: "PO #", cCls: "font-mono text-xs", cell: (c) => c.poNumber },
+        costImpact: { label: "Cost Impact", hCls: "text-right", cCls: "", cell: (c) => <span className={cn("text-right font-mono text-xs", c.costImpact < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")}>{c.costImpact < 0 ? "-" : "+"}{fmt(Math.abs(c.costImpact))}</span> },
+        time: { label: "Time", hCls: "text-right", cCls: "text-right font-mono text-xs", cell: (c) => c.timeImpactDays > 0 ? `+${c.timeImpactDays}d` : "\u2014" },
+        status: { label: "Status", hCls: "text-center", cCls: "text-center", cell: (c) => <StatusPill status={c.status} /> },
     };
     const SUP_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (s: SupplierScorecard) => React.ReactNode }> = {
-        supplier:   { label: "Supplier",    cCls: "font-semibold",                      cell: (s) => s.supplierName },
-        delivery:   { label: "Delivery",    hCls: "text-center", cCls: "text-center",  cell: (s) => <ScorePill score={s.delivery} /> },
-        quality:    { label: "Quality",     hCls: "text-center", cCls: "text-center",  cell: (s) => <ScorePill score={s.quality} /> },
-        compliance: { label: "Compliance",  hCls: "text-center", cCls: "text-center",  cell: (s) => <ScorePill score={s.compliance} /> },
-        comms:      { label: "Comms",       hCls: "text-center", cCls: "text-center",  cell: (s) => <ScorePill score={s.communication} /> },
-        overall:    { label: "Overall",     hCls: "text-center", cCls: "text-center",  cell: (s) => <ScorePill score={s.overall} bold /> },
+        supplier: { label: "Supplier", cCls: "font-semibold", cell: (s) => s.supplierName },
+        delivery: { label: "Delivery", hCls: "text-center", cCls: "text-center", cell: (s) => <ScorePill score={s.delivery} /> },
+        quality: { label: "Quality", hCls: "text-center", cCls: "text-center", cell: (s) => <ScorePill score={s.quality} /> },
+        compliance: { label: "Compliance", hCls: "text-center", cCls: "text-center", cell: (s) => <ScorePill score={s.compliance} /> },
+        comms: { label: "Comms", hCls: "text-center", cCls: "text-center", cell: (s) => <ScorePill score={s.communication} /> },
+        overall: { label: "Overall", hCls: "text-center", cCls: "text-center", cell: (s) => <ScorePill score={s.overall} bold /> },
     };
     const INSP_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (e: InspectionEvent) => React.ReactNode }> = {
-        date:       { label: "Date",       cCls: "font-mono text-xs",   cell: (e) => e.date },
+        date: { label: "Date", cCls: "font-mono text-xs", cell: (e) => e.date },
         inspection: { label: "Inspection", cCls: "font-semibold text-xs", cell: (e) => e.title },
-        supplier:   { label: "Supplier",   cCls: "text-xs",              cell: (e) => e.supplier },
-        status:     { label: "Status",     hCls: "text-center", cCls: "text-center", cell: (e) => <StatusPill status={e.status} /> },
+        supplier: { label: "Supplier", cCls: "text-xs", cell: (e) => e.supplier },
+        status: { label: "Status", hCls: "text-center", cCls: "text-center", cell: (e) => <StatusPill status={e.status} /> },
     };
 
     // ── Error state ──
@@ -493,7 +493,7 @@ export function PMDashboardClient() {
         <div className="relative">
             <PMOnboardingTour />
             {/* Header / Global Filters */}
-            <div id="tour-pm-header" className="sticky top-0 z-30 bg-background/85 backdrop-blur-2xl border-b border-border/60 -mx-4 px-4 lg:-mx-6 lg:px-6">
+            <div id="tour-pm-header" className="sticky top-0 z-30 bg-background/85 backdrop-blur-2xl border-b border-border/60 -mx-4 -mt-4 px-4 lg:-mx-6 lg:-mt-4 lg:px-6">
                 <div className="flex items-center justify-between py-3">
                     <div className="flex items-center gap-3.5">
                         <div className="w-10 h-10 rounded-xl bg-[#0E7490]/10 dark:bg-[#0E7490]/10 flex items-center justify-center shadow-md shadow-black/20">
@@ -1161,10 +1161,10 @@ function GlowKPI(props: {
             </div>
 
             <div className="mt-3 flex items-end justify-between gap-3">
-                <p className="text-[1.75rem] font-semibold font-mono tracking-tight tabular-nums leading-none">{value}</p>
+                <p className="text-[1.75rem] font-semibold font-sans tracking-tight tabular-nums leading-none">{value}</p>
                 {sideStat && (
                     <div className="text-right">
-                        <p className="text-sm font-medium font-mono tabular-nums leading-none">{sideStat}</p>
+                        <p className="text-sm font-medium font-sans tabular-nums leading-none">{sideStat}</p>
                     </div>
                 )}
             </div>
@@ -1197,7 +1197,7 @@ function MiniKPI({ icon: Icon, label, value, alert }: { icon: React.ElementType;
                 <Icon className={cn("w-4 h-4", alert ? "text-red-500" : "text-muted-foreground/70")} weight="duotone" />
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</span>
             </div>
-            <p className={cn("text-lg font-bold font-mono tabular-nums", alert && "text-red-600 dark:text-red-400")}>{value}</p>
+            <p className={cn("text-lg font-bold font-sans tabular-nums", alert && "text-red-600 dark:text-red-400")}>{value}</p>
         </div>
     );
 }
@@ -1243,7 +1243,7 @@ function FinCard({ label, value, icon: Icon, color }: { label: string; value: st
                 </div>
                 <span className="text-xs text-muted-foreground font-medium">{label}</span>
             </div>
-            <p className="text-lg font-semibold font-mono tabular-nums">{value}</p>
+            <p className="text-lg font-semibold font-sans tabular-nums">{value}</p>
         </div>
     );
 }
@@ -1268,7 +1268,7 @@ function NCRStatCard({ label, value, color, alert }: { label: string; value: num
     }[color];
     return (
         <div className={cn("rounded-2xl border border-border/60 bg-card p-5 text-center", alert && "border-red-200/80 dark:border-red-800/40")}>
-            <p className={cn("text-2xl font-semibold font-mono tabular-nums", palette)}>{value}</p>
+            <p className={cn("text-2xl font-semibold font-sans tabular-nums", palette)}>{value}</p>
             <p className="text-xs text-muted-foreground mt-1 font-medium">{label}</p>
         </div>
     );
@@ -1278,7 +1278,7 @@ function InspStatCard({ label, value, color, alert }: { label: string; value: nu
     const palette = { blue: "text-blue-600 dark:text-blue-400", emerald: "text-emerald-600 dark:text-emerald-400", red: "text-red-600 dark:text-red-400" }[color];
     return (
         <div className={cn("rounded-2xl border border-border/60 bg-card p-5 text-center", alert && "border-red-200/80 dark:border-red-800/40")}>
-            <p className={cn("text-2xl font-semibold font-mono tabular-nums", palette)}>{value}</p>
+            <p className={cn("text-2xl font-semibold font-sans tabular-nums", palette)}>{value}</p>
             <p className="text-xs text-muted-foreground mt-1 font-medium">{label}</p>
         </div>
     );

@@ -261,10 +261,10 @@ function shipmentToTimelineRow(s: ShipmentItem): DeliveryTimelineRow {
         s.status === "IN_TRANSIT"
           ? "in-progress"
           : s.deliveredDate
-          ? "completed"
-          : s.dispatchDate
-          ? "pending"
-          : "pending",
+            ? "completed"
+            : s.dispatchDate
+              ? "pending"
+              : "pending",
     },
     {
       id: `${s.id}-delivered`,
@@ -274,8 +274,8 @@ function shipmentToTimelineRow(s: ShipmentItem): DeliveryTimelineRow {
         s.deliveredDate
           ? "completed"
           : s.status === "FAILED" || s.status === "EXCEPTION"
-          ? "delayed"
-          : "pending",
+            ? "delayed"
+            : "pending",
     },
     {
       id: `${s.id}-inspected`,
@@ -498,60 +498,60 @@ export function PODashboardClient({
   /* ── Column drag-and-drop ─────────────────────── */
   const [dragCol, setDragCol] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
-  const [shipsCols, setShipsCols] = useState(["tracking","description","provider","qty","status","dispatched","eta","delivered"]);
-  const [invCols, setInvCols] = useState(["invoiceNo","milestone","amount","status","submitted","approved","paid"]);
-  const [msCols, setMsCols] = useState(["title","expectedDate","pct","amount","status"]);
-  const [ncrCols, setNcrCols] = useState(["ncrNo","title","severity","issueType","status","reported","closed"]);
-  const [coCols, setCoCols] = useState(["coNo","reason","type","category","amountDelta","status","requested","approved"]);
+  const [shipsCols, setShipsCols] = useState(["tracking", "description", "provider", "qty", "status", "dispatched", "eta", "delivered"]);
+  const [invCols, setInvCols] = useState(["invoiceNo", "milestone", "amount", "status", "submitted", "approved", "paid"]);
+  const [msCols, setMsCols] = useState(["title", "expectedDate", "pct", "amount", "status"]);
+  const [ncrCols, setNcrCols] = useState(["ncrNo", "title", "severity", "issueType", "status", "reported", "closed"]);
+  const [coCols, setCoCols] = useState(["coNo", "reason", "type", "category", "amountDelta", "status", "requested", "approved"]);
 
   const SHIPS_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (s: ShipmentItem) => React.ReactNode }> = {
-    tracking:    { label: "Tracking",     cCls: "font-mono",               cell: (s) => s.trackingNumber },
-    description: { label: "Description",  cCls: "max-w-[180px] truncate",  cell: (s) => s.boqDescription },
-    provider:    { label: "Provider",                                       cell: (s) => s.provider.replace(/_/g, " ") },
-    qty:         { label: "Qty",          cCls: "tabular-nums",             cell: (s) => `${s.quantity} ${s.unit}` },
-    status:      { label: "Status",                                          cell: (s) => <Badge variant={statusVariant(s.status)} className="text-[10px]">{s.status.replace(/_/g, " ")}</Badge> },
-    dispatched:  { label: "Dispatched",                                      cell: (s) => s.dispatchDate ?? "\u2014" },
-    eta:         { label: "ETA",                                             cell: (s) => s.eta ?? "\u2014" },
-    delivered:   { label: "Delivered",                                       cell: (s) => s.deliveredDate ?? "\u2014" },
+    tracking: { label: "Tracking", cCls: "font-sans", cell: (s) => s.trackingNumber },
+    description: { label: "Description", cCls: "max-w-[180px] truncate", cell: (s) => s.boqDescription },
+    provider: { label: "Provider", cell: (s) => s.provider.replace(/_/g, " ") },
+    qty: { label: "Qty", cCls: "tabular-nums", cell: (s) => `${s.quantity} ${s.unit}` },
+    status: { label: "Status", cell: (s) => <Badge variant={statusVariant(s.status)} className="text-[10px]">{s.status.replace(/_/g, " ")}</Badge> },
+    dispatched: { label: "Dispatched", cell: (s) => s.dispatchDate ?? "\u2014" },
+    eta: { label: "ETA", cell: (s) => s.eta ?? "\u2014" },
+    delivered: { label: "Delivered", cell: (s) => s.deliveredDate ?? "\u2014" },
   };
 
   const INV_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (i: InvoiceItem) => React.ReactNode }> = {
-    invoiceNo:  { label: "Invoice #",  cCls: "font-mono",                                        cell: (i) => i.invoiceNumber },
-    milestone:  { label: "Milestone",                                                             cell: (i) => i.milestoneTitle ?? "\u2014" },
-    amount:     { label: "Amount",     hCls: "text-right", cCls: "text-right tabular-nums font-medium", cell: (i) => fmtFull(i.amount) },
-    status:     { label: "Status",                                                                cell: (i) => <Badge variant={statusVariant(i.status)} className="text-[10px]">{i.status.replace(/_/g, " ")}</Badge> },
-    submitted:  { label: "Submitted",                                                             cell: (i) => i.submittedAt ?? "\u2014" },
-    approved:   { label: "Approved",                                                              cell: (i) => i.approvedAt ?? "\u2014" },
-    paid:       { label: "Paid",                                                                  cell: (i) => i.paidAt ?? "\u2014" },
+    invoiceNo: { label: "Invoice #", cCls: "font-sans", cell: (i) => i.invoiceNumber },
+    milestone: { label: "Milestone", cell: (i) => i.milestoneTitle ?? "\u2014" },
+    amount: { label: "Amount", hCls: "text-right", cCls: "text-right tabular-nums font-medium", cell: (i) => fmtFull(i.amount) },
+    status: { label: "Status", cell: (i) => <Badge variant={statusVariant(i.status)} className="text-[10px]">{i.status.replace(/_/g, " ")}</Badge> },
+    submitted: { label: "Submitted", cell: (i) => i.submittedAt ?? "\u2014" },
+    approved: { label: "Approved", cell: (i) => i.approvedAt ?? "\u2014" },
+    paid: { label: "Paid", cell: (i) => i.paidAt ?? "\u2014" },
   };
 
   const MS_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (m: MilestoneItem) => React.ReactNode }> = {
-    title:        { label: "Title",         cCls: "font-medium",                                        cell: (m) => m.title },
-    expectedDate: { label: "Expected Date",                                                              cell: (m) => m.expectedDate ? new Date(m.expectedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "\u2014" },
-    pct:          { label: "%",             hCls: "text-right", cCls: "text-right tabular-nums",         cell: (m) => `${m.paymentPercentage}%` },
-    amount:       { label: "Amount",        hCls: "text-right", cCls: "text-right tabular-nums font-medium", cell: (m) => fmtFull(m.amount) },
-    status:       { label: "Status",                                                                    cell: (m) => <Badge variant={statusVariant(m.status)} className="text-[10px]">{m.status}</Badge> },
+    title: { label: "Title", cCls: "font-medium", cell: (m) => m.title },
+    expectedDate: { label: "Expected Date", cell: (m) => m.expectedDate ? new Date(m.expectedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "\u2014" },
+    pct: { label: "%", hCls: "text-right", cCls: "text-right tabular-nums", cell: (m) => `${m.paymentPercentage}%` },
+    amount: { label: "Amount", hCls: "text-right", cCls: "text-right tabular-nums font-medium", cell: (m) => fmtFull(m.amount) },
+    status: { label: "Status", cell: (m) => <Badge variant={statusVariant(m.status)} className="text-[10px]">{m.status}</Badge> },
   };
 
   const NCR_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (n: NCRItem) => React.ReactNode }> = {
-    ncrNo:     { label: "NCR #",       cCls: "font-mono",               cell: (n) => n.ncrNumber },
-    title:     { label: "Title",       cCls: "max-w-[200px] truncate",  cell: (n) => n.title },
-    severity:  { label: "Severity",                                      cell: (n) => <Badge variant={n.severity === "CRITICAL" ? "destructive" : n.severity === "MAJOR" ? "secondary" : "outline"} className="text-[10px]">{n.severity}</Badge> },
-    issueType: { label: "Issue Type",  cCls: "text-muted-foreground",   cell: (n) => n.issueType.replace(/_/g, " ") },
-    status:    { label: "Status",                                        cell: (n) => <Badge variant={statusVariant(n.status)} className="text-[10px]">{n.status.replace(/_/g, " ")}</Badge> },
-    reported:  { label: "Reported",                                      cell: (n) => n.reportedAt ?? "\u2014" },
-    closed:    { label: "Closed",                                        cell: (n) => n.closedAt ?? "\u2014" },
+    ncrNo: { label: "NCR #", cCls: "font-sans", cell: (n) => n.ncrNumber },
+    title: { label: "Title", cCls: "max-w-[200px] truncate", cell: (n) => n.title },
+    severity: { label: "Severity", cell: (n) => <Badge variant={n.severity === "CRITICAL" ? "destructive" : n.severity === "MAJOR" ? "secondary" : "outline"} className="text-[10px]">{n.severity}</Badge> },
+    issueType: { label: "Issue Type", cCls: "text-muted-foreground", cell: (n) => n.issueType.replace(/_/g, " ") },
+    status: { label: "Status", cell: (n) => <Badge variant={statusVariant(n.status)} className="text-[10px]">{n.status.replace(/_/g, " ")}</Badge> },
+    reported: { label: "Reported", cell: (n) => n.reportedAt ?? "\u2014" },
+    closed: { label: "Closed", cell: (n) => n.closedAt ?? "\u2014" },
   };
 
   const CO_DEF: Record<string, { label: string; hCls?: string; cCls?: string; cell: (c: ChangeOrderItem) => React.ReactNode }> = {
-    coNo:        { label: "CO #",          cCls: "font-mono",               cell: (c) => c.changeNumber },
-    reason:      { label: "Reason",        cCls: "max-w-[200px] truncate",  cell: (c) => c.reason },
-    type:        { label: "Type",                                            cell: (c) => c.type },
-    category:    { label: "Category",                                        cell: (c) => c.category },
-    amountDelta: { label: "Amount Delta",  hCls: "text-right", cCls: "text-right tabular-nums font-medium", cell: (c) => <span className={c.amountDelta >= 0 ? "text-emerald-600" : "text-red-600"}>{c.amountDelta >= 0 ? "+" : ""}{fmtFull(c.amountDelta)}</span> },
-    status:      { label: "Status",                                          cell: (c) => <Badge variant={statusVariant(c.status)} className="text-[10px]">{c.status}</Badge> },
-    requested:   { label: "Requested",                                       cell: (c) => c.requestedAt ?? "\u2014" },
-    approved:    { label: "Approved",                                        cell: (c) => c.approvedAt ?? "\u2014" },
+    coNo: { label: "CO #", cCls: "font-sans", cell: (c) => c.changeNumber },
+    reason: { label: "Reason", cCls: "max-w-[200px] truncate", cell: (c) => c.reason },
+    type: { label: "Type", cell: (c) => c.type },
+    category: { label: "Category", cell: (c) => c.category },
+    amountDelta: { label: "Amount Delta", hCls: "text-right", cCls: "text-right tabular-nums font-medium", cell: (c) => <span className={c.amountDelta >= 0 ? "text-emerald-600" : "text-red-600"}>{c.amountDelta >= 0 ? "+" : ""}{fmtFull(c.amountDelta)}</span> },
+    status: { label: "Status", cell: (c) => <Badge variant={statusVariant(c.status)} className="text-[10px]">{c.status}</Badge> },
+    requested: { label: "Requested", cell: (c) => c.requestedAt ?? "\u2014" },
+    approved: { label: "Approved", cell: (c) => c.approvedAt ?? "\u2014" },
   };
 
   /* ── Render ─────────────────────────────────────── */
@@ -566,7 +566,7 @@ export function PODashboardClient({
               PO Analytics
             </h1>
             {poNumber && (
-              <Badge variant="outline" className="text-xs font-mono">
+              <Badge variant="outline" className="text-xs font-sans">
                 {poNumber}
               </Badge>
             )}
@@ -735,11 +735,10 @@ export function PODashboardClient({
                   block: "start",
                 });
               }}
-              className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                isActive
+              className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${isActive
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted/50 text-muted-foreground hover:bg-muted"
-              }`}
+                }`}
             >
               <Icon className="h-3.5 w-3.5" />
               {sec.label}
@@ -833,10 +832,10 @@ export function PODashboardClient({
                     status === "complete"
                       ? "text-emerald-600"
                       : status === "partial"
-                      ? "text-blue-600"
-                      : status === "overdue"
-                      ? "text-red-600"
-                      : "text-muted-foreground";
+                        ? "text-blue-600"
+                        : status === "overdue"
+                          ? "text-red-600"
+                          : "text-muted-foreground";
                   return (
                     <div key={status} className="rounded-xl border p-4 text-center">
                       <div className={`text-2xl font-bold ${color}`}>{count}</div>
@@ -1042,14 +1041,14 @@ export function PODashboardClient({
                     m.status === "COMPLETED"
                       ? 100
                       : m.status === "SUBMITTED"
-                      ? 75
-                      : 0;
+                        ? 75
+                        : 0;
                   const barColor =
                     m.status === "COMPLETED"
                       ? "bg-emerald-500"
                       : m.status === "SUBMITTED"
-                      ? "bg-blue-500"
-                      : "bg-gray-300 dark:bg-gray-600";
+                        ? "bg-blue-500"
+                        : "bg-gray-300 dark:bg-gray-600";
                   return (
                     <div key={m.id} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
@@ -1068,9 +1067,9 @@ export function PODashboardClient({
                         <span>
                           {m.expectedDate
                             ? new Date(m.expectedDate).toLocaleDateString("en-GB", {
-                                day: "2-digit",
-                                month: "short",
-                              })
+                              day: "2-digit",
+                              month: "short",
+                            })
                             : "—"}
                         </span>
                         <Badge variant={statusVariant(m.status)} className="text-[9px] px-1.5">
@@ -1235,21 +1234,19 @@ function ViewToggle({
     <div className="flex items-center rounded-lg border bg-muted/30 p-0.5">
       <button
         onClick={() => view !== "chart" && onToggle(section)}
-        className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
-          view === "chart"
+        className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${view === "chart"
             ? "bg-background text-foreground shadow-sm"
             : "text-muted-foreground hover:text-foreground"
-        }`}
+          }`}
       >
         <ChartBar className="h-3.5 w-3.5" />
       </button>
       <button
         onClick={() => view !== "table" && onToggle(section)}
-        className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
-          view === "table"
+        className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${view === "table"
             ? "bg-background text-foreground shadow-sm"
             : "text-muted-foreground hover:text-foreground"
-        }`}
+          }`}
       >
         <TableIcon className="h-3.5 w-3.5" />
       </button>
