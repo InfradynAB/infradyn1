@@ -275,6 +275,7 @@ export function BoqTrackerShell({ projectId }: Props) {
     try {
       const res = await fetch(`/api/boq/tracker/${selectedItem.id}`, {
         method: "PATCH",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           itemNumber: draft.itemNumber,
@@ -304,6 +305,7 @@ export function BoqTrackerShell({ projectId }: Props) {
   async function markDelivered(item: ItemRow) {
     const res = await fetch(`/api/boq/tracker/${item.id}`, {
       method: "PATCH",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ quantityDelivered: item.quantity }),
     });
@@ -374,6 +376,7 @@ export function BoqTrackerShell({ projectId }: Props) {
       if (batchModal.mode === "create" || batchModal.mode === "duplicate") {
         const res = await fetch(`/api/boq/tracker/${batchModal.itemId}/batch`, {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             batchLabel: values.batchLabel,
@@ -390,6 +393,7 @@ export function BoqTrackerShell({ projectId }: Props) {
         if (!batchModal.batchId) return;
         const res = await fetch(`/api/boq/tracker/${batchModal.itemId}/batch/${batchModal.batchId}`, {
           method: "PATCH",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             status: values.status,

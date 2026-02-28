@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { format as formatDateValue } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +54,11 @@ const EMPTY_VALUES: BatchModalValues = {
   quantityDelivered: 0,
   status: "PENDING",
 };
+
+function parseIsoDate(value: string) {
+  if (!value) return undefined;
+  return new Date(`${value}T00:00:00`);
+}
 
 function buildInitialValues(mode: BatchModalMode, initialValues?: Partial<BatchModalValues>): BatchModalValues {
   let remembered: Partial<BatchModalValues> = {};
@@ -151,11 +158,11 @@ export function BoqBatchModal({
             <>
               <div className="space-y-2">
                 <Label htmlFor="batch-expected-date">Expected date</Label>
-                <Input
+                <DatePicker
                   id="batch-expected-date"
-                  type="date"
-                  value={values.expectedDate}
-                  onChange={(event) => update("expectedDate", event.target.value)}
+                  value={parseIsoDate(values.expectedDate)}
+                  onChange={(date) => update("expectedDate", date ? formatDateValue(date, "yyyy-MM-dd") : "")}
+                  placeholder="yyyy/mm/dd"
                 />
               </div>
 
@@ -195,11 +202,11 @@ export function BoqBatchModal({
             <>
               <div className="space-y-2">
                 <Label htmlFor="batch-actual-date">Actual delivered date</Label>
-                <Input
+                <DatePicker
                   id="batch-actual-date"
-                  type="date"
-                  value={values.actualDate}
-                  onChange={(event) => update("actualDate", event.target.value)}
+                  value={parseIsoDate(values.actualDate)}
+                  onChange={(date) => update("actualDate", date ? formatDateValue(date, "yyyy-MM-dd") : "")}
+                  placeholder="yyyy/mm/dd"
                 />
               </div>
               <div className="space-y-2">
