@@ -21,6 +21,8 @@ export type PptxExportOptions = {
     sections?: string[];
     includeTables?: boolean;
     includeCharts?: boolean;
+    logoImage?: string;
+    coverImage?: string;
 };
 
 const THEME = {
@@ -112,6 +114,22 @@ function addChrome(slide: PptxSlide, slideNo: number, footerRight?: string) {
             align: "right",
             color: "94A3B8",
         });
+    }
+
+    // Alternating corner leaf graphic (Scaled down for subtle aesthetic)
+    const leafColor = "1D4B43";
+    if (slideNo % 2 === 0) {
+        // Top right (rotated 180deg)
+        slide.addShape("chord" as PptxShapeType, { x: 12.0, y: -0.3, w: 1.5, h: 1.5, fill: { color: leafColor }, line: { color: leafColor }, rotate: 225 });
+        slide.addShape("ellipse" as PptxShapeType, { x: 12.5, y: -0.8, w: 0.8, h: 1.2, fill: { color: leafColor }, line: { color: leafColor }, rotate: 195 });
+        slide.addShape("ellipse" as PptxShapeType, { x: 12.8, y: -0.3, w: 1.2, h: 0.8, fill: { color: leafColor }, line: { color: leafColor }, rotate: 165 });
+        slide.addShape("ellipse" as PptxShapeType, { x: 13.0, y: 0.2, w: 1.2, h: 0.8, fill: { color: leafColor }, line: { color: leafColor }, rotate: 225 });
+    } else {
+        // Bottom left
+        slide.addShape("chord" as PptxShapeType, { x: -0.1, y: 6.2, w: 1.5, h: 1.5, fill: { color: leafColor }, line: { color: leafColor }, rotate: 45 });
+        slide.addShape("ellipse" as PptxShapeType, { x: 0.3, y: 5.8, w: 0.8, h: 1.2, fill: { color: leafColor }, line: { color: leafColor }, rotate: 15 });
+        slide.addShape("ellipse" as PptxShapeType, { x: 0.5, y: 6.2, w: 1.2, h: 0.8, fill: { color: leafColor }, line: { color: leafColor }, rotate: -15 });
+        slide.addShape("ellipse" as PptxShapeType, { x: 0.7, y: 6.6, w: 1.2, h: 0.8, fill: { color: leafColor }, line: { color: leafColor }, rotate: 45 });
     }
 }
 
@@ -417,11 +435,13 @@ export async function generatePptxReport(
     pptx.layout = "LAYOUT_WIDE";
 
     let slideNo = 0;
-    const nextSlide = (footerRight?: string) => {
+    const nextSlide = (footerRight?: string, isTitleSlide?: boolean) => {
         slideNo += 1;
         const slide = pptx.addSlide();
         slide.background = { color: THEME.bg };
-        addChrome(slide, slideNo, footerRight);
+        if (!isTitleSlide) {
+            addChrome(slide, slideNo, footerRight);
+        }
         return slide;
     };
 
@@ -431,37 +451,54 @@ export async function generatePptxReport(
 
     // ── Title slide ────────────────────────────────────────────────────────
     {
-        const slide = nextSlide(options.timeframeLabel);
+        const slide = nextSlide(options.timeframeLabel, true);
+        slide.background = { color: "F3F4F6" };
 
-        // Soft background shapes
-        slide.addShape("ellipse" as PptxShapeType, {
-            x: 9.1,
-            y: -0.8,
-            w: 6.2,
-            h: 6.2,
-            fill: { color: THEME.accentSoft },
-            line: { color: THEME.accentSoft },
-        });
-        slide.addShape("ellipse" as PptxShapeType, {
-            x: 10.1,
-            y: -0.2,
-            w: 5.2,
-            h: 5.2,
-            fill: { color: "D1FAE5" },
-            line: { color: "D1FAE5" },
-        });
+        // Right side large cover image or placeholder
+        if (options.coverImage) {
+            slide.addImage({ x: 8.0, y: 0, w: 5.333, h: 7.5, path: options.coverImage, sizing: { type: "cover", w: 5.333, h: 7.5 } });
+        } else {
+            slide.addShape("rect" as PptxShapeType, {
+                x: 8.0, y: 0, w: 5.333, h: 7.5,
+                fill: { color: "E2E8F0" },
+            });
+            slide.addText("COVER IMAGE (5.33 x 7.5)", {
+                x: 8.0, y: 3.5, w: 5.333, h: 0.5,
+                fontFace: "Calibri", fontSize: 14, color: "94A3B8", align: "center"
+            });
+        }
 
-        slide.addText("Infradyn Analytics", {
-            x: SLIDE.padX,
-            y: 2.15,
-            w: 12,
-            h: 0.9,
+        // Abstract organic shape overlay (approximate leaf with overlapping shapes)
+        const leafColor = "1D4B43";
+        // Scaled down to match mockup reference
+        slide.addShape("chord" as PptxShapeType, { x: 5.8, y: 5.7, w: 2.2, h: 2.2, fill: { color: leafColor }, line: { color: leafColor }, rotate: 45 });
+        slide.addShape("ellipse" as PptxShapeType, { x: 6.4, y: 5.2, w: 1.1, h: 1.8, fill: { color: leafColor }, line: { color: leafColor }, rotate: 15 });
+        slide.addShape("ellipse" as PptxShapeType, { x: 6.6, y: 5.7, w: 1.8, h: 1.1, fill: { color: leafColor }, line: { color: leafColor }, rotate: -15 });
+        slide.addShape("ellipse" as PptxShapeType, { x: 7.1, y: 6.3, w: 1.8, h: 1.1, fill: { color: leafColor }, line: { color: leafColor }, rotate: 45 });
+
+        // Organization Logo
+        if (options.logoImage) {
+            slide.addImage({ x: 0.5, y: 0.5, w: 1.5, h: 1.5, path: options.logoImage, sizing: { type: "contain", w: 1.5, h: 1.5 } });
+        } else {
+            // Placeholder for logo
+            slide.addShape("rect" as PptxShapeType, { x: 0.5, y: 0.5, w: 1.5, h: 1.5, fill: { color: "E2E8F0" } });
+            slide.addText("COMPANY\nLOGO", { x: 0.5, y: 1.0, w: 1.5, h: 0.5, fontFace: "Calibri", fontSize: 10, color: "777777", align: "center", bold: true });
+        }
+
+        const titleText = "Material\nTracking\nAnalytics";
+        slide.addText(titleText, {
+            x: 0.5,
+            y: 2.5,
+            w: 7.0,
+            h: 3.0,
             fontFace: "Calibri",
-            fontSize: 44,
-            bold: true,
-            color: THEME.text,
+            fontSize: 60,
+            color: "25697B",
+            valign: "top",
+            lineSpacingMultiple: 0.9,
         });
 
+        // Presenter info or subtitle
         const subtitleParts = [
             options.source.toUpperCase(),
             options.reportType?.toUpperCase() ?? "DETAILED",
@@ -470,23 +507,19 @@ export async function generatePptxReport(
             options.timeframeLabel,
         ].filter(Boolean);
 
-        slide.addText(subtitleParts.join("  •  "), {
-            x: SLIDE.padX,
-            y: 3.05,
-            w: 12,
-            h: 0.5,
+        const subText = `BY [PRESENTERS NAME HERE]\n\n${subtitleParts.join("  •  ")}`;
+
+        slide.addText(subText, {
+            x: 0.5,
+            y: 5.6,
+            w: 7.0,
+            h: 1.0,
             fontFace: "Calibri",
             fontSize: 14,
-            color: THEME.muted,
-        });
-
-        slide.addShape("rect" as PptxShapeType, {
-            x: SLIDE.padX,
-            y: 3.82,
-            w: 2.5,
-            h: 0.12,
-            fill: { color: THEME.accent },
-            line: { color: THEME.accent },
+            color: "333333",
+            bold: true,
+            valign: "top",
+            lineSpacingMultiple: 1.5
         });
     }
 
@@ -909,6 +942,111 @@ export async function generatePptxReport(
         };
 
         slide.addTable(tableData, tableOpts);
+    }
+
+    // ── End slide ────────────────────────────────────────────────────────
+    {
+        const slide = nextSlide(undefined, true);
+        slide.background = { color: THEME.surface2 }; // subtle off-white background
+
+        // Top Half Cover Image / Background
+        if (options.coverImage) {
+            slide.addImage({ x: 0, y: 0, w: 13.333, h: 4.5, path: options.coverImage, sizing: { type: "cover", w: 13.333, h: 4.5 } });
+        } else {
+            slide.addShape("rect" as PptxShapeType, {
+                x: 0, y: 0, w: 13.333, h: 4.5,
+                fill: { color: "E2E8F0" },
+            });
+            slide.addText("COVER IMAGE (13.33 x 4.5)", {
+                x: 0, y: 1.75, w: 13.333, h: 0.5,
+                fontFace: "Calibri", fontSize: 16, color: "94A3B8", align: "center"
+            });
+        }
+
+        // Floating Contact Card
+        const cardX = 1.5;
+        const cardY = 3.8;
+        const cardW = 10.333;
+        const cardH = 3.0;
+
+        slide.addShape("rect" as PptxShapeType, {
+            x: cardX,
+            y: cardY,
+            w: cardW,
+            h: cardH,
+            fill: { color: "FFFFFF" },
+            line: { color: "E2E8F0", pt: 1 },
+        });
+
+        // Contact Headers
+        slide.addText("Get in touch with us today!", {
+            x: cardX + 0.4,
+            y: cardY + 0.5,
+            w: 8.0,
+            h: 0.8,
+            fontFace: "Georgia", // slightly serif-like to match the reference text style closely
+            fontSize: 32,
+            color: "1F3B4D",
+        });
+
+        // Horizontal Rule inside the card
+        slide.addShape("rect" as PptxShapeType, {
+            x: cardX + 0.4,
+            y: cardY + 1.5,
+            w: cardW - 0.8,
+            h: 0.02,
+            fill: { color: "E2E8F0" },
+            line: { color: "E2E8F0" },
+        });
+
+        // Contact Info Labels
+        slide.addText("EMAIL", {
+            x: cardX + 0.4,
+            y: cardY + 1.7,
+            w: 4.0,
+            h: 0.3,
+            fontFace: "Calibri",
+            fontSize: 10,
+            bold: true,
+            color: "64748B",
+        });
+
+        slide.addText("PHONE", {
+            x: cardX + 6.0,
+            y: cardY + 1.7,
+            w: 4.0,
+            h: 0.3,
+            fontFace: "Calibri",
+            fontSize: 10,
+            bold: true,
+            color: "64748B",
+        });
+
+        // Contact Info Values
+        slide.addText("partners@infradyn.com", {
+            x: cardX + 0.4,
+            y: cardY + 2.0,
+            w: 4.0,
+            h: 0.5,
+            fontFace: "Calibri",
+            fontSize: 14,
+            color: "334155",
+        });
+
+        slide.addText("123-456-7890", {
+            x: cardX + 6.0,
+            y: cardY + 2.0,
+            w: 4.0,
+            h: 0.5,
+            fontFace: "Calibri",
+            fontSize: 14,
+            color: "334155",
+        });
+
+        // Logo Floating Top Left on top of cover image
+        if (options.logoImage) {
+            slide.addImage({ x: cardX, y: 0.5, w: 2.0, h: 0.8, path: options.logoImage, sizing: { type: "contain", w: 2.0, h: 0.8 } });
+        }
     }
 
     const out = (await (pptx as unknown as { write: (props: unknown) => Promise<unknown> }).write({ outputType: "nodebuffer" })) as unknown;

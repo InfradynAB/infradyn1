@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
+import path from "path";
+import sharp from "sharp";
 import {
     getDashboardKPIs,
     getSCurveData,
@@ -176,7 +178,7 @@ export async function GET(request: NextRequest) {
             const buffer = await generateExcelReport(exportData, reportType, {
                 generatedBy: session.user.name || session.user.email || "Unknown",
             });
-            
+
             return new NextResponse(new Uint8Array(buffer), {
                 headers: {
                     "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -218,6 +220,7 @@ export async function GET(request: NextRequest) {
                 sections,
                 includeCharts,
                 includeTables,
+                coverImage: path.join(process.cwd(), "public/images/mate.jpg"),
             });
 
             return new NextResponse(new Uint8Array(buffer), {
