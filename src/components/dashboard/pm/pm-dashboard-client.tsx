@@ -1029,16 +1029,15 @@ export function PMDashboardClient() {
                     {/* ═══════════ SECTION 7: COSTS & FINANCIALS ═══════════ */}
                     <section id="financials" ref={(el) => { sectionRefs.current.financials = el; }} className={cn("scroll-mt-32 space-y-5", routeSection && routeSection !== "financials" && "hidden")}>
                         <SectionHeader icon={CurrencyDollar} iconBg="bg-emerald-100 dark:bg-emerald-500/20" iconColor="text-emerald-600 dark:text-emerald-400" title="Cost & Financial Control" subtitle="Budget tracking, change orders, and payment milestones" />
-                        <div id="tour-pm-financials" className="grid gap-4 md:grid-cols-4">
+                        <GlowCard>
                             <BudgetUtilizationBar
                                 originalBudget={data.kpis.financial.totalCommitted + data.kpis.financial.retentionHeld}
                                 committed={data.kpis.financial.totalCommitted}
                                 invoiced={data.kpis.financial.totalPaid + data.kpis.financial.totalUnpaid}
                                 paid={data.kpis.financial.totalPaid}
                             />
-                        </div>
+                        </GlowCard>
                         <GlowCard>
-
                             <CostWaterfallChart data={waterfall} />
                         </GlowCard>
                         <div className="grid gap-4 md:grid-cols-4">
