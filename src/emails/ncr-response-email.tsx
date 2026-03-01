@@ -39,7 +39,7 @@ export default function NCRResponseEmail({
     ncrNumber = "NCR-0001",
     ncrTitle = "Quality Issue - Damaged Materials",
     severity = "MAJOR",
-    supplierName = "Acme Supplies",
+    supplierName = "Supplier",
     responsePreview = "We have reviewed the issue and are preparing a corrective action plan...",
     hasAttachments = false,
     projectName = "Project Alpha",

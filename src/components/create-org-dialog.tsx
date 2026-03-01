@@ -74,7 +74,7 @@ export function CreateOrgDialog() {
                             <Input
                                 id="org-name"
                                 name="name"
-                                placeholder="Acme Corp"
+                                placeholder="Name"
                                 required
                                 onChange={handleNameChange}
                             />
@@ -84,7 +84,7 @@ export function CreateOrgDialog() {
                             <Input
                                 id="org-slug"
                                 name="slug"
-                                placeholder="acme-corp"
+                                placeholder="name"
                                 required
                                 onFocus={(e) => e.target.dataset.touched = "true"}
                             />

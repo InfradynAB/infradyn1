@@ -28,7 +28,7 @@ export default function EscalationEmail({
     recipientName = "Manager",
     poNumber = "PO-2024-001",
     milestoneTitle = "Phase 1 Delivery",
-    supplierName = "Acme Supplies",
+    supplierName = "Name",
     escalationLevel = 1,
     daysOverdue = 14,
     dashboardUrl = "http://localhost:3000/dashboard/procurement",

@@ -22,7 +22,7 @@ export default async function SupportPage() {
     const tickets = isSuperAdmin ? await getAllTickets() : await getMyTickets();
 
     return (
-        <div className="max-w-6xl mx-auto space-y-6 pb-16">
+        <div className="space-y-6 pb-16">
             {/* Header */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">

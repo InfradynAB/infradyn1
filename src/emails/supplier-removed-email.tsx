@@ -20,7 +20,7 @@ interface SupplierRemovedEmailProps {
 
 export default function SupplierRemovedEmail({
     supplierName = "Supplier",
-    organizationName = "Acme Corp",
+    organizationName = "Organization Name",
     contactEmail,
 }: SupplierRemovedEmailProps) {
     const previewText = `Your supplier account with ${organizationName} has been removed`;

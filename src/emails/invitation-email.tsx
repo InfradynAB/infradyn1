@@ -23,7 +23,7 @@ interface InvitationEmailProps {
 }
 
 export default function InvitationEmail({
-    organizationName = "Acme Corp",
+    organizationName = "Organization Name",
     role = "member",
     inviteLink = "http://localhost:3000/invite/token",
     inviterName = "Admin",

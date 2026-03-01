@@ -30,13 +30,7 @@ const quickActions: QuickAction[] = [
         variant: "default",
         featured: true,
     },
-    {
-        title: "Upload Document",
-        description: "Import existing PO or BOQ files",
-        icon: UploadIcon,
-        href: "/dashboard/procurement/new?step=upload",
-        variant: "outline",
-    },
+    
     {
         title: "View Reports",
         description: "See spending and progress analytics",

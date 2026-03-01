@@ -538,263 +538,289 @@ export function QualityNCRAnalyticsClient() {
       {workspaceMode === "analytics" ? (
         <>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* NCR Trend Line Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" />NCR Trends (6 Months)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trend}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="opened" stroke="#EF4444" strokeWidth={2} name="Opened" dot={{ r: 4 }} />
-                  <Line type="monotone" dataKey="closed" stroke="#22C55E" strokeWidth={2} name="Closed" dot={{ r: 4 }} />
-                  <Line type="monotone" dataKey="critical" stroke="#F59E0B" strokeWidth={2} name="Critical" strokeDasharray="5 5" dot={{ r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* NCR Trend Line Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" />NCR Trends (6 Months)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={trend}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                      <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="opened" stroke="#EF4444" strokeWidth={2} name="Opened" dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="closed" stroke="#22C55E" strokeWidth={2} name="Closed" dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="critical" stroke="#F59E0B" strokeWidth={2} name="Critical" strokeDasharray="5 5" dot={{ r: 4 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Root Cause - Pareto (Issue Types) */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />Root Cause Analysis</CardTitle>
-            <CardDescription>Pareto breakdown by issue type</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="h-60">
+            {/* Root Cause - Pareto (Issue Types) */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />Root Cause Analysis</CardTitle>
+                <CardDescription>Pareto breakdown by issue type</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row gap-6 items-center">
+                  {/* Pie chart — no on-slice labels to avoid clipping */}
+                  <div className="w-full sm:w-[200px] h-[200px] shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={issueTypes}
+                          dataKey="count"
+                          nameKey="issueType"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={88}
+                          paddingAngle={2}
+                        >
+                          {issueTypes.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number, name: string) => [`${value} NCRs`, name]}
+                          contentStyle={{ borderRadius: "10px", fontSize: "12px", border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 8px 20px rgba(0,0,0,.1)" }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Legend table — name + mini bar + count + % */}
+                  <div className="flex-1 w-full space-y-2">
+                    {issueTypes.map((it, i) => {
+                      const total = issueTypes.reduce((s, x) => s + x.count, 0);
+                      const maxCount = Math.max(...issueTypes.map(x => x.count));
+                      const pct = total > 0 ? ((it.count / total) * 100).toFixed(0) : "0";
+                      const barPct = (it.count / maxCount) * 100;
+                      return (
+                        <div key={it.issueType} className="flex items-center gap-3">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
+                          <span className="text-sm text-foreground flex-1 min-w-0 truncate">{it.issueType}</span>
+                          <div className="hidden sm:flex w-20 h-1.5 rounded-full bg-muted overflow-hidden shrink-0">
+                            <div className="h-full rounded-full" style={{ width: `${barPct}%`, backgroundColor: PIE_COLORS[i % PIE_COLORS.length], opacity: 0.75 }} />
+                          </div>
+                          <span className="text-sm font-bold tabular-nums font-sans w-5 text-right shrink-0">{it.count}</span>
+                          <span className="text-xs text-muted-foreground w-9 text-right shrink-0">{pct}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+
+          </div>
+
+          {/* NCR by Supplier */}
+          <Card>
+            <CardHeader className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <CardTitle>NCR by Supplier</CardTitle>
+                  <CardDescription>
+                    {supplierNcrView === "overview"
+                      ? "Clean ranking by total NCR load"
+                      : `${supplierMetricLabel[supplierNcrMetric]} by supplier`}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={supplierNcrView === "overview" ? "default" : "outline"}
+                    onClick={() => setSupplierNcrView("overview")}
+                  >
+                    Overview
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={supplierNcrView === "metric" ? "default" : "outline"}
+                    onClick={() => setSupplierNcrView("metric")}
+                  >
+                    Metric View
+                  </Button>
+                  {supplierNcrView === "metric" && (
+                    <Select value={supplierNcrMetric} onValueChange={(value) => setSupplierNcrMetric(value as SupplierNCRMetric)}>
+                      <SelectTrigger className="w-52 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="open">Open NCRs</SelectItem>
+                        <SelectItem value="critical">Critical NCRs</SelectItem>
+                        <SelectItem value="total">Total NCRs</SelectItem>
+                        <SelectItem value="avgResolutionDays">Avg Resolution Days</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[250px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={issueTypes} dataKey="count" nameKey="issueType" cx="50%" cy="50%" outerRadius={90} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>
-                      {issueTypes.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
+                  <BarChart data={supplierNCRs} layout="vertical" margin={{ left: 140, right: 20 }}>
+                    <XAxis type="number" tick={{ fontSize: 11 }} />
+                    <YAxis type="category" dataKey="supplierName" tick={{ fontSize: 11 }} width={140} />
+                    <Tooltip
+                      formatter={(value: number) => [
+                        supplierNcrView === "metric" && supplierNcrMetric === "avgResolutionDays" ? `${value} days` : value,
+                        supplierNcrView === "overview" ? "Total NCRs" : supplierMetricLabel[supplierNcrMetric],
+                      ]}
+                    />
+                    {supplierNcrView === "overview" ? (
+                      <Bar dataKey="total" fill="#6B7280" name="Total" radius={[0, 3, 3, 0]} opacity={0.6} />
+                    ) : (
+                      <Bar
+                        dataKey={supplierNcrMetric}
+                        fill={supplierNcrMetric === "critical" ? "#EF4444" : supplierNcrMetric === "open" ? "#F59E0B" : supplierNcrMetric === "avgResolutionDays" ? "#6366F1" : "#6B7280"}
+                        name={supplierMetricLabel[supplierNcrMetric]}
+                        radius={[0, 3, 3, 0]}
+                      />
+                    )}
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="space-y-2 flex flex-col justify-center">
-                {issueTypes.map((it, i) => (
-                  <div key={it.issueType} className="flex items-center gap-2 text-sm">
-                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
-                    <span className="flex-1 truncate">{it.issueType}</span>
-                    <span className="font-sans tabular-nums font-semibold">{it.count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
 
-      {/* NCR by Supplier */}
-      <Card>
-        <CardHeader className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <CardTitle>NCR by Supplier</CardTitle>
-              <CardDescription>
-                {supplierNcrView === "overview"
-                  ? "Clean ranking by total NCR load"
-                  : `${supplierMetricLabel[supplierNcrMetric]} by supplier`}
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant={supplierNcrView === "overview" ? "default" : "outline"}
-                onClick={() => setSupplierNcrView("overview")}
-              >
-                Overview
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={supplierNcrView === "metric" ? "default" : "outline"}
-                onClick={() => setSupplierNcrView("metric")}
-              >
-                Metric View
-              </Button>
-              {supplierNcrView === "metric" && (
-                <Select value={supplierNcrMetric} onValueChange={(value) => setSupplierNcrMetric(value as SupplierNCRMetric)}>
-                  <SelectTrigger className="w-52 h-9">
-                    <SelectValue />
-                  </SelectTrigger>
+          {/* Resolution Metrics */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="pb-2"><CardDescription>Closure Rate</CardDescription></CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <span className={cn("text-3xl font-bold", kpis!.closureRate >= 70 ? "text-emerald-600" : "text-amber-600")}>
+                    {kpis?.closureRate}%
+                  </span>
+                  {kpis!.closureRate >= 70 ? <TrendingUp className="h-5 w-5 text-emerald-600" /> : <TrendingDown className="h-5 w-5 text-amber-600" />}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Closed vs total NCRs</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardDescription>Escalation Rate</CardDescription></CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5 text-amber-500" />
+                  <span className="text-3xl font-bold">{kpis?.escalationRate}%</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">NCRs requiring escalation</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardDescription>Cost of Quality</CardDescription></CardHeader>
+              <CardContent>
+                <span className="text-3xl font-bold font-sans tabular-nums">${kpis?.costOfQuality.toLocaleString()}</span>
+                <p className="text-xs text-muted-foreground mt-1">Estimated rework & replacement cost</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* NCR List with Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle>NCR Register</CardTitle>
+              <CardDescription>All non-conformance reports</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Filters */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Search NCRs..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+                </div>
+                <Select value={severityFilter} onValueChange={setSeverityFilter}>
+                  <SelectTrigger className="w-36"><SelectValue placeholder="Severity" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="open">Open NCRs</SelectItem>
-                    <SelectItem value="critical">Critical NCRs</SelectItem>
-                    <SelectItem value="total">Total NCRs</SelectItem>
-                    <SelectItem value="avgResolutionDays">Avg Resolution Days</SelectItem>
+                    <SelectItem value="all">All Severity</SelectItem>
+                    <SelectItem value="CRITICAL">Critical</SelectItem>
+                    <SelectItem value="MAJOR">Major</SelectItem>
+                    <SelectItem value="MINOR">Minor</SelectItem>
                   </SelectContent>
                 </Select>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={supplierNCRs} layout="vertical" margin={{ left: 140, right: 20 }}>
-                <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis type="category" dataKey="supplierName" tick={{ fontSize: 11 }} width={140} />
-                <Tooltip
-                  formatter={(value: number) => [
-                    supplierNcrView === "metric" && supplierNcrMetric === "avgResolutionDays" ? `${value} days` : value,
-                    supplierNcrView === "overview" ? "Total NCRs" : supplierMetricLabel[supplierNcrMetric],
-                  ]}
-                />
-                {supplierNcrView === "overview" ? (
-                  <Bar dataKey="total" fill="#6B7280" name="Total" radius={[0, 3, 3, 0]} opacity={0.6} />
-                ) : (
-                  <Bar
-                    dataKey={supplierNcrMetric}
-                    fill={supplierNcrMetric === "critical" ? "#EF4444" : supplierNcrMetric === "open" ? "#F59E0B" : supplierNcrMetric === "avgResolutionDays" ? "#6366F1" : "#6B7280"}
-                    name={supplierMetricLabel[supplierNcrMetric]}
-                    radius={[0, 3, 3, 0]}
-                  />
-                )}
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-36"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="OPEN">Open</SelectItem>
+                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                    <SelectItem value="CLOSED">Closed</SelectItem>
+                    <SelectItem value="REOPENED">Reopened</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                  <SelectTrigger className="w-44"><SelectValue placeholder="Supplier" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Suppliers</SelectItem>
+                    {uniqueSuppliers.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={projectFilter} onValueChange={setProjectFilter}>
+                  <SelectTrigger className="w-44"><SelectValue placeholder="Project" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Projects</SelectItem>
+                    {uniqueProjects.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={overdueFilter} onValueChange={setOverdueFilter}>
+                  <SelectTrigger className="w-36"><SelectValue placeholder="SLA" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="overdue">Overdue Only</SelectItem>
+                    <SelectItem value="ontrack">On Track</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-      {/* Resolution Metrics */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2"><CardDescription>Closure Rate</CardDescription></CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <span className={cn("text-3xl font-bold", kpis!.closureRate >= 70 ? "text-emerald-600" : "text-amber-600")}>
-                {kpis?.closureRate}%
-              </span>
-              {kpis!.closureRate >= 70 ? <TrendingUp className="h-5 w-5 text-emerald-600" /> : <TrendingDown className="h-5 w-5 text-amber-600" />}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Closed vs total NCRs</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardDescription>Escalation Rate</CardDescription></CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5 text-amber-500" />
-              <span className="text-3xl font-bold">{kpis?.escalationRate}%</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">NCRs requiring escalation</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardDescription>Cost of Quality</CardDescription></CardHeader>
-          <CardContent>
-            <span className="text-3xl font-bold font-sans tabular-nums">${kpis?.costOfQuality.toLocaleString()}</span>
-            <p className="text-xs text-muted-foreground mt-1">Estimated rework & replacement cost</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* NCR List with Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>NCR Register</CardTitle>
-          <CardDescription>All non-conformance reports</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Filters */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search NCRs..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
-            </div>
-            <Select value={severityFilter} onValueChange={setSeverityFilter}>
-              <SelectTrigger className="w-36"><SelectValue placeholder="Severity" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Severity</SelectItem>
-                <SelectItem value="CRITICAL">Critical</SelectItem>
-                <SelectItem value="MAJOR">Major</SelectItem>
-                <SelectItem value="MINOR">Minor</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-36"><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="OPEN">Open</SelectItem>
-                <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                <SelectItem value="CLOSED">Closed</SelectItem>
-                <SelectItem value="REOPENED">Reopened</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="Supplier" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Suppliers</SelectItem>
-                {uniqueSuppliers.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={projectFilter} onValueChange={setProjectFilter}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="Project" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Projects</SelectItem>
-                {uniqueProjects.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={overdueFilter} onValueChange={setOverdueFilter}>
-              <SelectTrigger className="w-36"><SelectValue placeholder="SLA" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="overdue">Overdue Only</SelectItem>
-                <SelectItem value="ontrack">On Track</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Table */}
-          <div className="rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  {ncrCols.map((col) => (
-                    <TableHead
-                      key={col}
-                      draggable
-                      onDragStart={() => setDragCol(col)}
-                      onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
-                      onDragEnd={() => { if (dragCol && dragOverCol && dragCol !== dragOverCol) reorderCols(ncrCols, dragCol, dragOverCol, setNcrCols); setDragCol(null); setDragOverCol(null); }}
-                      className={cn("cursor-grab active:cursor-grabbing select-none", dragCol === col && "opacity-40 bg-muted/60", dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
-                    >
-                      <div className="flex items-center gap-1">
-                        <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
-                        {NCR_DEF[col].label}
-                      </div>
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredNCRs.length === 0 ? (
-                  <TableRow><TableCell colSpan={ncrCols.length} className="text-center py-8 text-muted-foreground">No NCRs match your filters</TableCell></TableRow>
-                ) : (
-                  filteredNCRs.map((n) => (
-                    <TableRow key={n.id} className="hover:bg-muted/50">
+              {/* Table */}
+              <div className="rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
                       {ncrCols.map((col) => (
-                        <TableCell key={col}>{NCR_DEF[col].cell(n)}</TableCell>
+                        <TableHead
+                          key={col}
+                          draggable
+                          onDragStart={() => setDragCol(col)}
+                          onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                          onDragEnd={() => { if (dragCol && dragOverCol && dragCol !== dragOverCol) reorderCols(ncrCols, dragCol, dragOverCol, setNcrCols); setDragCol(null); setDragOverCol(null); }}
+                          className={cn("cursor-grab active:cursor-grabbing select-none", dragCol === col && "opacity-40 bg-muted/60", dragOverCol === col && dragCol !== col && "bg-[#0E7490]/20 border-l-2 border-l-[#0E7490]")}
+                        >
+                          <div className="flex items-center gap-1">
+                            <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                            {NCR_DEF[col].label}
+                          </div>
+                        </TableHead>
                       ))}
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredNCRs.length === 0 ? (
+                      <TableRow><TableCell colSpan={ncrCols.length} className="text-center py-8 text-muted-foreground">No NCRs match your filters</TableCell></TableRow>
+                    ) : (
+                      filteredNCRs.map((n) => (
+                        <TableRow key={n.id} className="hover:bg-muted/50">
+                          {ncrCols.map((col) => (
+                            <TableCell key={col}>{NCR_DEF[col].cell(n)}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
 
         </>
       ) : (

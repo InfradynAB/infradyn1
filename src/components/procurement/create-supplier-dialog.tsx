@@ -85,7 +85,7 @@ export function CreateSupplierDialog({ onSuccess, trigger }: CreateSupplierDialo
                             <Input
                                 id="name"
                                 name="name"
-                                placeholder="Acme Materials Ltd"
+                                placeholder="Supplier Name"
                                 required
                                 className="h-12 rounded-xl bg-muted/30 border-muted/50 focus:ring-2 focus:ring-blue-500/20 font-bold"
                             />
@@ -96,7 +96,7 @@ export function CreateSupplierDialog({ onSuccess, trigger }: CreateSupplierDialo
                                 id="contactEmail"
                                 name="contactEmail"
                                 type="email"
-                                placeholder="contact@acme.com"
+                                placeholder="contact@name.com"
                                 className="h-12 rounded-xl bg-muted/30 border-muted/50 focus:ring-2 focus:ring-blue-500/20 font-bold"
                             />
                             <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest ml-1">

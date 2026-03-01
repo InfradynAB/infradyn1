@@ -212,14 +212,14 @@ export function SupportCenterClient({
                     />
                 </div>
 
-                <div className="col-span-12 lg:col-span-5 flex flex-wrap items-center justify-between gap-3 lg:justify-end">
+                <div className="col-span-12 lg:col-span-5 flex justify-end">
                     <ToggleGroup
                         type="single"
                         value={tab}
                         onValueChange={(v) => setTab((v as TabKey) || "all")}
                         variant="outline"
                         size="sm"
-                        className="bg-card"
+                        className="bg-card shrink-0"
                     >
                         <ToggleGroupItem value="all" aria-label="All">
                             All
@@ -254,7 +254,9 @@ export function SupportCenterClient({
                             )}
                         </ToggleGroupItem>
                     </ToggleGroup>
+                </div>
 
+                <div className="col-span-12 flex justify-end">
                     <div className="w-full sm:w-[210px] shrink-0">
                         <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
                             <SelectTrigger className="h-9">

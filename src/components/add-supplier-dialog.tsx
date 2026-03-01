@@ -90,7 +90,7 @@ export function AddSupplierDialog({ trigger }: AddSupplierDialogProps) {
                             <Label htmlFor="name">Supplier Name *</Label>
                             <Input
                                 id="name"
-                                placeholder="e.g. Acme Materials Ltd"
+                                placeholder="Supplier Name"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 required
@@ -101,7 +101,7 @@ export function AddSupplierDialog({ trigger }: AddSupplierDialogProps) {
                             <Input
                                 id="email"
                                 type="email"
-                                placeholder="e.g. contact@acme.com"
+                                placeholder="e.g. contact@name.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />

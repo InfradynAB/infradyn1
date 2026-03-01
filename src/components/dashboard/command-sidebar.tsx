@@ -128,7 +128,6 @@ const financialsNav = [
         subItems: [
             { title: "Purchase Orders", url: "/dashboard/procurement", icon: FileText },
             { title: "New Purchase Order", url: "/dashboard/procurement/new", icon: FileText },
-            { title: "Upload Document", url: "/dashboard/procurement/new?step=upload", icon: FileArrowUp },
             { title: "BOQ Tracker", url: "/dashboard/boq", icon: ListBullets },
         ],
     },
