@@ -21,9 +21,9 @@ export async function GET(
         }
 
         // Security: Only allow files from expected paths
-        const allowedPrefixes = ["ncr/", "audio/", "documents/", "evidence/", "projects/"];
+        const allowedPrefixes = ["ncr/", "audio/", "documents/", "evidence/", "projects/", "support/"];
         const isAllowed = allowedPrefixes.some(prefix => key.startsWith(prefix));
-        
+
         if (!isAllowed) {
             return NextResponse.json({ error: "Invalid path" }, { status: 403 });
         }

@@ -32,6 +32,7 @@ import {
     updateTicketStatus,
 } from "@/lib/actions/support-actions";
 import { CATEGORY_LABELS, STATUS_LABELS, PRIORITY_LABELS } from "@/lib/actions/support-constants";
+import { extractS3KeyFromUrl } from "@/lib/services/s3";
 import type { TicketWithThread } from "@/lib/actions/support-actions";
 import type { TicketStatus } from "@/lib/actions/support-constants";
 import { formatDistanceToNow, format } from "date-fns";
@@ -410,14 +411,18 @@ function MessageBubble({
                         isFromSupport
                             ? "bg-primary text-primary-foreground rounded-tr-sm"
                             : isInternal
-                            ? "bg-amber-500/10 border border-amber-500/20 text-foreground rounded-tl-sm"
-                            : "bg-muted border border-border text-foreground rounded-tl-sm"
+                                ? "bg-amber-500/10 border border-amber-500/20 text-foreground rounded-tl-sm"
+                                : "bg-muted border border-border text-foreground rounded-tl-sm"
                     )}
                 >
                     <p className="whitespace-pre-wrap leading-relaxed">{content}</p>
                     {attachmentUrl && (
                         <a
-                            href={attachmentUrl}
+                            href={
+                                attachmentUrl.includes("amazonaws.com")
+                                    ? `/api/audio/${extractS3KeyFromUrl(attachmentUrl)}`
+                                    : attachmentUrl
+                            }
                             target="_blank"
                             rel="noopener noreferrer"
                             className={cn(
