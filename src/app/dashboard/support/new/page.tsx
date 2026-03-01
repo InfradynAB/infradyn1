@@ -11,7 +11,7 @@ export default async function NewTicketPage() {
     if (!session?.user) redirect("/sign-in");
 
     return (
-        <div className="max-w-2xl mx-auto space-y-6 pb-16">
+        <div className="w-full space-y-6 pb-16">
             <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
                     <Lifebuoy className="h-5 w-5 text-primary" weight="fill" />

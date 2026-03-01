@@ -142,6 +142,11 @@ export default async function SupplierDashboardPage() {
 
     const readinessScore = Number(supplierData.readinessScore) || 0;
 
+    // Force onboarding if incomplete
+    if (readinessScore < 100) {
+        redirect("/dashboard/supplier/onboarding");
+    }
+
     // Compute narrative context
     const totalUrgent = actions.openNcrs + actions.pendingPos + actions.overdueDeliveries;
     const today = new Date();
@@ -166,9 +171,11 @@ export default async function SupplierDashboardPage() {
 
     const overallScore = Math.round((responseRate + accuracy + reliability) / 3);
 
+    const onTrackPercent = pos.length > 0 ? Math.round(((acceptedPos.length + completedPos.length) / pos.length) * 100) : 0;
+
     const donutSegments = [
-        { value: acceptedPos.length + completedPos.length, color: "#22c55e", label: "Active / Complete" },
-        { value: pendingResponsePos.length, color: "#f59e0b", label: "Pending Response" },
+        { value: acceptedPos.length + completedPos.length, color: "#22c55e", label: "Active" },
+        { value: pendingResponsePos.length, color: "#f59e0b", label: "Pending" },
         { value: draftPos.length, color: "#3b82f6", label: "Draft" },
     ].filter(s => s.value > 0);
 
@@ -368,7 +375,7 @@ export default async function SupplierDashboardPage() {
                     {/* Performance Bar Chart */}
                     <div className="rounded-2xl border border-border bg-card p-6">
                         <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-bold text-foreground">Performance</h3>
+                            <h3 className="text-lg font-bold text-foreground">Operational Performance</h3>
                             <Link href="/dashboard/supplier/analytics" className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
                                 Details →
                             </Link>
@@ -378,12 +385,17 @@ export default async function SupplierDashboardPage() {
 
                     {/* Overall Score Donut */}
                     <div className="rounded-2xl border border-border bg-card p-6">
-                        <h3 className="text-lg font-bold text-foreground mb-6">PO Breakdown</h3>
+                        <h3 className="text-lg font-bold text-foreground mb-1 leading-tight">
+                            PO Distribution — {onTrackPercent}% of Orders Are Currently On Track
+                        </h3>
+                        <p className="text-[11px] text-muted-foreground mb-6">
+                            Based on accepted and completed purchase orders relative to total volume.
+                        </p>
                         <div className="flex justify-center">
                             <PerformanceDonut
-                                score={pos.length > 0 ? Math.round(((acceptedPos.length + completedPos.length) / pos.length) * 100) : 0}
-                                size={150}
-                                label="On Track"
+                                score={onTrackPercent}
+                                size={140}
+                                label="Physical Progress"
                                 segments={donutSegments}
                             />
                         </div>

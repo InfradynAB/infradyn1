@@ -44,25 +44,29 @@ export default async function SupplierOnboardingPage() {
 
     // Otherwise show onboarding wizard
     return (
-        <div className="max-w-4xl mx-auto py-8">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold">Complete Your Profile</h1>
-                <p className="text-muted-foreground mt-2">
-                    Please provide the required information and documents to start working with Infradyn purchase orders.
-                </p>
-                <div className="mt-4 flex items-center gap-2">
-                    <div className="text-sm font-medium">Readiness Score:</div>
-                    <div className="w-64 h-4 bg-muted rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-primary transition-all duration-500 ease-in-out"
-                            style={{ width: `${supplierData.readinessScore || 0}%` }}
-                        />
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4">
+            <div className="w-full max-w-2xl bg-card border rounded-2xl shadow-sm p-8">
+                <div className="mb-8 text-center">
+                    <h1 className="text-3xl font-bold">Complete Your Profile</h1>
+                    <p className="text-muted-foreground mt-2 max-w-md mx-auto">
+                        Please provide the required information and documents to start working with Infradyn purchase orders.
+                    </p>
+                    <div className="mt-6 flex flex-col items-center gap-2">
+                        <div className="flex items-center gap-2">
+                            <div className="text-sm font-medium">Readiness Score:</div>
+                            <div className="text-sm font-bold text-primary">{supplierData.readinessScore}%</div>
+                        </div>
+                        <div className="w-full max-w-xs h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-primary transition-all duration-500 ease-in-out"
+                                style={{ width: `${supplierData.readinessScore || 0}%` }}
+                            />
+                        </div>
                     </div>
-                    <div className="text-sm font-bold">{supplierData.readinessScore}%</div>
                 </div>
-            </div>
 
-            <OnboardingForm supplier={supplierData} />
+                <OnboardingForm supplier={supplierData} />
+            </div>
         </div>
     );
 }

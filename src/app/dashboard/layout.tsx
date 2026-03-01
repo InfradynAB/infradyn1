@@ -165,74 +165,110 @@ export default async function DashboardLayout({
         }
     }
 
-    // ------ Supplier-specific: fetch projects for the project switcher ------
+    // ------ Supplier-specific: fetch projects and readiness for the project switcher ------
     let supplierProjects: Array<{ id: string; name: string; code: string | null }> = [];
     let activeSupplierProjectId: string | null = null;
+    let isSupplierOnboarding = false;
 
     if (user.role === "SUPPLIER") {
         try {
             // Find the supplier record for this user
             const supplierData = await db.query.supplier.findFirst({
                 where: eq(supplier.userId, user.id),
-                columns: { id: true },
+                columns: { id: true, readinessScore: true },
             });
 
             if (supplierData) {
                 supplierProjects = await getSupplierProjects(supplierData.id, activeOrgId);
                 activeSupplierProjectId = await getSupplierActiveProjectId();
+
+                // Check readiness score
+                const readinessScore = Number(supplierData.readinessScore) || 0;
+                if (readinessScore < 100) {
+                    isSupplierOnboarding = true;
+                }
             }
         } catch (error) {
             console.error("Error fetching supplier projects:", error);
         }
     }
 
+    // Force redirection to onboarding if incomplete
+    // But allow the onboarding page itself to load
+    const isAtOnboardingPage = await headers().then(h => h.get("x-url")?.includes("/dashboard/supplier/onboarding") || false);
+    // Note: next/headers doesn't easily give URL in server components without middleware help or other tricks.
+    // Let's use a simpler approach or trust the layout to hide elements.
+
     return (
         <SidebarProvider>
-            <SidebarWrapper
-                user={user}
-                organizations={organizations}
-                activeOrgId={activeOrgId}
-                projects={projects}
-                activeProjectId={activeProjectId}
-                alertCount={alertCount}
-                supplierProjects={supplierProjects}
-                activeSupplierProjectId={activeSupplierProjectId}
-            />
-            <SidebarInset>
-                <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60">
-                    <div className="flex min-w-0 items-center gap-3">
-                        <SidebarTrigger className="-ml-1" />
-                        {user.role !== "SUPPLIER" && user.role !== "SITE_RECEIVER" && organizations.length > 0 && (
-                            <div className="w-56 max-w-[60vw]">
-                                <OrgSwitcher organizations={organizations} activeOrgId={activeOrgId} />
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Global search stays visible across all dashboard sections */}
-                    <div id="tour-global-search" className="hidden flex-1 justify-center px-3 md:flex">
-                        <GlobalSearch className="w-full max-w-2xl" />
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        {/* Mobile: icon-only search trigger (Cmd/Ctrl+K still works too) */}
-                        <div className="md:hidden">
-                            <GlobalSearch variant="icon" />
+            {!isSupplierOnboarding && (
+                <SidebarWrapper
+                    user={user}
+                    organizations={organizations}
+                    activeOrgId={activeOrgId}
+                    projects={projects}
+                    activeProjectId={activeProjectId}
+                    alertCount={alertCount}
+                    supplierProjects={supplierProjects}
+                    activeSupplierProjectId={activeSupplierProjectId}
+                />
+            )}
+            <SidebarInset className={isSupplierOnboarding ? "ml-0" : ""}>
+                {!isSupplierOnboarding && (
+                    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <SidebarTrigger className="-ml-1" />
+                            {user.role !== "SUPPLIER" && user.role !== "SITE_RECEIVER" && organizations.length > 0 && (
+                                <div className="w-56 max-w-[60vw]">
+                                    <OrgSwitcher organizations={organizations} activeOrgId={activeOrgId} />
+                                </div>
+                            )}
                         </div>
-                        {user?.id && <NotificationCenter userId={user.id} />}
-                        <ModeToggle />
-                        <UserMenu user={user} />
-                    </div>
-                </header>
-                <div className="flex flex-1 flex-col gap-4 p-4">
+
+                        {/* Global search stays visible across all dashboard sections */}
+                        <div id="tour-global-search" className="hidden flex-1 justify-center px-3 md:flex">
+                            <GlobalSearch className="w-full max-w-2xl" />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            {/* Mobile: icon-only search trigger (Cmd/Ctrl+K still works too) */}
+                            <div className="md:hidden">
+                                <GlobalSearch variant="icon" />
+                            </div>
+                            {user?.id && <NotificationCenter userId={user.id} />}
+                            <ModeToggle />
+                            <UserMenu user={user} />
+                        </div>
+                    </header>
+                )}
+
+                {isSupplierOnboarding && (
+                    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b bg-background px-6">
+                        <div className="flex items-center gap-2">
+                            <span className="font-bold text-xl tracking-tight">INFRADYN</span>
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest px-2 py-0.5 bg-muted rounded">Materials</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="flex flex-col items-end">
+                                <span className="text-sm font-semibold">{user.name}</span>
+                                <span className="text-[10px] text-muted-foreground">{user.email}</span>
+                            </div>
+                            <UserMenu user={user} />
+                        </div>
+                    </header>
+                )}
+
+                <div className={`flex flex-1 flex-col gap-4 ${isSupplierOnboarding ? "p-0" : "p-4"}`}>
                     {children}
                 </div>
             </SidebarInset>
-            <AIAssistantWidget
-                user={user}
-                activeOrgId={activeOrgId}
-                activeProjectId={activeProjectId}
-            />
+            {!isSupplierOnboarding && (
+                <AIAssistantWidget
+                    user={user}
+                    activeOrgId={activeOrgId}
+                    activeProjectId={activeProjectId}
+                />
+            )}
         </SidebarProvider>
     )
 }

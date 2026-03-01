@@ -90,7 +90,7 @@ export function OnboardingForm({ supplier }: { supplier: SupplierData }) {
     const allDocsUploaded = REQUIRED_DOCS.every(doc => getDocStatus(doc.type) === "UPLOADED");
 
     return (
-        <div className="max-w-lg mx-auto space-y-6 py-6 px-4">
+        <div className="space-y-6">
             {/* Step Indicator - Compact */}
             <div className="flex flex-col items-center space-y-2">
                 <div className="flex items-center gap-2 px-4 py-1.5 bg-muted/30 rounded-full border border-muted/50">
