@@ -274,7 +274,11 @@ export function CommandSidebar({
 
     // Helper to check if link is active
     const isActive = (url: string) => {
-        if (url === "/dashboard") return pathname === "/dashboard";
+        // Dashboard roots should be exact matches so they don't stay 'active' when in sub-sections like /analytics
+        const dashboardRoots = ["/dashboard", "/dashboard/supplier", "/dashboard/receiver"];
+        if (dashboardRoots.includes(url)) {
+            return pathname === url;
+        }
 
         const [basePath, queryString] = url.split("?");
         if (!pathname.startsWith(basePath)) return false;
@@ -283,7 +287,6 @@ export function CommandSidebar({
             const expected = new URLSearchParams(queryString);
             const expectedTab = expected.get("tab");
             if (expectedTab) {
-                // When a nav item encodes a `tab`, only mark it active if the current URL has the same tab.
                 return searchParams.get("tab") === expectedTab;
             }
         }
@@ -860,7 +863,7 @@ export function CommandSidebar({
                     </SidebarGroup>
                 ) : (
                     // Full Navigation organized by workflow
-                    <> 
+                    <>
                         {renderNavGroup("Daily Operations", dailyOpsItems)}
                         {renderNavGroup("Financials", financialsNav)}
                         {renderNavGroup("Quality & Logistics", qualityLogisticsNav)}

@@ -213,11 +213,11 @@ export default async function DashboardLayout({
                     activeSupplierProjectId={activeSupplierProjectId}
                 />
             )}
-            <SidebarInset className={isSupplierOnboarding ? "ml-0" : ""}>
+            <SidebarInset className={isSupplierOnboarding ? "ml-0 transition-all duration-300" : "transition-all duration-300"}>
                 {!isSupplierOnboarding && (
-                    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 text-slate-900 shadow-sm">
+                    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border/50 bg-background/95 px-4 text-foreground shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
                         <div className="flex min-w-0 items-center gap-3">
-                            <SidebarTrigger className="-ml-1 hover:bg-slate-100" />
+                            <SidebarTrigger className="-ml-1 hover:bg-muted" />
                             {user.role !== "SUPPLIER" && user.role !== "SITE_RECEIVER" && organizations.length > 0 && (
                                 <div className="w-56 max-w-[60vw]">
                                     <OrgSwitcher organizations={organizations} activeOrgId={activeOrgId} />
@@ -227,26 +227,26 @@ export default async function DashboardLayout({
 
                         {/* Global search stays visible across all dashboard sections */}
                         <div id="tour-global-search" className="hidden flex-1 justify-center px-3 md:flex">
-                            <GlobalSearch className="w-full max-w-2xl bg-slate-50 border-slate-200" />
+                            <GlobalSearch className="w-full max-w-2xl bg-muted/30 border-border/20" />
                         </div>
 
                         <div className="flex items-center gap-2">
                             {/* Mobile: icon-only search trigger (Cmd/Ctrl+K still works too) */}
                             <div className="md:hidden">
-                                <GlobalSearch variant="icon" className="bg-slate-50" />
+                                <GlobalSearch variant="icon" className="bg-muted/30" />
                             </div>
                             {user?.id && <NotificationCenter userId={user.id} />}
-                            <ModeToggle className="hover:bg-slate-100" />
+                            <ModeToggle className="hover:bg-muted/80" />
                             <UserMenu user={user} variant="navbar" />
                         </div>
                     </header>
                 )}
 
                 {isSupplierOnboarding && (
-                    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-6 text-slate-900">
-                        <div className="flex items-center gap-2">
-                            <span className="font-bold text-xl tracking-tight">INFRADYN</span>
-                            <span className="text-xs font-medium text-slate-500 uppercase tracking-widest px-2 py-0.5 bg-slate-100 rounded">Materials</span>
+                    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border/50 bg-background/95 px-6 text-foreground shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                        <div className="flex items-center gap-3">
+                            <span className="font-black text-xl tracking-tighter text-primary">INFRADYN</span>
+                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] px-2.5 py-1 bg-muted/60 rounded-lg">Materials</span>
                         </div>
                         <div className="flex items-center gap-4">
                             <div className="flex flex-col items-end">

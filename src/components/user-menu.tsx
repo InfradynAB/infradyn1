@@ -71,8 +71,8 @@ export function UserMenu({ user, variant = "default" }: UserMenuProps) {
                     className={cn(
                         "relative h-12 min-w-[220px] justify-start gap-2 rounded-xl border border-border/70 px-2.5",
                         variant === "navbar"
-                            ? "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-900"
-                            : "bg-muted/20 hover:bg-muted/35"
+                            ? "bg-card/40 hover:bg-card border-border/50 text-foreground"
+                            : "bg-muted/20 hover:bg-muted/35 text-foreground"
                     )}
                 >
                     <Avatar className="h-9 w-9">
@@ -81,12 +81,9 @@ export function UserMenu({ user, variant = "default" }: UserMenuProps) {
                             {getInitials(user.name)}
                         </AvatarFallback>
                     </Avatar>
-                    <div className="flex min-w-0 flex-col items-start">
-                        <span className="truncate text-sm font-medium leading-tight">{user.name || "User"}</span>
-                        <span className={cn(
-                            "truncate text-xs leading-tight",
-                            variant === "navbar" ? "text-slate-500" : "text-muted-foreground"
-                        )}>
+                    <div className="flex min-w-0 flex-col items-start text-left">
+                        <span className="truncate text-[13px] font-bold leading-tight">{user.name || "User"}</span>
+                        <span className="truncate text-[11px] leading-tight text-muted-foreground font-medium">
                             {user.email || ""}
                         </span>
                     </div>
