@@ -20,19 +20,21 @@ export function NCRStackedBars({ data }: { data: NCRMonthData[] }) {
 
     return (
         <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={data} margin={{ top: 5, right: 10, left: -15, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
+            <BarChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 25 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" vertical={false} />
                 <XAxis
                     dataKey="month"
                     tick={{ fontSize: 10 }}
                     className="fill-muted-foreground"
                     tickLine={false}
+                    label={{ value: "Reporting Month", position: "bottom", offset: 15, style: { fontSize: 10 }, className: "fill-muted-foreground/60" }}
                 />
                 <YAxis
                     tick={{ fontSize: 10 }}
                     className="fill-muted-foreground"
                     tickLine={false}
                     allowDecimals={false}
+                    label={{ value: "NCR Count", angle: -90, position: "insideLeft", offset: 0, style: { fontSize: 10 }, className: "fill-muted-foreground/60" }}
                 />
                 <Tooltip
                     content={({ payload, label }) => {
