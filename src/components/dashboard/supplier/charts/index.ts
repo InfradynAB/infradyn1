@@ -15,3 +15,5 @@ export type { NCRMonthData } from "./ncr-stacked-bars";
 
 export { DocumentGrid } from "./document-grid";
 export type { DocumentStatusItem } from "./document-grid";
+
+export { MilestoneGantt } from "./milestone-gantt";

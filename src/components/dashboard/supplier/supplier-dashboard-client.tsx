@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import {
@@ -39,6 +40,7 @@ import { NCRStackedBars } from "./charts/ncr-stacked-bars";
 import type { NCRMonthData } from "./charts/ncr-stacked-bars";
 import { DocumentGrid } from "./charts/document-grid";
 import type { DocumentStatusItem } from "./charts/document-grid";
+import { MilestoneGantt } from "./charts/milestone-gantt";
 
 // ============================================
 // TYPES
@@ -301,11 +303,11 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
     const [ncrCols, setNcrCols] = useState(["ncrNum", "title", "severity", "status", "reported", "slaDue"]);
     const [msCols, setMsCols] = useState(["milestone", "po", "amount", "paymentPct", "dueDate", "status"]);
     const [docCols, setDocCols] = useState(["document", "status", "expiry", "uploaded"]);
-    const [viewModes, setViewModes] = useState<Record<string, "chart" | "table">>({
+    const [viewModes, setViewModes] = useState<Record<string, "chart" | "table" | "gantt" | "cards">>({
         orders: "chart", deliveries: "chart", invoices: "chart",
-        ncrs: "chart", milestones: "table", compliance: "chart",
+        ncrs: "chart", milestones: "gantt", compliance: "chart",
     });
-    const toggleView = useCallback((section: string, mode: "chart" | "table") => {
+    const toggleView = useCallback((section: string, mode: "chart" | "table" | "gantt" | "cards") => {
         setViewModes(prev => ({ ...prev, [section]: mode }));
     }, []);
 
@@ -930,44 +932,75 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
                     icon={Target} iconBg="bg-amber-100 dark:bg-amber-500/20" iconColor="text-amber-600 dark:text-amber-400"
                     title="Milestones" subtitle={`${filteredMilestones.length} milestones tracked`}
                     badge={kpis.milestonesPendingApproval > 0 ? { label: `${kpis.milestonesPendingApproval} Pending`, variant: "outline" } : undefined}
-                    rightContent={<ViewToggle section="milestones" current={viewModes.milestones} onChange={toggleView} />}
+                    rightContent={
+                        <div className="flex items-center rounded-xl border border-border/60 bg-muted/30 p-0.5">
+                            <button onClick={() => toggleView("milestones", "gantt")}
+                                className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-200",
+                                    viewModes.milestones === "gantt" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                                )}>
+                                <CalendarBlank className="w-3.5 h-3.5" weight="duotone" />Gantt
+                            </button>
+                            <button onClick={() => toggleView("milestones", "cards")}
+                                className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-200",
+                                    viewModes.milestones === "cards" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                                )}>
+                                <ChartBar className="w-3.5 h-3.5" weight="duotone" />Cards
+                            </button>
+                            <button onClick={() => toggleView("milestones", "table")}
+                                className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-200",
+                                    viewModes.milestones === "table" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                                )}>
+                                <Rows className="w-3.5 h-3.5" weight="duotone" />Table
+                            </button>
+                        </div>
+                    }
                 />
 
-                {viewModes.milestones === "chart" ? (
+                {viewModes.milestones === "gantt" ? (
                     <Card className="rounded-2xl border-border/60 bg-card p-5">
-                        <div className="space-y-3">
-                            {filteredMilestones.map(m => {
-                                const progress = m.status === "COMPLETED" ? 100 : m.status === "SUBMITTED" ? 75 : 0;
-                                const isOverdue = m.status === "PENDING" && new Date(m.expectedDate) < new Date();
-                                return (
-                                    <div key={m.id} className="rounded-xl border border-border/40 p-4 bg-card/50">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold">{m.title}</span>
-                                                <StatusPill status={isOverdue ? "overdue" : m.status.toLowerCase()} />
-                                            </div>
-                                            <span className="text-xs font-sans tabular-nums">{fmt(m.amount)}</span>
+                        <MilestoneGantt milestones={filteredMilestones} />
+                    </Card>
+                ) : viewModes.milestones === "cards" ? (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {filteredMilestones.map(m => {
+                            const progress = m.status === "COMPLETED" ? 100 : m.status === "SUBMITTED" ? 75 : 0;
+                            const isOverdue = m.status === "PENDING" && new Date(m.expectedDate) < new Date();
+                            return (
+                                <Card key={m.id} className="rounded-2xl border border-border/40 p-4 bg-card/50 hover:shadow-md transition-all">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-bold leading-none">{m.title}</span>
+                                            <span className="text-[10px] text-muted-foreground mt-1">{m.poNumber}</span>
                                         </div>
-                                        <div className="flex items-center gap-2 mb-1.5">
-                                            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                                                <div
-                                                    className={cn("h-full rounded-full transition-all duration-500",
-                                                        m.status === "COMPLETED" ? "bg-emerald-500" : m.status === "SUBMITTED" ? "bg-blue-500" : isOverdue ? "bg-red-500" : "bg-amber-500"
-                                                    )}
-                                                    style={{ width: `${progress}%` }}
-                                                />
-                                            </div>
-                                            <span className="text-[10px] text-muted-foreground w-8 text-right">{progress}%</span>
+                                        <StatusPill status={isOverdue ? "overdue" : m.status.toLowerCase()} />
+                                    </div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex flex-col">
+                                            <span className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Payment</span>
+                                            <span className="text-xs font-bold">{m.paymentPercentage}%</span>
                                         </div>
-                                        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                                            <span>{m.poNumber} · {m.paymentPercentage}% payment</span>
-                                            <span>Due: {new Date(m.expectedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</span>
+                                        <div className="text-right">
+                                            <span className="text-xs font-bold font-sans tabular-nums">{fmt(m.amount)}</span>
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    </Card>
+                                    <div className="space-y-1.5">
+                                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                            <div
+                                                className={cn("h-full rounded-full transition-all duration-500",
+                                                    m.status === "COMPLETED" ? "bg-emerald-500" : m.status === "SUBMITTED" ? "bg-blue-500" : isOverdue ? "bg-red-500" : "bg-amber-500"
+                                                )}
+                                                style={{ width: `${progress}%` }}
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between text-[9px]">
+                                            <span className="text-muted-foreground">Due: {format(new Date(m.expectedDate), "dd MMM yy")}</span>
+                                            {isOverdue && <span className="text-red-600 font-bold">OVERDUE</span>}
+                                        </div>
+                                    </div>
+                                </Card>
+                            );
+                        })}
+                    </div>
                 ) : (
                     <Card className="rounded-2xl border-border/60 overflow-hidden">
                         <Table>
@@ -1123,7 +1156,7 @@ function StatCard({ label, value, color, alert }: { label: string; value: string
     );
 }
 
-function ViewToggle({ section, current, onChange }: { section: string; current: "chart" | "table"; onChange: (section: string, mode: "chart" | "table") => void }) {
+function ViewToggle({ section, current, onChange }: { section: string; current: "chart" | "table" | "gantt" | "cards" | string; onChange: (section: string, mode: "chart" | "table" | "gantt" | "cards" | any) => void }) {
     return (
         <div className="flex items-center rounded-xl border border-border/60 bg-muted/30 p-0.5">
             <button onClick={() => onChange(section, "chart")}

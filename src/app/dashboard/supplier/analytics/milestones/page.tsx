@@ -2,13 +2,17 @@
 
 import { useState, useMemo, useCallback, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
+import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Target, DotsSixVertical } from "@phosphor-icons/react";
 import {
-    SectionHeader, ViewToggle, StatusPill, fmt,
+    SectionHeader, StatusPill, fmt,
     mockMilestones,
 } from "@/components/dashboard/supplier/analytics-shared";
+import { MilestoneGantt } from "@/components/dashboard/supplier/charts/milestone-gantt";
 import { useAnalyticsFilters } from "@/components/dashboard/supplier/analytics-shell";
+import { ChartBar, Rows, CalendarBlank } from "@phosphor-icons/react";
+import { cn } from "@/lib/utils";
 
 function reorderCols(
     arr: string[], from: string, to: string, setter: (val: string[]) => void
@@ -20,8 +24,8 @@ function reorderCols(
 export default function MilestonesPage() {
     const milestones = mockMilestones();
     const { searchQuery, statusFilter } = useAnalyticsFilters();
-    const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
-    const toggleView = useCallback((_s: string, mode: "chart" | "table") => setViewMode(mode), []);
+    const [viewMode, setViewMode] = useState<"gantt" | "cards" | "table">("gantt");
+    const toggleView = useCallback((mode: "gantt" | "cards" | "table") => setViewMode(mode), []);
     const [now] = useState(() => Date.now());
     const [milestCols, setMilestCols] = useState(["milestone", "poNum", "amount", "status", "dueDate"]);
     const [dragCol, setDragCol] = useState<string | null>(null);
@@ -40,10 +44,10 @@ export default function MilestonesPage() {
 
     const MILEST_DEF: Record<string, { label: string; cell: (m: (typeof filteredMilestones)[number]) => ReactNode }> = {
         milestone: { label: "Milestone", cell: (m) => <span className="font-semibold max-w-[200px] truncate block">{m.title}</span> },
-        poNum:     { label: "PO #",      cell: (m) => <span>{m.poNumber}</span> },
-        amount:    { label: "Amount",    cell: (m) => <span>{fmt(m.amount)}</span> },
-        status:    { label: "Status",    cell: (m) => <StatusPill status={m.status.toLowerCase().split("_").join("-")} /> },
-        dueDate:   { label: "Due Date",  cell: (m) => <span>{new Date(m.expectedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</span> },
+        poNum: { label: "PO #", cell: (m) => <span>{m.poNumber}</span> },
+        amount: { label: "Amount", cell: (m) => <span>{fmt(m.amount)}</span> },
+        status: { label: "Status", cell: (m) => <StatusPill status={m.status.toLowerCase().split("_").join("-")} /> },
+        dueDate: { label: "Due Date", cell: (m) => <span>{new Date(m.expectedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</span> },
     };
 
     return (
@@ -55,10 +59,35 @@ export default function MilestonesPage() {
                 title="Milestones"
                 subtitle={`${milestones.length} total milestones`}
                 badge={submitted > 0 ? { label: `${submitted} Submitted`, variant: "default" } : undefined}
-                rightContent={<ViewToggle section="milestones" current={viewMode} onChange={toggleView} />}
+                rightContent={
+                    <div className="flex items-center rounded-xl border border-border/60 bg-muted/30 p-0.5">
+                        <button onClick={() => toggleView("gantt")}
+                            className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-200",
+                                viewMode === "gantt" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                            )}>
+                            <CalendarBlank className="w-3.5 h-3.5" weight="duotone" />Gantt
+                        </button>
+                        <button onClick={() => toggleView("cards")}
+                            className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-200",
+                                viewMode === "cards" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                            )}>
+                            <ChartBar className="w-3.5 h-3.5" weight="duotone" />Cards
+                        </button>
+                        <button onClick={() => toggleView("table")}
+                            className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-200",
+                                viewMode === "table" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                            )}>
+                            <Rows className="w-3.5 h-3.5" weight="duotone" />Table
+                        </button>
+                    </div>
+                }
             />
 
-            {viewMode === "chart" ? (
+            {viewMode === "gantt" ? (
+                <Card className="rounded-2xl border-border/60 bg-card p-5">
+                    <MilestoneGantt milestones={filteredMilestones} />
+                </Card>
+            ) : viewMode === "cards" ? (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-5">
                     {filteredMilestones.map(m => {
                         const daysLeft = Math.ceil((new Date(m.expectedDate).getTime() - now) / 86400000);
