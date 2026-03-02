@@ -215,9 +215,9 @@ export default async function DashboardLayout({
             )}
             <SidebarInset className={isSupplierOnboarding ? "ml-0" : ""}>
                 {!isSupplierOnboarding && (
-                    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60">
+                    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 text-slate-900 shadow-sm">
                         <div className="flex min-w-0 items-center gap-3">
-                            <SidebarTrigger className="-ml-1" />
+                            <SidebarTrigger className="-ml-1 hover:bg-slate-100" />
                             {user.role !== "SUPPLIER" && user.role !== "SITE_RECEIVER" && organizations.length > 0 && (
                                 <div className="w-56 max-w-[60vw]">
                                     <OrgSwitcher organizations={organizations} activeOrgId={activeOrgId} />
@@ -227,33 +227,33 @@ export default async function DashboardLayout({
 
                         {/* Global search stays visible across all dashboard sections */}
                         <div id="tour-global-search" className="hidden flex-1 justify-center px-3 md:flex">
-                            <GlobalSearch className="w-full max-w-2xl" />
+                            <GlobalSearch className="w-full max-w-2xl bg-slate-50 border-slate-200" />
                         </div>
 
                         <div className="flex items-center gap-2">
                             {/* Mobile: icon-only search trigger (Cmd/Ctrl+K still works too) */}
                             <div className="md:hidden">
-                                <GlobalSearch variant="icon" />
+                                <GlobalSearch variant="icon" className="bg-slate-50" />
                             </div>
                             {user?.id && <NotificationCenter userId={user.id} />}
-                            <ModeToggle />
-                            <UserMenu user={user} />
+                            <ModeToggle className="hover:bg-slate-100" />
+                            <UserMenu user={user} variant="navbar" />
                         </div>
                     </header>
                 )}
 
                 {isSupplierOnboarding && (
-                    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b bg-background px-6">
+                    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-6 text-slate-900">
                         <div className="flex items-center gap-2">
                             <span className="font-bold text-xl tracking-tight">INFRADYN</span>
-                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest px-2 py-0.5 bg-muted rounded">Materials</span>
+                            <span className="text-xs font-medium text-slate-500 uppercase tracking-widest px-2 py-0.5 bg-slate-100 rounded">Materials</span>
                         </div>
                         <div className="flex items-center gap-4">
                             <div className="flex flex-col items-end">
                                 <span className="text-sm font-semibold">{user.name}</span>
-                                <span className="text-[10px] text-muted-foreground">{user.email}</span>
+                                <span className="text-[10px] text-slate-500">{user.email}</span>
                             </div>
-                            <UserMenu user={user} />
+                            <UserMenu user={user} variant="navbar" />
                         </div>
                     </header>
                 )}

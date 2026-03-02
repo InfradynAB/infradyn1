@@ -141,10 +141,11 @@ export function GlobalSearch({
                         "transition-all duration-200",
                         "hover:bg-background hover:border-primary/30 hover:shadow-sm",
                         "focus:outline-none focus:ring-2 focus:ring-primary/20",
+                        "text-slate-600 dark:text-muted-foreground hover:text-slate-900 dark:hover:text-foreground",
                         className
                     )}
                 >
-                    <MagnifyingGlass className="h-5 w-5" />
+                    <MagnifyingGlass className="h-5 w-5 text-current" />
                     <span className="flex-1 text-sm">{placeholder}</span>
                     <kbd className="hidden sm:inline-flex h-6 items-center gap-1 rounded border bg-muted px-2 font-sans tabular-nums text-[10px] font-medium text-muted-foreground">
                         <Command className="h-3 w-3" />K
@@ -158,7 +159,7 @@ export function GlobalSearch({
                     <DialogHeader className="sr-only">
                         <DialogTitle>Search</DialogTitle>
                     </DialogHeader>
-                    
+
                     {/* Search Input */}
                     <div className="flex items-center gap-3 border-b px-4 py-3">
                         <MagnifyingGlass className="h-5 w-5 text-muted-foreground" />

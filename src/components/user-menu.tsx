@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { User, SignOut, Gear, CircleNotch } from "@phosphor-icons/react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface UserMenuProps {
     user: {
@@ -22,9 +23,10 @@ interface UserMenuProps {
         email?: string | null;
         image?: string | null;
     } | null;
+    variant?: "default" | "navbar";
 }
 
-export function UserMenu({ user }: UserMenuProps) {
+export function UserMenu({ user, variant = "default" }: UserMenuProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
 
@@ -64,7 +66,15 @@ export function UserMenu({ user }: UserMenuProps) {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-12 min-w-[220px] justify-start gap-2 rounded-xl border border-border/70 bg-muted/20 px-2.5 hover:bg-muted/35">
+                <Button
+                    variant="ghost"
+                    className={cn(
+                        "relative h-12 min-w-[220px] justify-start gap-2 rounded-xl border border-border/70 px-2.5",
+                        variant === "navbar"
+                            ? "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-900"
+                            : "bg-muted/20 hover:bg-muted/35"
+                    )}
+                >
                     <Avatar className="h-9 w-9">
                         <AvatarImage src={user.image || undefined} alt={user.name || "User"} />
                         <AvatarFallback className="bg-primary text-primary-foreground text-sm">
@@ -73,7 +83,12 @@ export function UserMenu({ user }: UserMenuProps) {
                     </Avatar>
                     <div className="flex min-w-0 flex-col items-start">
                         <span className="truncate text-sm font-medium leading-tight">{user.name || "User"}</span>
-                        <span className="truncate text-xs leading-tight text-muted-foreground">{user.email || ""}</span>
+                        <span className={cn(
+                            "truncate text-xs leading-tight",
+                            variant === "navbar" ? "text-slate-500" : "text-muted-foreground"
+                        )}>
+                            {user.email || ""}
+                        </span>
                     </div>
                 </Button>
             </DropdownMenuTrigger>
