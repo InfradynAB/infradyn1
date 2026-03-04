@@ -17,7 +17,7 @@ import { getMilestoneTrackerData, getSupplierProgressData } from "@/lib/services
 import { generateExcelReport, generateCSVReport, type DashboardExportData } from "@/lib/utils/excel-export";
 import { generatePptxReport } from "@/lib/utils/pptx-export";
 import db from "@/db/drizzle";
-import { auditLog, supplier } from "@/db/schema";
+import { auditLog, organization, supplier } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { buildTrafficCacheKey, getOrSetTrafficCache } from "@/lib/services/traffic-cache";
 
@@ -76,6 +76,11 @@ export async function GET(request: NextRequest) {
         if (!orgId) {
             return NextResponse.json({ error: "No active organization" }, { status: 400 });
         }
+        const orgRecord = await db.query.organization.findFirst({
+            where: eq(organization.id, orgId),
+            columns: { name: true },
+        });
+        const organizationName = orgRecord?.name ?? "Organization";
 
         const { searchParams } = new URL(request.url);
         const format = searchParams.get("format") || "xlsx";
@@ -215,11 +220,13 @@ export async function GET(request: NextRequest) {
                 audience,
                 reportType,
                 timeframeLabel,
+                organizationName,
                 projectId,
                 supplierId,
                 sections,
                 includeCharts,
                 includeTables,
+                logoImage: path.join(process.cwd(), "public/logos/logo.png"),
                 coverImage: path.join(process.cwd(), "public/images/mate.jpg"),
             });
 

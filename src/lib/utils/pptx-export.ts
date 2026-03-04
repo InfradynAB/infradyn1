@@ -16,6 +16,7 @@ export type PptxExportOptions = {
     audience?: string;
     reportType?: "summary" | "detailed";
     timeframeLabel: string;
+    organizationName?: string;
     projectId?: string;
     supplierId?: string;
     sections?: string[];
@@ -62,6 +63,91 @@ function fmtCurrency(value: unknown, currency = "USD"): string {
 function fmtPercent(value: unknown): string {
     const num = Number(value) || 0;
     return `${num.toFixed(1)}%`;
+}
+
+function addLeafDecoration(
+    slide: PptxSlide,
+    placement: "bottom-left" | "top-right",
+    scale = 1,
+) {
+    const leafColor = "1D4B43";
+
+    if (placement === "top-right") {
+        slide.addShape("chord" as PptxShapeType, {
+            x: 12.0,
+            y: -0.3,
+            w: 1.5 * scale,
+            h: 1.5 * scale,
+            fill: { color: leafColor },
+            line: { color: leafColor },
+            rotate: 225,
+        });
+        slide.addShape("ellipse" as PptxShapeType, {
+            x: 12.5,
+            y: -0.8,
+            w: 0.8 * scale,
+            h: 1.2 * scale,
+            fill: { color: leafColor },
+            line: { color: leafColor },
+            rotate: 195,
+        });
+        slide.addShape("ellipse" as PptxShapeType, {
+            x: 12.8,
+            y: -0.3,
+            w: 1.2 * scale,
+            h: 0.8 * scale,
+            fill: { color: leafColor },
+            line: { color: leafColor },
+            rotate: 165,
+        });
+        slide.addShape("ellipse" as PptxShapeType, {
+            x: 13.0,
+            y: 0.2,
+            w: 1.2 * scale,
+            h: 0.8 * scale,
+            fill: { color: leafColor },
+            line: { color: leafColor },
+            rotate: 225,
+        });
+        return;
+    }
+
+    slide.addShape("chord" as PptxShapeType, {
+        x: -0.1,
+        y: 6.2,
+        w: 1.5 * scale,
+        h: 1.5 * scale,
+        fill: { color: leafColor },
+        line: { color: leafColor },
+        rotate: 45,
+    });
+    slide.addShape("ellipse" as PptxShapeType, {
+        x: 0.3,
+        y: 5.8,
+        w: 0.8 * scale,
+        h: 1.2 * scale,
+        fill: { color: leafColor },
+        line: { color: leafColor },
+        rotate: 15,
+    });
+    slide.addShape("ellipse" as PptxShapeType, {
+        x: 0.5,
+        y: 6.2,
+        w: 1.2 * scale,
+        h: 0.8 * scale,
+        fill: { color: leafColor },
+        line: { color: leafColor },
+        rotate: -15,
+    });
+    slide.addShape("ellipse" as PptxShapeType, {
+        x: 0.7,
+        y: 6.6,
+        w: 1.2 * scale,
+        h: 0.8 * scale,
+        fill: { color: leafColor },
+        line: { color: leafColor },
+        rotate: 45,
+    });
 }
 
 function addChrome(slide: PptxSlide, slideNo: number, footerRight?: string) {
@@ -114,22 +200,6 @@ function addChrome(slide: PptxSlide, slideNo: number, footerRight?: string) {
             align: "right",
             color: "94A3B8",
         });
-    }
-
-    // Alternating corner leaf graphic (Scaled down for subtle aesthetic)
-    const leafColor = "1D4B43";
-    if (slideNo % 2 === 0) {
-        // Top right (rotated 180deg)
-        slide.addShape("chord" as PptxShapeType, { x: 12.0, y: -0.3, w: 1.5, h: 1.5, fill: { color: leafColor }, line: { color: leafColor }, rotate: 225 });
-        slide.addShape("ellipse" as PptxShapeType, { x: 12.5, y: -0.8, w: 0.8, h: 1.2, fill: { color: leafColor }, line: { color: leafColor }, rotate: 195 });
-        slide.addShape("ellipse" as PptxShapeType, { x: 12.8, y: -0.3, w: 1.2, h: 0.8, fill: { color: leafColor }, line: { color: leafColor }, rotate: 165 });
-        slide.addShape("ellipse" as PptxShapeType, { x: 13.0, y: 0.2, w: 1.2, h: 0.8, fill: { color: leafColor }, line: { color: leafColor }, rotate: 225 });
-    } else {
-        // Bottom left
-        slide.addShape("chord" as PptxShapeType, { x: -0.1, y: 6.2, w: 1.5, h: 1.5, fill: { color: leafColor }, line: { color: leafColor }, rotate: 45 });
-        slide.addShape("ellipse" as PptxShapeType, { x: 0.3, y: 5.8, w: 0.8, h: 1.2, fill: { color: leafColor }, line: { color: leafColor }, rotate: 15 });
-        slide.addShape("ellipse" as PptxShapeType, { x: 0.5, y: 6.2, w: 1.2, h: 0.8, fill: { color: leafColor }, line: { color: leafColor }, rotate: -15 });
-        slide.addShape("ellipse" as PptxShapeType, { x: 0.7, y: 6.6, w: 1.2, h: 0.8, fill: { color: leafColor }, line: { color: leafColor }, rotate: 45 });
     }
 }
 
@@ -227,6 +297,11 @@ function sectionLabel(id: string): string {
     };
 
     return map[id] ?? id;
+}
+
+function normalizeOrgName(name?: string): string {
+    const trimmed = (name || "").trim();
+    return trimmed.length > 0 ? trimmed : "ORGANIZATION";
 }
 
 function buildAgendaLines(sections: string[]): string[] {
@@ -453,6 +528,7 @@ export async function generatePptxReport(
     {
         const slide = nextSlide(options.timeframeLabel, true);
         slide.background = { color: "F3F4F6" };
+        const organizationName = normalizeOrgName(options.organizationName);
 
         // Right side large cover image or placeholder
         if (options.coverImage) {
@@ -468,22 +544,27 @@ export async function generatePptxReport(
             });
         }
 
-        // Abstract organic shape overlay (approximate leaf with overlapping shapes)
-        const leafColor = "1D4B43";
-        // Scaled down to match mockup reference
-        slide.addShape("chord" as PptxShapeType, { x: 5.8, y: 5.7, w: 2.2, h: 2.2, fill: { color: leafColor }, line: { color: leafColor }, rotate: 45 });
-        slide.addShape("ellipse" as PptxShapeType, { x: 6.4, y: 5.2, w: 1.1, h: 1.8, fill: { color: leafColor }, line: { color: leafColor }, rotate: 15 });
-        slide.addShape("ellipse" as PptxShapeType, { x: 6.6, y: 5.7, w: 1.8, h: 1.1, fill: { color: leafColor }, line: { color: leafColor }, rotate: -15 });
-        slide.addShape("ellipse" as PptxShapeType, { x: 7.1, y: 6.3, w: 1.8, h: 1.1, fill: { color: leafColor }, line: { color: leafColor }, rotate: 45 });
-
-        // Organization Logo
-        if (options.logoImage) {
-            slide.addImage({ x: 0.5, y: 0.5, w: 1.5, h: 1.5, path: options.logoImage, sizing: { type: "contain", w: 1.5, h: 1.5 } });
-        } else {
-            // Placeholder for logo
-            slide.addShape("rect" as PptxShapeType, { x: 0.5, y: 0.5, w: 1.5, h: 1.5, fill: { color: "E2E8F0" } });
-            slide.addText("COMPANY\nLOGO", { x: 0.5, y: 1.0, w: 1.5, h: 0.5, fontFace: "Calibri", fontSize: 10, color: "777777", align: "center", bold: true });
-        }
+        // Organization name block (replaces logo)
+        slide.addShape("roundRect" as PptxShapeType, {
+            x: 0.5,
+            y: 0.5,
+            w: 3.8,
+            h: 0.8,
+            fill: { color: "E2E8F0" },
+            line: { color: "CBD5E1", pt: 1 },
+            radius: 0.08,
+        });
+        slide.addText(organizationName, {
+            x: 0.65,
+            y: 0.72,
+            w: 3.5,
+            h: 0.35,
+            fontFace: "Calibri",
+            fontSize: 14,
+            bold: true,
+            color: "334155",
+            fit: "shrink",
+        });
 
         const titleText = "Material\nTracking\nAnalytics";
         slide.addText(titleText, {
@@ -1152,6 +1233,16 @@ export async function generatePptxReport(
             fontSize: 32,
             color: "1F3B4D",
         });
+        if (options.logoImage) {
+            slide.addImage({
+                x: cardX + 7.95,
+                y: cardY + 0.48,
+                w: 2.0,
+                h: 0.8,
+                path: options.logoImage,
+                sizing: { type: "contain", w: 2.0, h: 0.8 },
+            });
+        }
 
         // Horizontal Rule inside the card
         slide.addShape("rect" as PptxShapeType, {
@@ -1207,10 +1298,8 @@ export async function generatePptxReport(
             color: "334155",
         });
 
-        // Logo Floating Top Left on top of cover image
-        if (options.logoImage) {
-            slide.addImage({ x: cardX, y: 0.5, w: 2.0, h: 0.8, path: options.logoImage, sizing: { type: "contain", w: 2.0, h: 0.8 } });
-        }
+        // Keep leaf motif on last slide only (middle slides have no leaves).
+        addLeafDecoration(slide, "top-right", 1.1);
     }
 
     const out = (await (pptx as unknown as { write: (props: unknown) => Promise<unknown> }).write({ outputType: "nodebuffer" })) as unknown;
