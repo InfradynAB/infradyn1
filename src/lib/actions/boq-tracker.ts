@@ -15,13 +15,24 @@ export interface BoqTrackerItem {
   unitPrice: number;
   totalPrice: number;
   quantityDelivered: number;
+  quantityInstalled: number;
+  quantityCertified: number;
   discipline: string | null;
   materialClass: string | null;
   requiredByDate: Date | null;
   rosDate: Date | null;
+  rosStatus: string | null;
   criticality: string | null;
+  isCritical: boolean;
   scheduleActivityRef: string | null;
   scheduleDaysAtRisk: number;
+  // Variation / baseline fields
+  isVariation: boolean;
+  variationOrderNumber: string | null;
+  originalQuantity: number | null;
+  originalUnitPrice: number | null;
+  revisedQuantity: number | null;
+  lockedForDeScope: boolean;
   status: BoqTrackerStatus;
   lateDays: number;
 }
@@ -109,13 +120,23 @@ async function fetchProjectBoqItems(projectId: string): Promise<BoqTrackerItem[]
       unitPrice: boqItem.unitPrice,
       totalPrice: boqItem.totalPrice,
       quantityDelivered: boqItem.quantityDelivered,
+      quantityInstalled: boqItem.quantityInstalled,
+      quantityCertified: boqItem.quantityCertified,
       discipline: boqItem.discipline,
       materialClass: boqItem.materialClass,
       requiredByDate: boqItem.requiredByDate,
       rosDate: boqItem.rosDate,
+      rosStatus: boqItem.rosStatus,
       criticality: boqItem.criticality,
+      isCritical: boqItem.isCritical,
       scheduleActivityRef: boqItem.scheduleActivityRef,
       scheduleDaysAtRisk: boqItem.scheduleDaysAtRisk,
+      isVariation: boqItem.isVariation,
+      variationOrderNumber: boqItem.variationOrderNumber,
+      originalQuantity: boqItem.originalQuantity,
+      originalUnitPrice: boqItem.originalUnitPrice,
+      revisedQuantity: boqItem.revisedQuantity,
+      lockedForDeScope: boqItem.lockedForDeScope,
     })
     .from(boqItem)
     .innerJoin(purchaseOrder, eq(boqItem.purchaseOrderId, purchaseOrder.id))
@@ -147,13 +168,23 @@ async function fetchProjectBoqItems(projectId: string): Promise<BoqTrackerItem[]
       unitPrice,
       totalPrice,
       quantityDelivered,
+      quantityInstalled: numeric(row.quantityInstalled),
+      quantityCertified: numeric(row.quantityCertified),
       discipline: row.discipline,
       materialClass: row.materialClass,
       requiredByDate,
       rosDate: row.rosDate,
+      rosStatus: row.rosStatus ?? null,
       criticality: row.criticality,
+      isCritical: row.isCritical ?? false,
       scheduleActivityRef: row.scheduleActivityRef,
       scheduleDaysAtRisk,
+      isVariation: row.isVariation ?? false,
+      variationOrderNumber: row.variationOrderNumber ?? null,
+      originalQuantity: row.originalQuantity != null ? numeric(row.originalQuantity) : null,
+      originalUnitPrice: row.originalUnitPrice != null ? numeric(row.originalUnitPrice) : null,
+      revisedQuantity: row.revisedQuantity != null ? numeric(row.revisedQuantity) : null,
+      lockedForDeScope: row.lockedForDeScope ?? false,
       status,
       lateDays,
     };

@@ -32,6 +32,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const nextQuantity = body.quantity !== undefined ? Number(body.quantity) || 0 : Number(existing.quantity ?? 0);
     const nextUnitPrice = body.unitPrice !== undefined ? Number(body.unitPrice) || 0 : Number(existing.unitPrice ?? 0);
 
+    // Snapshot the original values the FIRST time quantity or unit price is changed.
+    // Once originalQuantity / originalUnitPrice are set they are never overwritten again —
+    // this preserves the immutable contracted baseline while allowing the current values to drift.
+    const quantityIsChanging = body.quantity !== undefined && Number(body.quantity) !== Number(existing.quantity ?? 0);
+    const unitPriceIsChanging = body.unitPrice !== undefined && Number(body.unitPrice) !== Number(existing.unitPrice ?? 0);
+
+    if (quantityIsChanging && existing.originalQuantity == null) {
+      payload.originalQuantity = String(Number(existing.quantity ?? 0));
+    }
+    if (unitPriceIsChanging && existing.originalUnitPrice == null) {
+      payload.originalUnitPrice = String(Number(existing.unitPrice ?? 0));
+    }
+
     if (body.requiredByDate !== undefined) {
       payload.requiredByDate = body.requiredByDate ? new Date(body.requiredByDate) : null;
     }

@@ -1,12 +1,13 @@
-﻿"use client";
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { format as formatDateValue } from "date-fns";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
@@ -15,6 +16,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -31,9 +44,11 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { GripVertical, Columns3, ChevronDown, FileSpreadsheet, FileText, Download } from "lucide-react";
 import type { BoqTrackerStatus } from "@/lib/actions/boq-tracker";
 import { BoqStatusBadge } from "./boq-status-badge";
 import { BoqBatchModal, type BatchModalMode, type BatchStatus } from "./boq-batch-modal";
+import { exportTabularData } from "@/lib/export-engine";
 
 interface Props {
   projectId: string;
@@ -70,15 +85,320 @@ interface ItemRow {
   unitPrice: number;
   totalPrice: number;
   quantityDelivered: number;
+  quantityInstalled?: number;
+  quantityCertified?: number;
   discipline: string | null;
   materialClass: string | null;
   requiredByDate: string | null;
   rosDate: string | null;
+  rosStatus?: string | null;
   criticality: string | null;
+  isCritical?: boolean;
   scheduleActivityRef: string | null;
   scheduleDaysAtRisk: number;
+  isVariation?: boolean;
+  variationOrderNumber?: string | null;
+  originalQuantity?: number | null;
+  originalUnitPrice?: number | null;
+  revisedQuantity?: number | null;
+  lockedForDeScope?: boolean;
   status: BoqTrackerStatus;
   lateDays: number;
+}
+
+// All available columns — key maps to ItemRow fields
+const ALL_COLUMN_DEFS: Record<string, { label: string; width?: string; cell: (item: ItemRow) => ReactNode; exportValue: (item: ItemRow) => string }> = {
+  poItem: {
+    label: "PO / Item #",
+    width: "w-40",
+    cell: (item) => (
+      <div>
+        <p className="font-mono text-[11px] text-muted-foreground leading-none">{item.poNumber}</p>
+        <p className="font-semibold text-sm mt-0.5">#{item.itemNumber}</p>
+      </div>
+    ),
+    exportValue: (item) => `${item.poNumber} #${item.itemNumber}`,
+  },
+  description: {
+    label: "Description",
+    cell: (item) => {
+      const isAmended = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
+                        (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
+      return (
+        <div className="space-y-0.5">
+          <div className="flex items-start gap-1.5 flex-wrap">
+            <p className="font-medium text-sm leading-snug">{item.description}</p>
+            {item.isVariation && (
+              <span className="inline-flex items-center rounded px-1 py-0 text-[10px] font-semibold bg-violet-500/10 text-violet-400 border border-violet-500/20 shrink-0 mt-0.5">
+                {item.variationOrderNumber ?? "VO"}
+              </span>
+            )}
+            {isAmended && !item.isVariation && (
+              <span className="inline-flex items-center rounded px-1 py-0 text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0 mt-0.5">
+                Amended
+              </span>
+            )}
+          </div>
+          {item.materialClass && (
+            <p className="text-[11px] text-muted-foreground">{item.materialClass}</p>
+          )}
+        </div>
+      );
+    },
+    exportValue: (item) => item.description,
+  },
+  discipline: {
+    label: "Discipline",
+    width: "w-[120px]",
+    cell: (item) => <span className="text-sm text-muted-foreground">{item.discipline ?? "—"}</span>,
+    exportValue: (item) => item.discipline ?? "",
+  },
+  materialClass: {
+    label: "Material Class",
+    width: "w-[140px]",
+    cell: (item) => <span className="text-sm text-muted-foreground">{item.materialClass ?? "—"}</span>,
+    exportValue: (item) => item.materialClass ?? "",
+  },
+  quantity: {
+    label: "Qty / Unit",
+    width: "w-[130px]",
+    cell: (item) => {
+      const hasBaseline = item.originalQuantity != null && item.originalQuantity !== item.quantity;
+      const delta = hasBaseline ? item.quantity - (item.originalQuantity ?? 0) : 0;
+      return (
+        <div className="text-right space-y-0.5">
+          {hasBaseline && (
+            <div className="flex items-center justify-end gap-1">
+              <span className="tabular-nums text-[11px] text-muted-foreground line-through leading-none">
+                {(item.originalQuantity ?? 0).toLocaleString()}
+              </span>
+              <span className="text-muted-foreground text-[10px]">{item.unit}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-end gap-1">
+            <span className="tabular-nums text-sm font-medium leading-none">{item.quantity.toLocaleString()}</span>
+            <span className="text-muted-foreground text-xs">{item.unit}</span>
+          </div>
+          {hasBaseline && (
+            <div className={`text-[10px] font-semibold tabular-nums leading-none ${delta > 0 ? "text-amber-400" : "text-blue-400"}`}>
+              {delta > 0 ? "+" : ""}{delta.toLocaleString()} {item.unit}
+            </div>
+          )}
+        </div>
+      );
+    },
+    exportValue: (item) => `${item.quantity} ${item.unit}`,
+  },
+  unitPrice: {
+    label: "Unit Cost",
+    width: "w-[120px]",
+    cell: (item) => {
+      const hasBaseline = item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice;
+      const delta = hasBaseline ? item.unitPrice - (item.originalUnitPrice ?? 0) : 0;
+      return (
+        <div className="text-right space-y-0.5">
+          {hasBaseline && (
+            <span className="tabular-nums text-[11px] text-muted-foreground line-through block leading-none">
+              {fmt(item.originalUnitPrice ?? 0)}
+            </span>
+          )}
+          <span className="tabular-nums text-sm block leading-none">{fmt(item.unitPrice)}</span>
+          {hasBaseline && (
+            <span className={`text-[10px] font-semibold tabular-nums block leading-none ${delta > 0 ? "text-amber-400" : "text-blue-400"}`}>
+              {delta > 0 ? "+" : ""}{fmt(delta)}
+            </span>
+          )}
+        </div>
+      );
+    },
+    exportValue: (item) => String(item.unitPrice),
+  },
+  totalPrice: {
+    label: "Total Value",
+    width: "w-[130px]",
+    cell: (item) => {
+      const origQty = item.originalQuantity ?? item.quantity;
+      const origRate = item.originalUnitPrice ?? item.unitPrice;
+      const origTotal = origQty * origRate;
+      const hasBaseline = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
+                          (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
+      const delta = item.totalPrice - origTotal;
+      return (
+        <div className="text-right space-y-0.5">
+          {hasBaseline && (
+            <span className="tabular-nums text-[11px] text-muted-foreground line-through block leading-none">
+              {fmt(origTotal)}
+            </span>
+          )}
+          <span className="tabular-nums text-sm font-semibold block leading-none">{fmt(item.totalPrice)}</span>
+          {hasBaseline && (
+            <span className={`text-[10px] font-semibold tabular-nums block leading-none ${delta > 0 ? "text-amber-400" : "text-blue-400"}`}>
+              {delta > 0 ? "+" : ""}{fmt(delta)}
+            </span>
+          )}
+        </div>
+      );
+    },
+    exportValue: (item) => String(item.totalPrice),
+  },
+  delivery: {
+    label: "Delivery",
+    width: "w-20",
+    cell: (item) => {
+      const pct = item.quantity > 0 ? (item.quantityDelivered / item.quantity) * 100 : 0;
+      return (
+        <span className={`tabular-nums text-sm font-bold text-right block ${pct >= 100 ? "text-emerald-400" : pct > 0 ? "text-amber-400" : "text-muted-foreground"}`}>
+          {pct.toFixed(0)}%
+        </span>
+      );
+    },
+    exportValue: (item) => item.quantity > 0 ? `${((item.quantityDelivered / item.quantity) * 100).toFixed(1)}%` : "0%",
+  },
+  quantityDelivered: {
+    label: "Qty Delivered",
+    width: "w-[110px]",
+    cell: (item) => <span className="tabular-nums text-sm text-right block">{item.quantityDelivered.toLocaleString()}</span>,
+    exportValue: (item) => String(item.quantityDelivered),
+  },
+  quantityInstalled: {
+    label: "Qty Installed",
+    width: "w-[110px]",
+    cell: (item) => <span className="tabular-nums text-sm text-right block">{(item.quantityInstalled ?? 0).toLocaleString()}</span>,
+    exportValue: (item) => String(item.quantityInstalled ?? 0),
+  },
+  quantityCertified: {
+    label: "Qty Certified",
+    width: "w-[110px]",
+    cell: (item) => <span className="tabular-nums text-sm text-right block">{(item.quantityCertified ?? 0).toLocaleString()}</span>,
+    exportValue: (item) => String(item.quantityCertified ?? 0),
+  },
+  requiredByDate: {
+    label: "Required By",
+    width: "w-[110px]",
+    cell: (item) => <span className="text-sm text-muted-foreground">{formatDate(item.requiredByDate)}</span>,
+    exportValue: (item) => formatDate(item.requiredByDate),
+  },
+  rosDate: {
+    label: "ROS Date",
+    width: "w-[110px]",
+    cell: (item) => <span className="text-sm text-muted-foreground">{formatDate(item.rosDate)}</span>,
+    exportValue: (item) => formatDate(item.rosDate ?? null),
+  },
+  rosStatus: {
+    label: "ROS Status",
+    width: "w-[100px]",
+    cell: (item) => <span className="text-sm text-muted-foreground">{item.rosStatus ?? "—"}</span>,
+    exportValue: (item) => item.rosStatus ?? "",
+  },
+  criticality: {
+    label: "Criticality",
+    width: "w-[110px]",
+    cell: (item) => (
+      <Badge variant={item.criticality === "JUST_IN_TIME" ? "destructive" : "outline"} className="text-[10px]">
+        {item.criticality === "JUST_IN_TIME" ? "JIT" : item.criticality ?? "—"}
+      </Badge>
+    ),
+    exportValue: (item) => item.criticality ?? "",
+  },
+  isCritical: {
+    label: "Critical",
+    width: "w-[80px]",
+    cell: (item) => (
+      <span className={`text-sm font-medium ${item.isCritical ? "text-red-400" : "text-muted-foreground"}`}>
+        {item.isCritical ? "Yes" : "No"}
+      </span>
+    ),
+    exportValue: (item) => item.isCritical ? "Yes" : "No",
+  },
+  scheduleDaysAtRisk: {
+    label: "Days at Risk",
+    width: "w-[100px]",
+    cell: (item) => (
+      <span className={`tabular-nums text-sm ${item.scheduleDaysAtRisk > 0 ? "text-amber-400 font-semibold" : "text-muted-foreground"}`}>
+        {item.scheduleDaysAtRisk > 0 ? `+${item.scheduleDaysAtRisk}d` : "—"}
+      </span>
+    ),
+    exportValue: (item) => String(item.scheduleDaysAtRisk),
+  },
+  scheduleActivityRef: {
+    label: "Activity Ref",
+    width: "w-[120px]",
+    cell: (item) => <span className="text-xs text-muted-foreground font-mono">{item.scheduleActivityRef ?? "—"}</span>,
+    exportValue: (item) => item.scheduleActivityRef ?? "",
+  },
+  isVariation: {
+    label: "Variation",
+    width: "w-[90px]",
+    cell: (item) => (
+      <span className={`text-sm ${item.isVariation ? "text-violet-400 font-medium" : "text-muted-foreground"}`}>
+        {item.isVariation ? "VO" : "—"}
+      </span>
+    ),
+    exportValue: (item) => item.isVariation ? "Yes" : "No",
+  },
+  variationOrderNumber: {
+    label: "VO Number",
+    width: "w-[110px]",
+    cell: (item) => <span className="text-xs font-mono text-muted-foreground">{item.variationOrderNumber ?? "—"}</span>,
+    exportValue: (item) => item.variationOrderNumber ?? "",
+  },
+  originalQuantity: {
+    label: "Original Qty",
+    width: "w-[110px]",
+    cell: (item) => <span className="tabular-nums text-sm text-muted-foreground text-right block">{item.originalQuantity != null ? item.originalQuantity.toLocaleString() : "—"}</span>,
+    exportValue: (item) => item.originalQuantity != null ? String(item.originalQuantity) : "",
+  },
+  originalUnitPrice: {
+    label: "Original Unit Cost",
+    width: "w-[130px]",
+    cell: (item) => <span className="tabular-nums text-sm text-muted-foreground text-right block">{item.originalUnitPrice != null ? fmt(item.originalUnitPrice) : "—"}</span>,
+    exportValue: (item) => item.originalUnitPrice != null ? String(item.originalUnitPrice) : "",
+  },
+  revisedQuantity: {
+    label: "Revised Qty",
+    width: "w-[110px]",
+    cell: (item) => <span className="tabular-nums text-sm text-muted-foreground text-right block">{item.revisedQuantity != null ? item.revisedQuantity.toLocaleString() : "—"}</span>,
+    exportValue: (item) => item.revisedQuantity != null ? String(item.revisedQuantity) : "",
+  },
+  lockedForDeScope: {
+    label: "De-Scoped",
+    width: "w-[90px]",
+    cell: (item) => (
+      <span className={`text-sm ${item.lockedForDeScope ? "text-red-400 font-medium" : "text-muted-foreground"}`}>
+        {item.lockedForDeScope ? "Locked" : "—"}
+      </span>
+    ),
+    exportValue: (item) => item.lockedForDeScope ? "Locked" : "",
+  },
+  lateDays: {
+    label: "Late Days",
+    width: "w-[90px]",
+    cell: (item) => (
+      <span className={`tabular-nums text-sm ${item.lateDays > 0 ? "text-red-400 font-semibold" : "text-muted-foreground"}`}>
+        {item.lateDays > 0 ? `+${item.lateDays}d` : "—"}
+      </span>
+    ),
+    exportValue: (item) => String(item.lateDays),
+  },
+  status: {
+    label: "Status",
+    width: "w-[90px]",
+    cell: (item) => <BoqStatusBadge status={item.status} />,
+    exportValue: (item) => item.status,
+  },
+};
+
+// Default visible columns (matches existing UI)
+const DEFAULT_COLUMNS = ["poItem", "description", "quantity", "unitPrice", "totalPrice", "delivery", "requiredByDate", "status"];
+
+function reorderCols(arr: string[], from: string, to: string, setter: (val: string[]) => void) {
+  const next = [...arr];
+  const fi = next.indexOf(from);
+  const ti = next.indexOf(to);
+  if (fi < 0 || ti < 0) return;
+  next.splice(fi, 1);
+  next.splice(ti, 0, from);
+  setter(next);
 }
 
 interface BatchRow {
@@ -168,6 +488,33 @@ export function BoqTrackerShell({ projectId }: Props) {
   const [items, setItems] = useState<ItemRow[]>([]);
   const [batches, setBatches] = useState<BatchRow[]>([]);
 
+  // Column management state
+  const [savedCustomCols, setSavedCustomCols] = useState<string[]>(() => {
+    if (typeof window === "undefined") return DEFAULT_COLUMNS;
+    try {
+      const raw = window.localStorage.getItem("boq-tracker-custom-view-v1");
+      if (!raw) return DEFAULT_COLUMNS;
+      return JSON.parse(raw) as string[];
+    } catch {
+      return DEFAULT_COLUMNS;
+    }
+  });
+  const [visibleCols, setVisibleCols] = useState<string[]>(() => {
+    if (typeof window === "undefined") return DEFAULT_COLUMNS;
+    try {
+      const raw = window.localStorage.getItem("boq-tracker-custom-view-v1");
+      if (!raw) return DEFAULT_COLUMNS;
+      return JSON.parse(raw) as string[];
+    } catch {
+      return DEFAULT_COLUMNS;
+    }
+  });
+  const [dragCol, setDragCol] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [colPickerOpen, setColPickerOpen] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [showViewExplanation, setShowViewExplanation] = useState(false);
+
   // Sheet state
   const [selectedItem, setSelectedItem] = useState<ItemRow | null>(null);
   const [draft, setDraft] = useState<EditDraft | null>(null);
@@ -244,6 +591,33 @@ export function BoqTrackerShell({ projectId }: Props) {
   }, [items]);
 
   const lateCount = useMemo(() => items.filter((i) => i.status === "LATE").length, [items]);
+  const totals = useMemo(() => {
+    const quantity = items.reduce((sum, item) => sum + item.quantity, 0);
+    const unitPrice = items.reduce((sum, item) => sum + item.unitPrice, 0);
+    const totalPrice = items.reduce((sum, item) => sum + item.totalPrice, 0);
+    const quantityDelivered = items.reduce((sum, item) => sum + item.quantityDelivered, 0);
+    const quantityInstalled = items.reduce((sum, item) => sum + (item.quantityInstalled ?? 0), 0);
+    const quantityCertified = items.reduce((sum, item) => sum + (item.quantityCertified ?? 0), 0);
+    const originalQuantity = items.reduce((sum, item) => sum + (item.originalQuantity ?? 0), 0);
+    const originalUnitPrice = items.reduce((sum, item) => sum + (item.originalUnitPrice ?? 0), 0);
+    const revisedQuantity = items.reduce((sum, item) => sum + (item.revisedQuantity ?? 0), 0);
+    const lateDays = items.reduce((sum, item) => sum + item.lateDays, 0);
+    const deliveryPct = quantity > 0 ? (quantityDelivered / quantity) * 100 : 0;
+
+    return {
+      quantity,
+      unitPrice,
+      totalPrice,
+      quantityDelivered,
+      quantityInstalled,
+      quantityCertified,
+      originalQuantity,
+      originalUnitPrice,
+      revisedQuantity,
+      lateDays,
+      deliveryPct,
+    };
+  }, [items]);
 
   function openItem(item: ItemRow) {
     setSelectedItem(item);
@@ -415,6 +789,58 @@ export function BoqTrackerShell({ projectId }: Props) {
   const selectedItemBatches = selectedItem ? (batchMap.get(selectedItem.id) ?? []) : [];
   const liveDraftTotal = draft ? draft.quantity * draft.unitPrice : 0;
 
+  const viewExplanation = useMemo(() => {
+    const disciplineText = discipline !== "ALL" ? ` filtered by ${discipline}` : "";
+    const statusText = statusFilter !== "ALL" ? `, status: ${statusFilter}` : "";
+    const searchText = search.trim() ? `, search: "${search.trim()}"` : "";
+    const isSaved = JSON.stringify(visibleCols) === JSON.stringify(savedCustomCols);
+    const viewType = isSaved ? "custom saved view" : "current view";
+    return `You are viewing BOQ items in ${viewType}${disciplineText}${statusText}${searchText}. ${items.length.toLocaleString()} item(s) visible across ${visibleCols.length} column(s).`;
+  }, [discipline, statusFilter, search, visibleCols, savedCustomCols, items.length]);
+
+  function saveCustomView() {
+    setSavedCustomCols(visibleCols);
+    try {
+      window.localStorage.setItem("boq-tracker-custom-view-v1", JSON.stringify(visibleCols));
+      toast.success("Custom view saved");
+    } catch {
+      toast.error("Failed to save view");
+    }
+  }
+
+  async function handleExport(format: "csv" | "excel" | "pdf") {
+    const exportCols = visibleCols
+      .filter((k) => k !== "poItem") // split poItem into two columns for export
+      .map((k) => ({ key: k, label: ALL_COLUMN_DEFS[k]?.label ?? k }));
+
+    // Always prepend PO Number and Item Number for export
+    const allExportCols = [
+      { key: "poNumber", label: "PO Number" },
+      { key: "itemNumber", label: "Item Number" },
+      ...exportCols.filter((c) => c.key !== "description" || true),
+    ];
+
+    const rows = items.map((item) => {
+      const row: Record<string, string> = {
+        poNumber: item.poNumber,
+        itemNumber: item.itemNumber,
+      };
+      for (const col of exportCols) {
+        const def = ALL_COLUMN_DEFS[col.key];
+        if (def) row[col.key] = def.exportValue(item);
+      }
+      return row;
+    });
+
+    await exportTabularData({
+      format,
+      fileName: `boq-tracker-${new Date().toISOString().slice(0, 10)}`,
+      title: "BOQ Tracker",
+      columns: allExportCols,
+      rows,
+    });
+  }
+
   return (
     <div className="flex flex-col gap-0">
       {/* KPI bar */}
@@ -488,10 +914,114 @@ export function BoqTrackerShell({ projectId }: Props) {
         <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
           {loading ? "Loading…" : "Refresh"}
         </Button>
-        <Button size="sm" onClick={() => window.open(`/api/boq/tracker/export?projectId=${projectId}`, "_blank")}>
-          Export CSV
+
+        {/* Column picker */}
+        <Popover open={colPickerOpen} onOpenChange={setColPickerOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <Columns3 className="h-3.5 w-3.5" />
+              Columns ({visibleCols.length})
+              <ChevronDown className="h-3 w-3 opacity-60" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 p-2" align="end">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2 pb-2">
+              Show / hide columns
+            </p>
+            <ScrollArea className="h-[300px]">
+              <div className="space-y-0.5 pr-2">
+                {Object.entries(ALL_COLUMN_DEFS).map(([key, def]) => {
+                  const isVisible = visibleCols.includes(key);
+                  return (
+                    <label
+                      key={key}
+                      className="flex items-center gap-2.5 rounded px-2 py-1.5 cursor-pointer hover:bg-muted/60 transition-colors"
+                    >
+                      <Checkbox
+                        checked={isVisible}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setVisibleCols((prev) => [...prev, key]);
+                          } else {
+                            setVisibleCols((prev) => prev.filter((k) => k !== key));
+                          }
+                        }}
+                        className="h-3.5 w-3.5"
+                      />
+                      <span className="text-sm">{def.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+            <Separator className="my-2" />
+            <div className="flex gap-1.5 px-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs flex-1"
+                onClick={() => setVisibleCols(Object.keys(ALL_COLUMN_DEFS))}
+              >
+                Select all
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs flex-1"
+                onClick={() => setVisibleCols(DEFAULT_COLUMNS)}
+              >
+                Reset
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowViewExplanation((v) => !v)}
+          className={showViewExplanation ? "bg-muted" : ""}
+        >
+          Explain View
         </Button>
+
+        <Button variant="outline" size="sm" onClick={saveCustomView}>
+          Save Custom View
+        </Button>
+
+        {/* Export dropdown */}
+        <DropdownMenu open={exportMenuOpen} onOpenChange={setExportMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" className="gap-1.5">
+              <Download className="h-3.5 w-3.5" />
+              Export
+              <ChevronDown className="h-3 w-3 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleExport("csv")}>
+              <FileText className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+              Export as CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport("excel")}>
+              <FileSpreadsheet className="h-3.5 w-3.5 mr-2 text-emerald-500" />
+              Export as Excel
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleExport("pdf")}>
+              <FileText className="h-3.5 w-3.5 mr-2 text-red-400" />
+              Export as PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+
+      {/* Explain View panel */}
+      {showViewExplanation && (
+        <div className="mx-4 mb-2 rounded-lg border bg-muted/20 px-4 py-2.5 text-sm text-muted-foreground shrink-0">
+          {viewExplanation}
+        </div>
+      )}
 
       {/* Discipline pills */}
       {disciplineSummary.length > 0 && (
@@ -519,25 +1049,63 @@ export function BoqTrackerShell({ projectId }: Props) {
         </div>
       )}
 
-      {/* Hint */}
-      <p className="px-4 pb-2 text-[11px] text-muted-foreground shrink-0">
-        Click any row to edit it and manage delivery batches.
-      </p>
+      {/* Hint + legend */}
+      <div className="px-4 pb-2 shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <p className="text-[11px] text-muted-foreground">
+          Click any row to edit it and manage delivery batches.
+        </p>
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm border-l-2 border-l-amber-500/60 bg-amber-500/10" />
+            Amended
+          </span>
+          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm border-l-2 border-l-violet-500/60 bg-violet-500/10" />
+            Variation order
+          </span>
+          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span className="tabular-nums line-through text-[10px]">orig</span>
+            &nbsp;Original value (struck through)
+          </span>
+        </div>
+      </div>
 
       {/* Items table — viewport-height contained */}
       <div className="mx-4 mb-4 rounded-lg border overflow-hidden flex flex-col h-[calc(100dvh-340px)] min-h-60">
         <div className="overflow-x-auto shrink-0 border-b">
-          <Table className="min-w-[760px]">
+          <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead className="w-40">PO / Item #</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="w-[100px] text-right">Qty / Unit</TableHead>
-                <TableHead className="w-[110px] text-right">Unit Cost</TableHead>
-                <TableHead className="w-[110px] text-right">Total Value</TableHead>
-                <TableHead className="w-20 text-right">Delivery</TableHead>
-                <TableHead className="w-[110px]">Required by</TableHead>
-                <TableHead className="w-[90px]">Status</TableHead>
+                {visibleCols.map((colKey) => {
+                  const def = ALL_COLUMN_DEFS[colKey];
+                  if (!def) return null;
+                  return (
+                    <TableHead
+                      key={colKey}
+                      draggable
+                      onDragStart={() => setDragCol(colKey)}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverCol(colKey); }}
+                      onDragEnd={() => {
+                        reorderCols(visibleCols, dragCol!, dragOverCol!, setVisibleCols);
+                        setDragCol(null);
+                        setDragOverCol(null);
+                      }}
+                      className={[
+                        def.width ?? "",
+                        "cursor-grab active:cursor-grabbing select-none",
+                        dragCol === colKey ? "opacity-40 bg-muted/60" : "",
+                        dragOverCol === colKey && dragCol !== colKey
+                          ? "bg-primary/15 border-l-2 border-l-primary"
+                          : "",
+                      ].join(" ")}
+                    >
+                      <span className="flex items-center gap-1">
+                        <GripVertical className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+                        {def.label}
+                      </span>
+                    </TableHead>
+                  );
+                })}
               </TableRow>
             </TableHeader>
           </Table>
@@ -545,58 +1113,145 @@ export function BoqTrackerShell({ projectId }: Props) {
 
         <div className="flex-1 overflow-auto">
           <div className="overflow-x-auto min-h-full">
-            <Table className="min-w-[760px]">
+            <Table>
               <TableBody>
                 {items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-16 text-center text-muted-foreground">
+                    <TableCell colSpan={visibleCols.length || 1} className="py-16 text-center text-muted-foreground">
                       {loading ? "Loading items…" : "No items match your filters."}
                     </TableCell>
                   </TableRow>
                 )}
                 {items.map((item) => {
-                  const deliveryPct = item.quantity > 0 ? (item.quantityDelivered / item.quantity) * 100 : 0;
                   const isSelected = selectedItem?.id === item.id;
+                  const isAmended = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
+                                    (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
+                  const isVariationRow = item.isVariation;
                   return (
                     <TableRow
                       key={item.id}
                       onClick={() => openItem(item)}
-                      className={`cursor-pointer transition-colors ${isSelected ? "bg-primary/10 hover:bg-primary/10" : "hover:bg-muted/30"}`}
+                      className={[
+                        "cursor-pointer transition-colors",
+                        isSelected
+                          ? "bg-primary/10 hover:bg-primary/10"
+                          : isVariationRow
+                            ? "bg-violet-500/5 hover:bg-violet-500/10 border-l-2 border-l-violet-500/40"
+                            : isAmended
+                              ? "bg-amber-500/5 hover:bg-amber-500/10 border-l-2 border-l-amber-500/40"
+                              : "hover:bg-muted/30",
+                      ].join(" ")}
                     >
-                      <TableCell className="w-40">
-                        <p className="font-mono text-[11px] text-muted-foreground leading-none">{item.poNumber}</p>
-                        <p className="font-semibold text-sm mt-0.5">#{item.itemNumber}</p>
-                      </TableCell>
-                      <TableCell>
-                        <p className="font-medium text-sm leading-snug">{item.description}</p>
-                        {item.materialClass && (
-                          <p className="text-[11px] text-muted-foreground mt-0.5">{item.materialClass}</p>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right w-[100px]">
-                        <span className="tabular-nums text-sm">{item.quantity.toLocaleString()}</span>
-                        <span className="text-muted-foreground text-xs ml-1">{item.unit}</span>
-                      </TableCell>
-                      <TableCell className="text-right w-[110px] tabular-nums text-sm text-muted-foreground">
-                        {fmt(item.unitPrice)}
-                      </TableCell>
-                      <TableCell className="text-right w-[110px] tabular-nums text-sm font-semibold">
-                        {fmt(item.totalPrice)}
-                      </TableCell>
-                      <TableCell className="text-right w-20">
-                        <span className={`tabular-nums text-sm font-bold ${deliveryPct >= 100 ? "text-emerald-400" : deliveryPct > 0 ? "text-amber-400" : "text-muted-foreground"}`}>
-                          {deliveryPct.toFixed(0)}%
-                        </span>
-                      </TableCell>
-                      <TableCell className="w-[110px] text-sm text-muted-foreground">
-                        {formatDate(item.requiredByDate)}
-                      </TableCell>
-                      <TableCell className="w-[90px]">
-                        <BoqStatusBadge status={item.status} />
-                      </TableCell>
+                      {visibleCols.map((colKey) => {
+                        const def = ALL_COLUMN_DEFS[colKey];
+                        if (!def) return null;
+                        return (
+                          <TableCell key={colKey} className={def.width ?? ""}>
+                            {def.cell(item)}
+                          </TableCell>
+                        );
+                      })}
                     </TableRow>
                   );
                 })}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        {/* Sticky totals row */}
+        <div className="shrink-0 border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableBody>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  {visibleCols.map((colKey, idx) => {
+                    const def = ALL_COLUMN_DEFS[colKey];
+                    if (!def) return null;
+
+                    let content: ReactNode = <span className="text-muted-foreground">—</span>;
+
+                    if (idx === 0) {
+                      content = (
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Totals ({items.length})
+                        </span>
+                      );
+                    } else if (colKey === "quantity") {
+                      content = (
+                        <span className="tabular-nums text-sm font-semibold">
+                          {totals.quantity.toLocaleString()}
+                        </span>
+                      );
+                    } else if (colKey === "unitPrice") {
+                      content = (
+                        <span className="tabular-nums text-sm font-semibold">
+                          {fmt(totals.unitPrice)}
+                        </span>
+                      );
+                    } else if (colKey === "totalPrice") {
+                      content = (
+                        <span className="tabular-nums text-sm font-semibold">
+                          {fmt(totals.totalPrice)}
+                        </span>
+                      );
+                    } else if (colKey === "quantityDelivered") {
+                      content = (
+                        <span className="tabular-nums text-sm font-semibold">
+                          {totals.quantityDelivered.toLocaleString()}
+                        </span>
+                      );
+                    } else if (colKey === "quantityInstalled") {
+                      content = (
+                        <span className="tabular-nums text-sm font-semibold">
+                          {totals.quantityInstalled.toLocaleString()}
+                        </span>
+                      );
+                    } else if (colKey === "quantityCertified") {
+                      content = (
+                        <span className="tabular-nums text-sm font-semibold">
+                          {totals.quantityCertified.toLocaleString()}
+                        </span>
+                      );
+                    } else if (colKey === "delivery") {
+                      content = (
+                        <span className="tabular-nums text-sm font-semibold">
+                          {totals.deliveryPct.toFixed(1)}%
+                        </span>
+                      );
+                    } else if (colKey === "originalQuantity") {
+                      content = (
+                        <span className="tabular-nums text-sm font-semibold">
+                          {totals.originalQuantity.toLocaleString()}
+                        </span>
+                      );
+                    } else if (colKey === "originalUnitPrice") {
+                      content = (
+                        <span className="tabular-nums text-sm font-semibold">
+                          {fmt(totals.originalUnitPrice)}
+                        </span>
+                      );
+                    } else if (colKey === "revisedQuantity") {
+                      content = (
+                        <span className="tabular-nums text-sm font-semibold">
+                          {totals.revisedQuantity.toLocaleString()}
+                        </span>
+                      );
+                    } else if (colKey === "lateDays") {
+                      content = (
+                        <span className="tabular-nums text-sm font-semibold">
+                          {totals.lateDays.toLocaleString()}
+                        </span>
+                      );
+                    }
+
+                    return (
+                      <TableCell key={`totals-${colKey}`} className={def.width ?? ""}>
+                        <div className="text-right">{content}</div>
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
               </TableBody>
             </Table>
           </div>
@@ -605,38 +1260,135 @@ export function BoqTrackerShell({ projectId }: Props) {
 
       {/* Edit side panel */}
       <Sheet open={!!selectedItem} onOpenChange={(open) => { if (!open) closeSheet(); }}>
-        <SheetContent className="w-full sm:max-w-md flex flex-col gap-0 p-0" side="right">
+        <SheetContent className="w-full sm:max-w-lg flex flex-col gap-0 p-0" side="right">
           <SheetHeader className="px-6 pt-5 pb-4 shrink-0 border-b">
-            <SheetTitle className="text-sm font-semibold leading-tight line-clamp-2">
-              {selectedItem?.description ?? "Edit item"}
-            </SheetTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {selectedItem?.poNumber} &middot; #{selectedItem?.itemNumber}
-            </p>
+            <div className="flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                <SheetTitle className="text-sm font-semibold leading-tight line-clamp-2">
+                  {selectedItem?.description ?? "Edit item"}
+                </SheetTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {selectedItem?.poNumber} &middot; #{selectedItem?.itemNumber}
+                </p>
+              </div>
+              {selectedItem?.isVariation && (
+                <Badge variant="secondary" className="shrink-0 text-[10px] bg-violet-500/10 text-violet-400 border-violet-500/20">
+                  {selectedItem.variationOrderNumber ?? "Variation"}
+                </Badge>
+              )}
+            </div>
           </SheetHeader>
 
           <ScrollArea className="flex-1">
             <div className="px-6 py-4 space-y-5">
 
-              {/* Live price card */}
+              {/* ── ORIGINAL CONTRACT BASELINE (frozen / read-only) ── */}
+              {selectedItem && (selectedItem.originalQuantity != null || selectedItem.originalUnitPrice != null) && (
+                <section className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                      Original Contract (Baseline)
+                    </p>
+                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-muted-foreground">
+                      Locked
+                    </Badge>
+                  </div>
+                  <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-3 grid grid-cols-3 gap-3">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-0.5">Qty</p>
+                      <p className="text-sm font-semibold tabular-nums">
+                        {(selectedItem.originalQuantity ?? selectedItem.quantity).toLocaleString()}
+                        <span className="text-muted-foreground font-normal ml-1 text-xs">{selectedItem.unit}</span>
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-0.5">Unit Cost</p>
+                      <p className="text-sm font-semibold tabular-nums">
+                        {fmt(selectedItem.originalUnitPrice ?? selectedItem.unitPrice)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-0.5">Total</p>
+                      <p className="text-sm font-semibold tabular-nums">
+                        {fmt(
+                          (selectedItem.originalQuantity ?? selectedItem.quantity) *
+                          (selectedItem.originalUnitPrice ?? selectedItem.unitPrice)
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* ── AMENDMENT DELTA (when baseline exists and current differs) ── */}
+              {draft && selectedItem && (selectedItem.originalQuantity != null || selectedItem.originalUnitPrice != null) && (() => {
+                const origQty = selectedItem.originalQuantity ?? selectedItem.quantity;
+                const origPrice = selectedItem.originalUnitPrice ?? selectedItem.unitPrice;
+                const origTotal = origQty * origPrice;
+                const currTotal = draft.quantity * draft.unitPrice;
+                const qtyDelta = draft.quantity - origQty;
+                const totalDelta = currTotal - origTotal;
+                const hasChange = Math.abs(qtyDelta) > 0.001 || Math.abs(draft.unitPrice - origPrice) > 0.001;
+                if (!hasChange) return null;
+                const isIncrease = totalDelta > 0;
+                return (
+                  <div className={`rounded-lg border px-4 py-3 flex items-center gap-4 ${isIncrease ? "border-amber-500/30 bg-amber-500/5" : "border-blue-500/30 bg-blue-500/5"}`}>
+                    <div className="flex-1">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Amendment</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                        {Math.abs(qtyDelta) > 0.001 && (
+                          <span className={qtyDelta > 0 ? "text-amber-400" : "text-blue-400"}>
+                            Qty {qtyDelta > 0 ? "+" : ""}{qtyDelta.toLocaleString()} {selectedItem.unit}
+                          </span>
+                        )}
+                        {Math.abs(draft.unitPrice - origPrice) > 0.001 && (
+                          <span className={draft.unitPrice > origPrice ? "text-amber-400" : "text-blue-400"}>
+                            Rate {draft.unitPrice > origPrice ? "+" : ""}{fmt(draft.unitPrice - origPrice)}/unit
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-[10px] text-muted-foreground">Net change</p>
+                      <p className={`text-sm font-bold tabular-nums ${isIncrease ? "text-amber-400" : "text-blue-400"}`}>
+                        {isIncrease ? "+" : ""}{fmt(totalDelta)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── LIVE SUMMARY CARD ── */}
               {draft && (
-                <div className="rounded-lg border bg-muted/30 px-4 py-3 grid grid-cols-2 gap-4">
+                <div className="rounded-lg border bg-muted/30 px-4 py-3 grid grid-cols-3 gap-3">
                   <div>
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Live total</p>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Current Total</p>
                     <p className="text-base font-bold tabular-nums">{fmt(liveDraftTotal)}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Delivery %</p>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Delivered</p>
                     <p className={`text-base font-bold tabular-nums ${(draft.deliveryPercent ?? 0) >= 100 ? "text-emerald-400" : ""}`}>
                       {(draft.deliveryPercent ?? 0).toFixed(1)}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Certified</p>
+                    <p className="text-base font-bold tabular-nums text-emerald-400">
+                      {selectedItem && draft.quantity > 0
+                        ? (((selectedItem.quantityCertified ?? 0) / draft.quantity) * 100).toFixed(0)
+                        : "0"}%
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Financials */}
+              {/* ── CURRENT / EDITABLE VALUES ── */}
               <section className="space-y-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Financials &amp; Quantities</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  {selectedItem?.originalQuantity != null || selectedItem?.originalUnitPrice != null
+                    ? "Current (Amended) Values"
+                    : "Financials & Quantities"}
+                </p>
                 <div className="grid grid-cols-2 gap-2.5">
                   <div className="space-y-1">
                     <Label className="text-xs">Item number</Label>
@@ -647,12 +1399,36 @@ export function BoqTrackerShell({ projectId }: Props) {
                     <Input value={draft?.unit ?? ""} onChange={(e) => setDraftField("unit", e.target.value)} className="h-8 text-sm" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Quantity</Label>
-                    <Input type="number" min={0} value={draft?.quantity ?? 0} onChange={(e) => setDraftField("quantity", Number(e.target.value) || 0)} className="h-8 text-sm tabular-nums" />
+                    <Label className="text-xs">
+                      Quantity
+                      {selectedItem?.originalQuantity != null && (
+                        <span className="ml-1.5 text-muted-foreground font-normal">
+                          (orig: {selectedItem.originalQuantity.toLocaleString()})
+                        </span>
+                      )}
+                    </Label>
+                    <Input
+                      type="number" min={0}
+                      value={draft?.quantity ?? 0}
+                      onChange={(e) => setDraftField("quantity", Number(e.target.value) || 0)}
+                      className={`h-8 text-sm tabular-nums ${selectedItem?.originalQuantity != null && draft && draft.quantity !== selectedItem.originalQuantity ? "border-amber-500/60 focus-visible:ring-amber-500/30" : ""}`}
+                    />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Unit cost (USD)</Label>
-                    <Input type="number" min={0} value={draft?.unitPrice ?? 0} onChange={(e) => setDraftField("unitPrice", Number(e.target.value) || 0)} className="h-8 text-sm tabular-nums" />
+                    <Label className="text-xs">
+                      Unit cost (USD)
+                      {selectedItem?.originalUnitPrice != null && (
+                        <span className="ml-1.5 text-muted-foreground font-normal">
+                          (orig: {fmt(selectedItem.originalUnitPrice)})
+                        </span>
+                      )}
+                    </Label>
+                    <Input
+                      type="number" min={0}
+                      value={draft?.unitPrice ?? 0}
+                      onChange={(e) => setDraftField("unitPrice", Number(e.target.value) || 0)}
+                      className={`h-8 text-sm tabular-nums ${selectedItem?.originalUnitPrice != null && draft && draft.unitPrice !== selectedItem.originalUnitPrice ? "border-amber-500/60 focus-visible:ring-amber-500/30" : ""}`}
+                    />
                   </div>
                   <div className="col-span-2 space-y-1">
                     <Label className="text-xs">Delivery %</Label>
@@ -666,7 +1442,7 @@ export function BoqTrackerShell({ projectId }: Props) {
 
               <Separator />
 
-              {/* Schedule */}
+              {/* ── SCHEDULE ── */}
               <section className="space-y-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Schedule</p>
                 <div className="grid grid-cols-2 gap-2.5">
@@ -702,7 +1478,7 @@ export function BoqTrackerShell({ projectId }: Props) {
 
               <Separator />
 
-              {/* Batches */}
+              {/* ── DELIVERY BATCHES ── */}
               <section className="space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">

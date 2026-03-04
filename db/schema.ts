@@ -304,7 +304,8 @@ export const boqItem = pgTable('boq_item', {
     isVariation: boolean('is_variation').default(false), // True if this is a VO item
     variationOrderNumber: text('variation_order_number'), // e.g., VO-001
     clientInstructionId: uuid('client_instruction_id'), // Link to ClientInstruction (added later, no FK yet)
-    originalQuantity: numeric('original_quantity'), // Original before de-scope
+    originalQuantity: numeric('original_quantity'), // Original contracted quantity (immutable baseline)
+    originalUnitPrice: numeric('original_unit_price'), // Original contracted unit price (immutable baseline)
     revisedQuantity: numeric('revised_quantity'), // After de-scope (null = use quantity)
     lockedForDeScope: boolean('locked_for_de_scope').default(false), // True if cannot reduce further
     // Delivery Analytics Categorization — Phase: Material Delivery Categories
