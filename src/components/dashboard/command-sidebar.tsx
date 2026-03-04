@@ -426,7 +426,7 @@ export function CommandSidebar({
     return (
         <Sidebar
             collapsible="icon"
-            variant="floating"
+            variant="sidebar"
             className="border-0"
         >
             {/* Header with Project Context */}
