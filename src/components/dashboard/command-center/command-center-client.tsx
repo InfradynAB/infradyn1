@@ -86,12 +86,16 @@ interface CommandCenterData {
 
 interface CommandCenterClientProps {
     userName?: string;
+    userRole?: string;
 }
 
-export function CommandCenterClient({ userName }: CommandCenterClientProps) {
+export function CommandCenterClient({ userName, userRole }: CommandCenterClientProps) {
     const [data, setData] = useState<CommandCenterData | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const isAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN";
+    const isProjectManager = userRole === "PM" || userRole === "PROJECT_MANAGER";
+    const projectButtonLabel = isProjectManager ? "View Project" : isAdmin ? "Create Project" : "New Project";
 
     const fetchData = useCallback(async (showRefreshing = false) => {
         if (showRefreshing) setRefreshing(true);
@@ -160,7 +164,7 @@ export function CommandCenterClient({ userName }: CommandCenterClientProps) {
                     <Button asChild size="sm" className="gap-2">
                         <Link href="/dashboard/projects">
                             <FolderPlus className="h-4 w-4" />
-                            New Project
+                            {projectButtonLabel}
                         </Link>
                     </Button>
                 </div>

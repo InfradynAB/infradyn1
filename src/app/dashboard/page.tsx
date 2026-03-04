@@ -23,6 +23,9 @@ export default async function DashboardPage() {
     }
 
     return (
-        <CommandCenterClient userName={session.user.name || undefined} />
+        <CommandCenterClient
+            userName={session.user.name || undefined}
+            userRole={session.user.role}
+        />
     );
 }
