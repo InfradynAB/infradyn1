@@ -13,6 +13,7 @@ const CACHE_VERSION = "v1";
 const SHELL_CACHE = `infradyn-shell-${CACHE_VERSION}`;
 const API_CACHE = `infradyn-api-${CACHE_VERSION}`;
 const OFFLINE_QUEUE_KEY = "infradyn-offline-queue";
+const OFFLINE_MUTATION_PATHS = ["/api/receiver/offline-mutations"];
 
 // ─── App shell resources to pre-cache ────────────────────────────────────────
 const SHELL_URLS = [
@@ -126,6 +127,23 @@ async function networkWithOfflineQueue(request) {
     try {
         return await fetch(request.clone());
     } catch {
+        const reqUrl = new URL(request.url);
+        const isSupportedOfflineMutation = OFFLINE_MUTATION_PATHS.some((path) =>
+            reqUrl.pathname.startsWith(path)
+        );
+
+        // Do not queue unknown POST/PATCH/DELETE requests. These often include framework
+        // internals (e.g. server action posts) that cannot be replayed safely.
+        if (!isSupportedOfflineMutation) {
+            return new Response(
+                JSON.stringify({
+                    queued: false,
+                    message: "Offline for this action. Reconnect and try again.",
+                }),
+                { status: 503, headers: { "Content-Type": "application/json" } }
+            );
+        }
+
         // Store the failed mutation for later sync
         const body = await request.clone().text().catch(() => "");
         const queuedItem = {
@@ -221,8 +239,30 @@ async function syncOfflineQueue() {
     const items = await getAllQueued();
     let synced = 0;
     let failed = 0;
+    let dropped = 0;
 
     for (const item of items) {
+        const itemPath = (() => {
+            try {
+                return new URL(item.url).pathname;
+            } catch {
+                return "";
+            }
+        })();
+        const isSupportedOfflineMutation = OFFLINE_MUTATION_PATHS.some((path) =>
+            itemPath.startsWith(path)
+        );
+        const isLegacyServerAction =
+            !!item?.headers &&
+            Object.keys(item.headers).some((h) => h.toLowerCase() === "next-action");
+
+        // Remove stale/unsupported items so the queue can recover without manual reload.
+        if (!isSupportedOfflineMutation || isLegacyServerAction) {
+            await dequeue(item.id);
+            dropped++;
+            continue;
+        }
+
         try {
             const response = await fetch(item.url, {
                 method: item.method,
@@ -248,6 +288,8 @@ async function syncOfflineQueue() {
         }
     }
 
+    const remainingItems = await getAllQueued();
+
     // Notify open clients about sync completion
     const clients = await self.clients.matchAll({ type: "window" });
     for (const client of clients) {
@@ -255,7 +297,8 @@ async function syncOfflineQueue() {
             type: "SYNC_COMPLETE",
             synced,
             failed,
-            remaining: failed,
+            dropped,
+            remaining: remainingItems.length,
         });
     }
 }

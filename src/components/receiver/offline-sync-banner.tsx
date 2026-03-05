@@ -16,6 +16,7 @@ import { useState, useEffect } from "react";
 export function OfflineSyncBanner() {
     const { online, queueCount, lastSyncResult, triggerSync } = usePWA();
     const [showSynced, setShowSynced] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
 
     useEffect(() => {
         if (lastSyncResult && lastSyncResult.synced > 0) {
@@ -64,9 +65,14 @@ export function OfflineSyncBanner() {
                         size="sm"
                         variant="ghost"
                         className="h-6 px-2 text-xs"
-                        onClick={triggerSync}
+                        disabled={isSyncing}
+                        onClick={() => {
+                            setIsSyncing(true);
+                            triggerSync();
+                            setTimeout(() => setIsSyncing(false), 2000);
+                        }}
                     >
-                        Sync now
+                        {isSyncing ? "Syncing..." : "Sync now"}
                     </Button>
                 </>
             )}
