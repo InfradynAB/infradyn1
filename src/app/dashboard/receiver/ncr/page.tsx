@@ -13,7 +13,7 @@ import {
     Plus,
 } from "@phosphor-icons/react/dist/ssr";
 import { getMyNCRs } from "@/lib/actions/receiver-actions";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "My NCRs | Site Receiver" };
@@ -33,6 +33,35 @@ const SEVERITY_COLORS: Record<string, string> = {
     MINOR: "text-muted-foreground",
 };
 
+function MetricTile({
+    label,
+    value,
+    helper,
+    icon,
+}: {
+    label: string;
+    value: number;
+    helper: string;
+    icon: React.ReactNode;
+}) {
+    return (
+        <Card className="border-border/70 bg-card/60">
+            <CardContent className="flex items-start justify-between p-4">
+                <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {label}
+                    </p>
+                    <p className="mt-1 text-2xl font-bold leading-none tabular-nums">{value}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{helper}</p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/80 bg-muted/40">
+                    {icon}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 export default async function ReceiverNCRPage() {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) redirect("/sign-in");
@@ -41,9 +70,11 @@ export default async function ReceiverNCRPage() {
     const ncrs = await getMyNCRs();
     const open = ncrs.filter((n) => n.status !== "CLOSED");
     const closed = ncrs.filter((n) => n.status === "CLOSED");
+    const criticalOpen = open.filter((n) => n.severity === "CRITICAL").length;
+    const majorOpen = open.filter((n) => n.severity === "MAJOR").length;
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6 pb-16">
+        <div className="w-full space-y-6 pb-16">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">My NCRs</h1>
@@ -59,11 +90,38 @@ export default async function ReceiverNCRPage() {
                 </Button>
             </div>
 
+            <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+                <MetricTile
+                    label="Open NCRs"
+                    value={open.length}
+                    helper={open.length > 0 ? "Need action and follow-up" : "No active NCRs"}
+                    icon={<Warning className="h-5 w-5" weight="fill" />}
+                />
+                <MetricTile
+                    label="Closed NCRs"
+                    value={closed.length}
+                    helper="Resolved and completed"
+                    icon={<CheckCircle className="h-5 w-5" />}
+                />
+                <MetricTile
+                    label="Critical Open"
+                    value={criticalOpen}
+                    helper="Highest-priority incidents"
+                    icon={<ShieldWarning className="h-5 w-5" />}
+                />
+                <MetricTile
+                    label="Major Open"
+                    value={majorOpen}
+                    helper="Important unresolved issues"
+                    icon={<Clock className="h-5 w-5" />}
+                />
+            </div>
+
             {/* Open NCRs */}
             <div className="space-y-3">
                 {open.length === 0 && closed.length === 0 ? (
-                    <Card>
-                        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                    <Card className="border-dashed border-border/80">
+                        <CardContent className="flex min-h-[380px] flex-col items-center justify-center py-16 text-center">
                             <ShieldWarning className="h-10 w-10 text-muted-foreground/30 mb-3" />
                             <p className="font-medium text-muted-foreground">No NCRs raised yet</p>
                             <p className="text-sm text-muted-foreground/70 mt-1 max-w-xs">
@@ -83,9 +141,11 @@ export default async function ReceiverNCRPage() {
                                 <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                     Open ({open.length})
                                 </h2>
-                                {open.map((n) => (
-                                    <NCRRow key={n.id} ncr={n} />
-                                ))}
+                                <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
+                                    {open.map((n) => (
+                                        <NCRRow key={n.id} ncr={n} />
+                                    ))}
+                                </div>
                             </div>
                         )}
 
@@ -94,9 +154,11 @@ export default async function ReceiverNCRPage() {
                                 <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                     Closed ({closed.length})
                                 </h2>
-                                {closed.map((n) => (
-                                    <NCRRow key={n.id} ncr={n} />
-                                ))}
+                                <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
+                                    {closed.map((n) => (
+                                        <NCRRow key={n.id} ncr={n} />
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </>
@@ -111,11 +173,11 @@ function NCRRow({ ncr }: { ncr: any }) {
     const severityCls = SEVERITY_COLORS[ncr.severity] ?? "text-muted-foreground";
 
     return (
-        <div className="flex items-start gap-3 rounded-xl border border-border/70 p-4 transition-colors hover:border-border hover:bg-muted/30">
-            <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", ncr.status === "CLOSED" ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-red-500/10 border border-red-500/20")}>
+        <div className="flex h-full items-start gap-3 rounded-xl border border-border/70 p-4 transition-colors hover:border-border hover:bg-muted/30">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/40 border border-border/80">
                 {ncr.status === "CLOSED"
-                    ? <CheckCircle className="h-4.5 w-4.5 text-emerald-500" />
-                    : <Warning className="h-4.5 w-4.5 text-red-500" weight="fill" />
+                    ? <CheckCircle className="h-4.5 w-4.5" />
+                    : <Warning className="h-4.5 w-4.5" weight="fill" />
                 }
             </div>
             <div className="flex-1 min-w-0 space-y-1">

@@ -202,19 +202,19 @@ export function ConfirmDeliveryForm({
                                         <SelectContent>
                                             <SelectItem value="GOOD">
                                                 <span className="flex items-center gap-1.5">
-                                                    <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                                                    <CheckCircle className="h-3.5 w-3.5" />
                                                     Good
                                                 </span>
                                             </SelectItem>
                                             <SelectItem value="DAMAGED">
                                                 <span className="flex items-center gap-1.5">
-                                                    <Warning className="h-3.5 w-3.5 text-red-500" weight="fill" />
+                                                    <Warning className="h-3.5 w-3.5" weight="fill" />
                                                     Damaged
                                                 </span>
                                             </SelectItem>
                                             <SelectItem value="MISSING_ITEMS">
                                                 <span className="flex items-center gap-1.5">
-                                                    <Package className="h-3.5 w-3.5 text-amber-500" />
+                                                    <Package className="h-3.5 w-3.5" />
                                                     Missing Items
                                                 </span>
                                             </SelectItem>
@@ -312,7 +312,7 @@ export function ConfirmDeliveryForm({
             {hasAnyDamaged() && (
                 <Card className="border-red-500/20 bg-red-500/5">
                     <CardContent className="py-3 flex items-center gap-3">
-                        <Warning className="h-5 w-5 text-red-500 shrink-0" weight="fill" />
+                        <Warning className="h-5 w-5 shrink-0" weight="fill" />
                         <div className="text-sm">
                             <p className="font-medium text-red-700 dark:text-red-400">
                                 Damaged or missing items detected

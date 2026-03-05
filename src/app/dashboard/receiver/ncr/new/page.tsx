@@ -6,7 +6,7 @@ import { RaiseNCRForm } from "./raise-ncr-form";
 import { getReceiverPOTracking } from "@/lib/actions/receiver-actions";
 import db from "@/db/drizzle";
 import { boqItem } from "@/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 
 export const metadata = { title: "Raise NCR | Site Receiver" };
 
@@ -44,10 +44,10 @@ export default async function RaiseNCRPage() {
     }
 
     return (
-        <div className="max-w-2xl mx-auto space-y-6 pb-16">
+        <div className="w-full space-y-6 pb-16">
             <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20">
-                    <ShieldWarning className="h-5 w-5 text-red-500" weight="fill" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/40 border border-border/80">
+                    <ShieldWarning className="h-5 w-5" weight="fill" />
                 </div>
                 <div>
                     <h1 className="text-xl font-bold tracking-tight">Raise NCR</h1>

@@ -91,91 +91,93 @@ export function RaiseNCRForm({ pos, boqItemsByPO }: RaiseNCRFormProps) {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            {/* PO Selection */}
-            <Card>
-                <CardContent className="py-5 space-y-4">
-                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                        Delivery Reference
-                    </h2>
+            <div className="grid gap-6 xl:grid-cols-2">
+                {/* PO Selection */}
+                <Card className="h-full">
+                    <CardContent className="py-5 space-y-4">
+                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                            Delivery Reference
+                        </h2>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="po">Purchase Order *</Label>
-                        <Select
-                            value={selectedPO}
-                            onValueChange={(v) => {
-                                setSelectedPO(v);
-                                setSelectedBoqItem("");
-                            }}
-                        >
-                            <SelectTrigger id="po">
-                                <SelectValue placeholder="Select a PO…" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {pos.map((po) => (
-                                    <SelectItem key={po.id} value={po.id}>
-                                        {po.poNumber} — {po.supplierName}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    {currentBoqItems.length > 0 && (
                         <div className="space-y-2">
-                            <Label htmlFor="boqItem">Affected Material Item (optional)</Label>
-                            <Select value={selectedBoqItem} onValueChange={setSelectedBoqItem}>
-                                <SelectTrigger id="boqItem">
-                                    <SelectValue placeholder="Select item…" />
+                            <Label htmlFor="po">Purchase Order *</Label>
+                            <Select
+                                value={selectedPO}
+                                onValueChange={(v) => {
+                                    setSelectedPO(v);
+                                    setSelectedBoqItem("");
+                                }}
+                            >
+                                <SelectTrigger id="po">
+                                    <SelectValue placeholder="Select a PO..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {currentBoqItems.map((item) => (
-                                        <SelectItem key={item.id} value={item.id}>
-                                            #{item.itemNumber} — {item.description}
+                                    {pos.map((po) => (
+                                        <SelectItem key={po.id} value={po.id}>
+                                            {po.poNumber} - {po.supplierName}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
-                    )}
-                </CardContent>
-            </Card>
 
-            {/* Severity */}
-            <Card>
-                <CardContent className="py-5 space-y-4">
-                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                        Severity *
-                    </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {SEVERITY_OPTIONS.map((opt) => (
-                            <button
-                                key={opt.value}
-                                type="button"
-                                onClick={() => setSeverity(opt.value)}
-                                className={cn(
-                                    "flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all",
-                                    severity === opt.value
-                                        ? opt.value === "CRITICAL"
-                                            ? "border-red-500 bg-red-500/10 ring-1 ring-red-500"
-                                            : opt.value === "MAJOR"
-                                            ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500"
-                                            : "border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500"
-                                        : "border-border hover:border-border/80 hover:bg-muted/40"
-                                )}
-                            >
-                                <span className={cn("text-sm font-semibold",
-                                    severity === opt.value
-                                        ? opt.value === "CRITICAL" ? "text-red-600" : opt.value === "MAJOR" ? "text-amber-600" : "text-cyan-600"
-                                        : "text-foreground"
-                                )}>
-                                    {opt.label}
-                                </span>
-                                <span className="text-[11px] text-muted-foreground">{opt.desc}</span>
-                            </button>
-                        ))}
-                    </div>
-                </CardContent>
-            </Card>
+                        {currentBoqItems.length > 0 && (
+                            <div className="space-y-2">
+                                <Label htmlFor="boqItem">Affected Material Item (optional)</Label>
+                                <Select value={selectedBoqItem} onValueChange={setSelectedBoqItem}>
+                                    <SelectTrigger id="boqItem">
+                                        <SelectValue placeholder="Select item..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {currentBoqItems.map((item) => (
+                                            <SelectItem key={item.id} value={item.id}>
+                                                #{item.itemNumber} - {item.description}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Severity */}
+                <Card className="h-full">
+                    <CardContent className="py-5 space-y-4">
+                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                            Severity *
+                        </h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {SEVERITY_OPTIONS.map((opt) => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => setSeverity(opt.value)}
+                                    className={cn(
+                                        "flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all",
+                                        severity === opt.value
+                                            ? opt.value === "CRITICAL"
+                                                ? "border-red-500 bg-red-500/10 ring-1 ring-red-500"
+                                                : opt.value === "MAJOR"
+                                                ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500"
+                                                : "border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500"
+                                            : "border-border hover:border-border/80 hover:bg-muted/40"
+                                    )}
+                                >
+                                    <span className={cn("text-sm font-semibold",
+                                        severity === opt.value
+                                            ? opt.value === "CRITICAL" ? "text-red-600" : opt.value === "MAJOR" ? "text-amber-600" : "text-cyan-600"
+                                            : "text-foreground"
+                                    )}>
+                                        {opt.label}
+                                    </span>
+                                    <span className="text-[11px] text-muted-foreground">{opt.desc}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
 
             {/* Issue Details */}
             <Card>
@@ -184,39 +186,41 @@ export function RaiseNCRForm({ pos, boqItemsByPO }: RaiseNCRFormProps) {
                         Issue Details
                     </h2>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="issueType">Issue Type *</Label>
-                        <Select value={issueType} onValueChange={setIssueType}>
-                            <SelectTrigger id="issueType">
-                                <SelectValue placeholder="Select issue type…" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {ISSUE_TYPES.map((opt) => (
-                                    <SelectItem key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="issueType">Issue Type *</Label>
+                            <Select value={issueType} onValueChange={setIssueType}>
+                                <SelectTrigger id="issueType">
+                                    <SelectValue placeholder="Select issue type..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {ISSUE_TYPES.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="title">NCR Title *</Label>
-                        <Input
-                            id="title"
-                            placeholder="Brief description of the issue…"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            required
-                        />
+                        <div className="space-y-2">
+                            <Label htmlFor="title">NCR Title *</Label>
+                            <Input
+                                id="title"
+                                placeholder="Brief description of the issue..."
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                required
+                            />
+                        </div>
                     </div>
 
                     <div className="space-y-2">
                         <Label htmlFor="description">Full Description</Label>
                         <Textarea
                             id="description"
-                            rows={4}
-                            placeholder="Describe the non-conformance in detail — what was expected, what was found, quantity affected, batch / serial numbers if known…"
+                            rows={6}
+                            placeholder="Describe the non-conformance in detail - what was expected, what was found, quantity affected, batch / serial numbers if known..."
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                         />
@@ -228,7 +232,7 @@ export function RaiseNCRForm({ pos, boqItemsByPO }: RaiseNCRFormProps) {
             {severity === "CRITICAL" && (
                 <Card className="border-red-500/20 bg-red-500/5">
                     <CardContent className="py-3 flex items-center gap-3">
-                        <Warning className="h-5 w-5 text-red-500 shrink-0" weight="fill" />
+                        <Warning className="h-5 w-5 shrink-0" weight="fill" />
                         <p className="text-sm text-red-700 dark:text-red-400">
                             Critical NCR will immediately notify the Project Manager and QA team.
                         </p>
@@ -237,7 +241,7 @@ export function RaiseNCRForm({ pos, boqItemsByPO }: RaiseNCRFormProps) {
             )}
 
             {/* Actions */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
                 <Button type="button" variant="outline" onClick={() => router.back()} disabled={isPending}>
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back

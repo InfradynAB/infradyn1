@@ -66,12 +66,6 @@ function StatCard({
         blue: "border-blue-200 bg-blue-50/60 dark:bg-blue-950/20 dark:border-blue-900/30",
         emerald: "border-emerald-200 bg-emerald-50/60 dark:bg-emerald-950/20 dark:border-emerald-900/30",
     };
-    const iconColors = {
-        red: "text-red-500",
-        amber: "text-amber-500",
-        blue: "text-blue-500",
-        emerald: "text-emerald-500",
-    };
     return (
         <Link href={href}>
             <Card className={cn("relative overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer border", urgent && count > 0 ? colors[color] : "")}>
@@ -82,7 +76,7 @@ function StatCard({
                             <p className="text-sm font-semibold text-foreground">{label}</p>
                             <p className="text-xs text-muted-foreground">{sublabel}</p>
                         </div>
-                        <div className={cn("rounded-xl bg-muted/40 p-2.5", iconColors[color])}>
+                        <div className="rounded-xl bg-muted/40 p-2.5">
                             {icon}
                         </div>
                     </div>
@@ -116,8 +110,8 @@ export default async function ReceiverDashboardPage() {
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-                            <HardHat className="h-5 w-5 text-cyan-600" weight="fill" />
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/40 border border-border/80">
+                            <HardHat className="h-5 w-5" weight="fill" />
                         </div>
                         <h1 className="text-2xl font-bold tracking-tight">
                             {greeting}, {session.user.name?.split(" ")[0] ?? "Receiver"}
@@ -189,7 +183,7 @@ export default async function ReceiverDashboardPage() {
                 <Card>
                     <CardHeader className="pb-3 flex flex-row items-center justify-between">
                         <CardTitle className="text-base font-semibold flex items-center gap-2">
-                            <Package className="h-4 w-4 text-blue-500" />
+                            <Package className="h-4 w-4" />
                             Incoming Shipments
                         </CardTitle>
                         <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
@@ -211,8 +205,8 @@ export default async function ReceiverDashboardPage() {
                                     href={`/dashboard/receiver/deliveries/${ship.id}/confirm`}
                                     className="flex items-center gap-3 rounded-xl border border-border/60 p-3 transition-colors hover:bg-muted/50 hover:border-border"
                                 >
-                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 border border-blue-500/20">
-                                        <Truck className="h-4 w-4 text-blue-500" />
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/40 border border-border/80">
+                                        <Truck className="h-4 w-4" />
                                     </div>
                                     <div className="flex-1 min-w-0 space-y-0.5">
                                         <p className="text-sm font-medium truncate">
@@ -242,7 +236,7 @@ export default async function ReceiverDashboardPage() {
                 <Card>
                     <CardHeader className="pb-3 flex flex-row items-center justify-between">
                         <CardTitle className="text-base font-semibold flex items-center gap-2">
-                            <CheckCircle className="h-4 w-4 text-emerald-500" />
+                            <CheckCircle className="h-4 w-4" />
                             My Confirmed Deliveries
                         </CardTitle>
                         <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
@@ -263,8 +257,8 @@ export default async function ReceiverDashboardPage() {
                                     key={del.id}
                                     className="flex items-center gap-3 rounded-xl border border-border/60 p-3"
                                 >
-                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                                        <CheckCircle className="h-4 w-4 text-emerald-500" />
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/40 border border-border/80">
+                                        <CheckCircle className="h-4 w-4" />
                                     </div>
                                     <div className="flex-1 min-w-0 space-y-0.5">
                                         <p className="text-sm font-medium truncate">
@@ -292,7 +286,7 @@ export default async function ReceiverDashboardPage() {
                 <Card>
                     <CardHeader className="pb-3 flex flex-row items-center justify-between">
                         <CardTitle className="text-base font-semibold flex items-center gap-2">
-                            <ShieldWarning className="h-4 w-4 text-red-500" />
+                            <ShieldWarning className="h-4 w-4" />
                             My Open NCRs
                         </CardTitle>
                         <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
@@ -309,8 +303,8 @@ export default async function ReceiverDashboardPage() {
                                     href={`/dashboard/receiver/ncr`}
                                     className="flex items-center gap-3 rounded-xl border border-border/60 p-3 transition-colors hover:bg-muted/50"
                                 >
-                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-500/10 border border-red-500/20">
-                                        <Warning className="h-4 w-4 text-red-500" weight="fill" />
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/40 border border-border/80">
+                                        <Warning className="h-4 w-4" weight="fill" />
                                     </div>
                                     <div className="flex-1 min-w-0 space-y-0.5">
                                         <p className="text-sm font-medium truncate">{n.title}</p>
