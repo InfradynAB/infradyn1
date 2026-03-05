@@ -215,7 +215,7 @@ export default async function DashboardLayout({
             )}
             <SidebarInset className={isSupplierOnboarding ? "ml-0 transition-all duration-300" : "transition-all duration-300"}>
                 {!isSupplierOnboarding && (
-                    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border/50 bg-background/95 px-4 text-foreground shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-sidebar-border/70 bg-sidebar px-4 text-sidebar-foreground shadow-sm">
                         <div className="flex min-w-0 items-center gap-3">
                             <SidebarTrigger className="-ml-1 hover:bg-muted" />
                             {user.role !== "SUPPLIER" && user.role !== "SITE_RECEIVER" && organizations.length > 0 && (
@@ -243,7 +243,7 @@ export default async function DashboardLayout({
                 )}
 
                 {isSupplierOnboarding && (
-                    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border/50 bg-background/95 px-6 text-foreground shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-sidebar-border/70 bg-sidebar px-6 text-sidebar-foreground shadow-sm">
                         <div className="flex items-center gap-3">
                             <span className="font-black text-xl tracking-tighter text-primary">INFRADYN</span>
                             <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] px-2.5 py-1 bg-muted/60 rounded-lg">Materials</span>
