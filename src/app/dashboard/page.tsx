@@ -17,9 +17,12 @@ export default async function DashboardPage() {
         redirect("/sign-in");
     }
 
-    // Redirect suppliers to their dedicated dashboard
+    // Redirect suppliers and site receivers to dedicated dashboards
     if (session.user.role === "SUPPLIER") {
         redirect("/dashboard/supplier");
+    }
+    if (session.user.role === "SITE_RECEIVER") {
+        redirect("/dashboard/receiver");
     }
 
     return (
