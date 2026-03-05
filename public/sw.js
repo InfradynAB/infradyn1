@@ -311,7 +311,7 @@ self.addEventListener("notificationclick", (event) => {
 // ─── Message: manual sync trigger from client ─────────────────────────────────
 self.addEventListener("message", (event) => {
     if (event.data?.type === "MANUAL_SYNC") {
-        event.waitUntil(syncOfflineQueue());
+        Promise.resolve(syncOfflineQueue()).catch(() => {});
     }
     if (event.data?.type === "GET_QUEUE_STATUS") {
         getAllQueued().then((items) => {

@@ -22,24 +22,40 @@ export function usePWA(): SyncStatus & { triggerSync: () => void } {
         lastSyncResult: null,
     });
 
-    const triggerSync = useCallback(() => {
-        if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.ready.then((reg) => {
-                // Manual sync trigger
-                if ("sync" in reg) {
-                    (reg as any).sync.register("infradyn-sync-mutations").catch(() => {});
-                }
-                // Also ask via message for immediate attempt
-                reg.active?.postMessage({ type: "MANUAL_SYNC" });
-            });
-        }
+    const postToWorker = useCallback(async (message: Record<string, unknown>) => {
+        if (!("serviceWorker" in navigator)) return;
+
+        // Prefer controller when available (page already controlled)
+        navigator.serviceWorker.controller?.postMessage(message);
+
+        // Also post to registration workers to support first-load/no-reload cases
+        const reg = await navigator.serviceWorker.ready;
+        reg.active?.postMessage(message);
+        reg.waiting?.postMessage(message);
+        reg.installing?.postMessage(message);
     }, []);
 
+    const triggerSync = useCallback(() => {
+        if (!("serviceWorker" in navigator)) return;
+
+        navigator.serviceWorker.ready.then((reg) => {
+            // Request background sync registration where supported
+            if ("sync" in reg) {
+                (reg as any).sync.register("infradyn-sync-mutations").catch(() => {});
+            }
+
+            // Ask SW to run sync immediately
+            postToWorker({ type: "MANUAL_SYNC" }).catch(() => {});
+
+            // Refresh queue status shortly after trigger
+            setTimeout(() => postToWorker({ type: "GET_QUEUE_STATUS" }).catch(() => {}), 600);
+            setTimeout(() => postToWorker({ type: "GET_QUEUE_STATUS" }).catch(() => {}), 2000);
+        });
+    }, [postToWorker]);
+
     const getQueueStatus = useCallback(() => {
-        if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-            navigator.serviceWorker.controller.postMessage({ type: "GET_QUEUE_STATUS" });
-        }
-    }, []);
+        postToWorker({ type: "GET_QUEUE_STATUS" }).catch(() => {});
+    }, [postToWorker]);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -64,6 +80,7 @@ export function usePWA(): SyncStatus & { triggerSync: () => void } {
 
         window.addEventListener("online", onOnline);
         window.addEventListener("offline", onOffline);
+        navigator.serviceWorker?.addEventListener("controllerchange", getQueueStatus);
 
         // Listen for SW sync completion messages
         const handleMessage = (event: MessageEvent) => {
@@ -87,6 +104,7 @@ export function usePWA(): SyncStatus & { triggerSync: () => void } {
         return () => {
             window.removeEventListener("online", onOnline);
             window.removeEventListener("offline", onOffline);
+            navigator.serviceWorker?.removeEventListener("controllerchange", getQueueStatus);
             navigator.serviceWorker?.removeEventListener("message", handleMessage);
         };
     }, [triggerSync, getQueueStatus]);
