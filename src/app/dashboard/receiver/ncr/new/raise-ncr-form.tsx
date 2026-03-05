@@ -63,10 +63,42 @@ export function RaiseNCRForm({ pos, boqItemsByPO }: RaiseNCRFormProps) {
 
     const currentBoqItems = selectedPO ? (boqItemsByPO[selectedPO] ?? []) : [];
 
-    function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         if (!selectedPO || !title || !severity || !issueType) {
             toast.error("Please fill in all required fields.");
+            return;
+        }
+
+        // Offline path: use a normal API endpoint so SW can safely queue the request.
+        // Calling server actions directly while offline can break the action protocol UI.
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+            try {
+                const response = await fetch("/api/receiver/offline-mutations", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        type: "RAISE_NCR",
+                        payload: {
+                            purchaseOrderId: selectedPO,
+                            title,
+                            description,
+                            severity,
+                            issueType,
+                            affectedBoqItemId: selectedBoqItem || null,
+                        },
+                    }),
+                });
+
+                if (response.ok) {
+                    toast.success("Saved offline. Your NCR will sync automatically when you reconnect.");
+                    router.push("/dashboard/receiver/ncr");
+                } else {
+                    toast.error("Could not queue NCR offline. Please try again.");
+                }
+            } catch {
+                toast.error("Could not queue NCR offline. Please try again.");
+            }
             return;
         }
 

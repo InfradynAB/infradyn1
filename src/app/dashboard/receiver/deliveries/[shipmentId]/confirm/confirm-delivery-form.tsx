@@ -112,23 +112,50 @@ export function ConfirmDeliveryForm({
             return;
         }
 
+        const mappedItems = activeItems.map((l) => ({
+            boqItemId: l.boqItemId,
+            quantityDelivered: l.quantityDelivered,
+            quantityDeclared: l.quantityDeclared || undefined,
+            condition: l.condition,
+            notes: l.notes || undefined,
+        }));
+
+        // Offline path: use standard API payload so SW queueing gives a clean UX.
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+            try {
+                const response = await fetch("/api/receiver/offline-mutations", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        type: "CONFIRM_DELIVERY",
+                        payload: {
+                            shipmentId,
+                            isPartial,
+                            notes,
+                            photoDocIds: [],
+                            items: mappedItems,
+                        },
+                    }),
+                });
+
+                if (response.ok) {
+                    toast.success("Saved offline. Delivery confirmation will sync when you reconnect.");
+                    router.push("/dashboard/receiver/deliveries");
+                } else {
+                    toast.error("Could not queue confirmation offline. Please try again.");
+                }
+            } catch {
+                toast.error("Could not queue confirmation offline. Please try again.");
+            }
+            return;
+        }
+
         const formData = new FormData();
         formData.set("shipmentId", shipmentId);
         formData.set("isPartial", String(isPartial));
         formData.set("notes", notes);
         formData.set("photoDocIds", "[]");
-        formData.set(
-            "items",
-            JSON.stringify(
-                activeItems.map((l) => ({
-                    boqItemId: l.boqItemId,
-                    quantityDelivered: l.quantityDelivered,
-                    quantityDeclared: l.quantityDeclared || undefined,
-                    condition: l.condition,
-                    notes: l.notes || undefined,
-                }))
-            )
-        );
+        formData.set("items", JSON.stringify(mappedItems));
 
         startTransition(async () => {
             const result = await receiverConfirmDelivery(formData);
