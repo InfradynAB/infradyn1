@@ -552,7 +552,6 @@ export async function generatePptxReport(
             h: 0.8,
             fill: { color: "E2E8F0" },
             line: { color: "CBD5E1", pt: 1 },
-            radius: 0.08,
         });
         slide.addText(organizationName, {
             x: 0.65,
