@@ -463,7 +463,7 @@ export function SupplierDashboardClient({ initialTab }: { initialTab?: string })
     const hasActiveFilters = searchQuery || projectFilter !== "all" || statusFilter !== "all";
 
     return (
-        <div className="w-full max-w-[1440px] mx-auto space-y-6 px-1 pt-6 pb-20">
+        <div className="w-full max-w-[1440px] mx-auto space-y-6 px-1 pt-6 pb-3">
             {/* ── HEADER ── */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">

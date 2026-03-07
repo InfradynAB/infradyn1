@@ -702,7 +702,7 @@ export function PMDashboardClient() {
 
             {/* ─── BODY ─── */}
             {loading ? <DashboardSkeleton /> : data ? (
-                <div id="tour-pm-content" className="space-y-12 pt-8 pb-24">
+                <div id="tour-pm-content" className="space-y-6 pt-3 pb-3">
 
                     {/* ═══════════ SECTION 1: OVERVIEW ═══════════ */}
                     <section id="overview" ref={(el) => { sectionRefs.current.overview = el; }} className={cn("scroll-mt-32 space-y-6", routeSection && routeSection !== "overview" && "hidden")}>

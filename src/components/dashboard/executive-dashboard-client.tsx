@@ -551,7 +551,7 @@ export function ExecutiveDashboardClient() {
             {/* ─── BODY ─── */}
             {loading ? <DashboardSkeleton /> : data ? (
                 <ExecutiveWorkspace datasets={tableDatasets} initialDataset={currentSection}>
-                    <div className="space-y-12 pt-8 pb-24">
+                    <div className="space-y-6 pt-3 pb-3">
 
                         {/* ═══════════ SECTION 1: OVERVIEW ═══════════ */}
                         <section id="overview" ref={(el) => { sectionRefs.current.overview = el; }} className={cn("scroll-mt-32 space-y-6", currentSection !== "overview" && "hidden")}>
