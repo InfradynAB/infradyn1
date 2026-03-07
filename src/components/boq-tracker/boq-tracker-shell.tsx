@@ -514,6 +514,10 @@ export function BoqTrackerShell({ projectId }: Props) {
   const [colPickerOpen, setColPickerOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [showViewExplanation, setShowViewExplanation] = useState(false);
+  const [sectionExpanded, setSectionExpanded] = useState({
+    changed: true,
+    original: false,
+  });
 
   // Sheet state
   const [selectedItem, setSelectedItem] = useState<ItemRow | null>(null);
@@ -591,6 +595,14 @@ export function BoqTrackerShell({ projectId }: Props) {
   }, [items]);
 
   const lateCount = useMemo(() => items.filter((i) => i.status === "LATE").length, [items]);
+  const isChangedItem = useCallback((item: ItemRow) => {
+    const isAmended =
+      (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
+      (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
+    return item.isVariation || isAmended;
+  }, []);
+  const changedItems = useMemo(() => items.filter(isChangedItem), [items, isChangedItem]);
+  const originalItems = useMemo(() => items.filter((item) => !isChangedItem(item)), [items, isChangedItem]);
   const totals = useMemo(() => {
     const quantity = items.reduce((sum, item) => sum + item.quantity, 0);
     const unitPrice = items.reduce((sum, item) => sum + item.unitPrice, 0);
@@ -1122,38 +1134,143 @@ export function BoqTrackerShell({ projectId }: Props) {
                     </TableCell>
                   </TableRow>
                 )}
-                {items.map((item) => {
-                  const isSelected = selectedItem?.id === item.id;
-                  const isAmended = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
-                                    (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
-                  const isVariationRow = item.isVariation;
-                  return (
+                {items.length > 0 && (
+                  <>
                     <TableRow
-                      key={item.id}
-                      onClick={() => openItem(item)}
-                      className={[
-                        "cursor-pointer transition-colors",
-                        isSelected
-                          ? "bg-primary/10 hover:bg-primary/10"
-                          : isVariationRow
-                            ? "bg-violet-500/5 hover:bg-violet-500/10 border-l-2 border-l-violet-500/40"
-                            : isAmended
-                              ? "bg-amber-500/5 hover:bg-amber-500/10 border-l-2 border-l-amber-500/40"
-                              : "hover:bg-muted/30",
-                      ].join(" ")}
+                      className="cursor-pointer bg-violet-500/5 hover:bg-violet-500/10"
+                      onClick={() =>
+                        setSectionExpanded((prev) => ({ ...prev, changed: !prev.changed }))
+                      }
                     >
-                      {visibleCols.map((colKey) => {
-                        const def = ALL_COLUMN_DEFS[colKey];
-                        if (!def) return null;
-                        return (
-                          <TableCell key={colKey} className={def.width ?? ""}>
-                            {def.cell(item)}
-                          </TableCell>
-                        );
-                      })}
+                      <TableCell colSpan={visibleCols.length || 1} className="py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <ChevronDown
+                              className={`h-4 w-4 text-muted-foreground transition-transform ${
+                                sectionExpanded.changed ? "" : "-rotate-90"
+                              }`}
+                            />
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Changed / Updated
+                            </span>
+                          </div>
+                          <span className="text-xs tabular-nums text-muted-foreground">
+                            {changedItems.length.toLocaleString()} item(s)
+                          </span>
+                        </div>
+                      </TableCell>
                     </TableRow>
-                  );
-                })}
+                    {sectionExpanded.changed && changedItems.map((item) => {
+                      const isSelected = selectedItem?.id === item.id;
+                      const isAmended = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
+                                        (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
+                      const isVariationRow = item.isVariation;
+                      return (
+                        <TableRow
+                          key={item.id}
+                          onClick={() => openItem(item)}
+                          className={[
+                            "cursor-pointer transition-colors",
+                            isSelected
+                              ? "bg-primary/10 hover:bg-primary/10"
+                              : isVariationRow
+                                ? "bg-violet-500/5 hover:bg-violet-500/10 border-l-2 border-l-violet-500/40"
+                                : isAmended
+                                  ? "bg-amber-500/5 hover:bg-amber-500/10 border-l-2 border-l-amber-500/40"
+                                  : "hover:bg-muted/30",
+                          ].join(" ")}
+                        >
+                          {visibleCols.map((colKey) => {
+                            const def = ALL_COLUMN_DEFS[colKey];
+                            if (!def) return null;
+                            return (
+                              <TableCell key={colKey} className={def.width ?? ""}>
+                                {def.cell(item)}
+                              </TableCell>
+                            );
+                          })}
+                        </TableRow>
+                      );
+                    })}
+                    {sectionExpanded.changed && changedItems.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={visibleCols.length || 1}
+                          className="py-4 text-center text-sm text-muted-foreground"
+                        >
+                          No changed or updated items in this view.
+                        </TableCell>
+                      </TableRow>
+                    )}
+
+                    <TableRow
+                      className="cursor-pointer bg-muted/20 hover:bg-muted/30"
+                      onClick={() =>
+                        setSectionExpanded((prev) => ({ ...prev, original: !prev.original }))
+                      }
+                    >
+                      <TableCell colSpan={visibleCols.length || 1} className="py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <ChevronDown
+                              className={`h-4 w-4 text-muted-foreground transition-transform ${
+                                sectionExpanded.original ? "" : "-rotate-90"
+                              }`}
+                            />
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Original
+                            </span>
+                          </div>
+                          <span className="text-xs tabular-nums text-muted-foreground">
+                            {originalItems.length.toLocaleString()} item(s)
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {sectionExpanded.original && originalItems.map((item) => {
+                      const isSelected = selectedItem?.id === item.id;
+                      const isAmended = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
+                                        (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
+                      const isVariationRow = item.isVariation;
+                      return (
+                        <TableRow
+                          key={item.id}
+                          onClick={() => openItem(item)}
+                          className={[
+                            "cursor-pointer transition-colors",
+                            isSelected
+                              ? "bg-primary/10 hover:bg-primary/10"
+                              : isVariationRow
+                                ? "bg-violet-500/5 hover:bg-violet-500/10 border-l-2 border-l-violet-500/40"
+                                : isAmended
+                                  ? "bg-amber-500/5 hover:bg-amber-500/10 border-l-2 border-l-amber-500/40"
+                                  : "hover:bg-muted/30",
+                          ].join(" ")}
+                        >
+                          {visibleCols.map((colKey) => {
+                            const def = ALL_COLUMN_DEFS[colKey];
+                            if (!def) return null;
+                            return (
+                              <TableCell key={colKey} className={def.width ?? ""}>
+                                {def.cell(item)}
+                              </TableCell>
+                            );
+                          })}
+                        </TableRow>
+                      );
+                    })}
+                    {sectionExpanded.original && originalItems.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={visibleCols.length || 1}
+                          className="py-4 text-center text-sm text-muted-foreground"
+                        >
+                          No original-only items in this view.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                )}
               </TableBody>
             </Table>
           </div>
@@ -1260,8 +1377,11 @@ export function BoqTrackerShell({ projectId }: Props) {
 
       {/* Edit side panel */}
       <Sheet open={!!selectedItem} onOpenChange={(open) => { if (!open) closeSheet(); }}>
-        <SheetContent className="w-full sm:max-w-lg flex flex-col gap-0 p-0" side="right">
-          <SheetHeader className="px-6 pt-5 pb-4 shrink-0 border-b">
+        <SheetContent
+          className="h-dvh max-h-dvh w-screen sm:w-[92vw] sm:max-w-[560px] lg:max-w-[640px] flex flex-col gap-0 p-0"
+          side="right"
+        >
+          <SheetHeader className="px-4 sm:px-6 pt-5 pb-4 shrink-0 border-b">
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0">
                 <SheetTitle className="text-sm font-semibold leading-tight line-clamp-2">
@@ -1279,8 +1399,8 @@ export function BoqTrackerShell({ projectId }: Props) {
             </div>
           </SheetHeader>
 
-          <ScrollArea className="flex-1">
-            <div className="px-6 py-4 space-y-5">
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="px-4 sm:px-6 py-4 space-y-5">
 
               {/* ── ORIGINAL CONTRACT BASELINE (frozen / read-only) ── */}
               {selectedItem && (selectedItem.originalQuantity != null || selectedItem.originalUnitPrice != null) && (
@@ -1293,7 +1413,7 @@ export function BoqTrackerShell({ projectId }: Props) {
                       Locked
                     </Badge>
                   </div>
-                  <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-3 grid grid-cols-3 gap-3">
+                  <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <p className="text-[10px] text-muted-foreground mb-0.5">Qty</p>
                       <p className="text-sm font-semibold tabular-nums">
@@ -1360,7 +1480,7 @@ export function BoqTrackerShell({ projectId }: Props) {
 
               {/* ── LIVE SUMMARY CARD ── */}
               {draft && (
-                <div className="rounded-lg border bg-muted/30 px-4 py-3 grid grid-cols-3 gap-3">
+                <div className="rounded-lg border bg-muted/30 px-4 py-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Current Total</p>
                     <p className="text-base font-bold tabular-nums">{fmt(liveDraftTotal)}</p>
@@ -1389,7 +1509,7 @@ export function BoqTrackerShell({ projectId }: Props) {
                     ? "Current (Amended) Values"
                     : "Financials & Quantities"}
                 </p>
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div className="space-y-1">
                     <Label className="text-xs">Item number</Label>
                     <Input value={draft?.itemNumber ?? ""} onChange={(e) => setDraftField("itemNumber", e.target.value)} className="h-8 text-sm" />
@@ -1430,7 +1550,7 @@ export function BoqTrackerShell({ projectId }: Props) {
                       className={`h-8 text-sm tabular-nums ${selectedItem?.originalUnitPrice != null && draft && draft.unitPrice !== selectedItem.originalUnitPrice ? "border-amber-500/60 focus-visible:ring-amber-500/30" : ""}`}
                     />
                   </div>
-                  <div className="col-span-2 space-y-1">
+                  <div className="col-span-1 sm:col-span-2 space-y-1">
                     <Label className="text-xs">Delivery %</Label>
                     <div className="flex items-center gap-2">
                       <Input type="number" min={0} max={100} value={draft?.deliveryPercent ?? 0} onChange={(e) => setDraftField("deliveryPercent", Number(e.target.value) || 0)} className="h-8 text-sm tabular-nums flex-1" />
@@ -1445,8 +1565,8 @@ export function BoqTrackerShell({ projectId }: Props) {
               {/* ── SCHEDULE ── */}
               <section className="space-y-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Schedule</p>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="col-span-2 space-y-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="col-span-1 sm:col-span-2 space-y-1">
                     <Label className="text-xs">Required by date</Label>
                     <DatePicker
                       value={parseIsoDate(draft?.requiredByDate ?? "")}
@@ -1469,7 +1589,7 @@ export function BoqTrackerShell({ projectId }: Props) {
                     <Label className="text-xs">Days at risk</Label>
                     <Input type="number" min={0} value={draft?.scheduleDaysAtRisk ?? 0} onChange={(e) => setDraftField("scheduleDaysAtRisk", Number(e.target.value) || 0)} className="h-8 text-sm tabular-nums" />
                   </div>
-                  <div className="col-span-2 space-y-1">
+                  <div className="col-span-1 sm:col-span-2 space-y-1">
                     <Label className="text-xs">Activity ref</Label>
                     <Input value={draft?.scheduleActivityRef ?? ""} onChange={(e) => setDraftField("scheduleActivityRef", e.target.value)} className="h-8 text-sm" />
                   </div>
@@ -1526,12 +1646,12 @@ export function BoqTrackerShell({ projectId }: Props) {
           </ScrollArea>
 
           {/* Save bar */}
-          <div className="shrink-0 border-t bg-background px-6 py-3 flex items-center gap-2">
-            <Button onClick={saveItem} disabled={saving} className="flex-1">
+          <div className="shrink-0 border-t bg-background px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <Button onClick={saveItem} disabled={saving} className="w-full sm:flex-1">
               {saving ? "Saving…" : "Save changes"}
             </Button>
             {selectedItem && (
-              <Button variant="outline" onClick={() => markDelivered(selectedItem)} disabled={saving} className="text-xs">
+              <Button variant="outline" onClick={() => markDelivered(selectedItem)} disabled={saving} className="w-full sm:w-auto text-xs">
                 Mark delivered
               </Button>
             )}
