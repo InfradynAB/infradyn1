@@ -213,13 +213,14 @@ export function CommandCenterClient({ userName, userRole }: CommandCenterClientP
                     </div>
 
                     {/* Activity Feed */}
-                    <div id="tour-home-activity">
+                    <div id="tour-home-activity" className="min-h-0">
                         {loading ? (
-                            <Skeleton className="h-96 rounded-xl" />
+                            <Skeleton className="h-[clamp(360px,calc(100dvh-20rem),760px)] rounded-xl" />
                         ) : (
                             <ActivityFeed
                                 activities={data?.activity || []}
-                                maxHeight="350px"
+                                className="h-[clamp(360px,calc(100dvh-20rem),760px)]"
+                                maxHeight="100%"
                             />
                         )}
                     </div>

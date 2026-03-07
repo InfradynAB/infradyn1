@@ -64,9 +64,10 @@ export function UserMenu({ user, variant = "default" }: UserMenuProps) {
     }
 
     return (
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
                 <Button
+                    type="button"
                     variant="ghost"
                     className={cn(
                         "relative h-12 min-w-[220px] justify-start gap-2 rounded-xl border border-border/70 px-2.5",

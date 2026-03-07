@@ -479,6 +479,29 @@ export async function getNCRsByPO(purchaseOrderId: string) {
 }
 
 /**
+ * Get NCRs for a project
+ */
+export async function getNCRsByProject(projectId: string) {
+    try {
+        const ncrs = await db.query.ncr.findMany({
+            where: eq(ncr.projectId, projectId),
+            orderBy: [desc(ncr.createdAt)],
+            with: {
+                supplier: true,
+                reporter: true,
+                purchaseOrder: true,
+                affectedBoqItem: true,
+            },
+        });
+
+        return { success: true, data: ncrs };
+    } catch (error) {
+        console.error("[GET_NCRS_BY_PROJECT]", error);
+        return { success: false, error: error instanceof Error ? error.message : "Failed to fetch NCRs", data: [] };
+    }
+}
+
+/**
  * Get NCRs for a supplier (filtered view)
  */
 export async function getNCRsBySupplier(supplierId: string) {

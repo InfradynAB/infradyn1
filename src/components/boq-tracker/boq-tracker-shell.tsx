@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { GripVertical, Columns3, ChevronDown, FileSpreadsheet, FileText, Download } from "lucide-react";
+import { GripVertical, Columns3, ChevronDown, FileSpreadsheet, FileText, Download, ArrowUpRight } from "lucide-react";
 import type { BoqTrackerStatus } from "@/lib/actions/boq-tracker";
 import { BoqStatusBadge } from "./boq-status-badge";
 import { BoqBatchModal, type BatchModalMode, type BatchStatus } from "./boq-batch-modal";
@@ -104,6 +104,24 @@ interface ItemRow {
   lockedForDeScope?: boolean;
   status: BoqTrackerStatus;
   lateDays: number;
+}
+
+interface NcrRow {
+  id: string;
+  ncrNumber: string;
+  title: string;
+  status: "OPEN" | "SUPPLIER_RESPONDED" | "REINSPECTION" | "REVIEW" | "REMEDIATION" | "CLOSED";
+  severity: "CRITICAL" | "MAJOR" | "MINOR";
+  issueType: string;
+  createdAt: string;
+  affectedBoqItem?: {
+    id: string;
+    itemNumber: string;
+    description: string;
+  } | null;
+  purchaseOrder?: {
+    poNumber: string;
+  } | null;
 }
 
 // All available columns — key maps to ItemRow fields
@@ -476,6 +494,20 @@ function statusColor(status: BoqTrackerStatus) {
   return "bg-muted border-muted-foreground/20 text-muted-foreground";
 }
 
+function ncrStatusLabel(status: NcrRow["status"]) {
+  if (status === "SUPPLIER_RESPONDED") return "Supplier responded";
+  if (status === "REINSPECTION") return "Re-inspection";
+  if (status === "REMEDIATION") return "Remediation";
+  if (status === "REVIEW") return "Review";
+  return status.charAt(0) + status.slice(1).toLowerCase();
+}
+
+function ncrSeverityClass(severity: NcrRow["severity"]) {
+  if (severity === "CRITICAL") return "bg-red-500/10 text-red-400 border-red-500/20";
+  if (severity === "MAJOR") return "bg-amber-500/10 text-amber-400 border-amber-500/20";
+  return "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
+}
+
 export function BoqTrackerShell({ projectId }: Props) {
   const [loading, setLoading] = useState(false);
   const [discipline, setDiscipline] = useState<string>("ALL");
@@ -487,6 +519,9 @@ export function BoqTrackerShell({ projectId }: Props) {
   const [materialSummary, setMaterialSummary] = useState<MaterialSummary[]>([]);
   const [items, setItems] = useState<ItemRow[]>([]);
   const [batches, setBatches] = useState<BatchRow[]>([]);
+  const [projectNcrs, setProjectNcrs] = useState<NcrRow[]>([]);
+  const [loadingProjectNcrs, setLoadingProjectNcrs] = useState(false);
+  const [showProjectNcrs, setShowProjectNcrs] = useState(false);
 
   // Column management state
   const [savedCustomCols, setSavedCustomCols] = useState<string[]>(() => {
@@ -534,6 +569,7 @@ export function BoqTrackerShell({ projectId }: Props) {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setLoadingProjectNcrs(true);
     try {
       const level1Res = await fetch(`/api/boq/tracker?projectId=${projectId}`);
       const level1Json = await level1Res.json();
@@ -563,10 +599,19 @@ export function BoqTrackerShell({ projectId }: Props) {
         setItems(json.data.items ?? []);
         setBatches(json.data.batches ?? []);
       }
+
+      const ncrRes = await fetch(`/api/ncr?projectId=${projectId}`);
+      const ncrJson = await ncrRes.json();
+      if (ncrJson.success) {
+        setProjectNcrs(Array.isArray(ncrJson.data) ? ncrJson.data : ncrJson.data?.ncrs ?? []);
+      } else {
+        setProjectNcrs([]);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to load data");
     } finally {
       setLoading(false);
+      setLoadingProjectNcrs(false);
     }
   }, [projectId, discipline, materialClass, search, statusFilter]);
 
@@ -1001,6 +1046,15 @@ export function BoqTrackerShell({ projectId }: Props) {
           Save Custom View
         </Button>
 
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowProjectNcrs((prev) => !prev)}
+          className={showProjectNcrs ? "bg-muted" : ""}
+        >
+          NCRs ({projectNcrs.length})
+        </Button>
+
         {/* Export dropdown */}
         <DropdownMenu open={exportMenuOpen} onOpenChange={setExportMenuOpen}>
           <DropdownMenuTrigger asChild>
@@ -1080,6 +1134,74 @@ export function BoqTrackerShell({ projectId }: Props) {
             &nbsp;Original value (struck through)
           </span>
         </div>
+      </div>
+
+      {/* Project NCR panel */}
+      <div className="mx-4 mb-3 rounded-lg border overflow-hidden shrink-0">
+        <button
+          type="button"
+          onClick={() => setShowProjectNcrs((prev) => !prev)}
+          className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/20 hover:bg-muted/40 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showProjectNcrs ? "" : "-rotate-90"}`} />
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Project NCRs
+            </span>
+          </div>
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {projectNcrs.length.toLocaleString()} total
+          </span>
+        </button>
+        {showProjectNcrs && (
+          <div className="border-t bg-background">
+            {loadingProjectNcrs ? (
+              <p className="px-3 py-3 text-sm text-muted-foreground">Loading NCRs…</p>
+            ) : projectNcrs.length === 0 ? (
+              <p className="px-3 py-3 text-sm text-muted-foreground">No NCRs raised for this project yet.</p>
+            ) : (
+              <ScrollArea className="max-h-56">
+                <div className="divide-y">
+                  {projectNcrs.map((ncrItem) => (
+                    <button
+                      key={ncrItem.id}
+                      type="button"
+                      onClick={() => {
+                        window.location.href = `/dashboard/procurement/ncr/${ncrItem.id}`;
+                      }}
+                      className="w-full text-left px-3 py-2.5 hover:bg-muted/30 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate">
+                            {ncrItem.ncrNumber} - {ncrItem.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {ncrItem.affectedBoqItem
+                              ? `#${ncrItem.affectedBoqItem.itemNumber} - ${ncrItem.affectedBoqItem.description}`
+                              : "No BOQ item linked"}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {ncrItem.purchaseOrder?.poNumber ?? "No PO"} · {new Date(ncrItem.createdAt).toISOString().slice(0, 10)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold ${ncrSeverityClass(ncrItem.severity)}`}>
+                            {ncrItem.severity}
+                          </span>
+                          <span className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {ncrStatusLabel(ncrItem.status)}
+                          </span>
+                          <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Items table — viewport-height contained */}

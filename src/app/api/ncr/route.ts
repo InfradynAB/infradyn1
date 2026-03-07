@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import {
     createNCR,
     getNCRsByPO,
+    getNCRsByProject,
     getNCRsByOrg,
     getNCRDashboard,
 } from "@/lib/actions/ncr-engine";
@@ -18,12 +19,19 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url);
         const purchaseOrderId = searchParams.get("purchaseOrderId");
+        const projectId = searchParams.get("projectId");
         // Always use the session's organizationId (ignore untrusted client-supplied value)
         const organizationId = session.user.organizationId;
 
         // If purchaseOrderId provided, get NCRs for that PO
         if (purchaseOrderId) {
             const result = await getNCRsByPO(purchaseOrderId);
+            return NextResponse.json(result);
+        }
+
+        // If projectId provided, get NCRs for that project
+        if (projectId) {
+            const result = await getNCRsByProject(projectId);
             return NextResponse.json(result);
         }
 

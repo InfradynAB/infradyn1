@@ -76,7 +76,13 @@ export function QuickActions() {
                                             {action.title}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-muted-foreground text-left w-full">
+                                    <p
+                                        className={
+                                            action.featured
+                                                ? "text-xs text-primary-foreground/85 text-left w-full"
+                                                : "text-xs text-muted-foreground text-left w-full"
+                                        }
+                                    >
                                         {action.description}
                                     </p>
                                 </Link>

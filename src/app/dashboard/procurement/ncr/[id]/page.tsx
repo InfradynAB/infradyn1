@@ -82,13 +82,6 @@ export default async function NCRDetailPage({ params }: { params: Promise<{ id: 
                                 </div>
                             )}
 
-                            {ncr.affectedBoqItem && (
-                                <div>
-                                    <p className="text-xs font-medium text-muted-foreground">Affected Item</p>
-                                    <p className="text-sm">{ncr.affectedBoqItem.description}</p>
-                                </div>
-                            )}
-
                             {ncr.batchId && (
                                 <div>
                                     <p className="text-xs font-medium text-muted-foreground">Batch/Lot ID</p>
@@ -102,6 +95,51 @@ export default async function NCRDetailPage({ params }: { params: Promise<{ id: 
                                     <span className="text-xs font-medium">SLA:</span>
                                     <SLAIndicator slaDueAt={ncr.slaDueAt instanceof Date ? ncr.slaDueAt.toISOString() : ncr.slaDueAt} status={ncr.status as any} />
                                 </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Affected BOQ Item(s) */}
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-sm">Affected BOQ Item(s)</CardTitle>
+                            <CardDescription>
+                                Item linked when this NCR was raised
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {ncr.affectedBoqItem ? (
+                                <div className="rounded-lg border bg-muted/20 px-3 py-2.5 space-y-2">
+                                    <div>
+                                        <p className="text-[11px] text-muted-foreground">Item Number</p>
+                                        <p className="text-sm font-semibold">#{ncr.affectedBoqItem.itemNumber}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[11px] text-muted-foreground">Description</p>
+                                        <p className="text-sm">{ncr.affectedBoqItem.description}</p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <p className="text-[11px] text-muted-foreground">Quantity</p>
+                                            <p className="text-sm">
+                                                {Number(ncr.affectedBoqItem.quantity ?? 0).toLocaleString()} {ncr.affectedBoqItem.unit}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] text-muted-foreground">Unit Cost</p>
+                                            <p className="text-sm">${Number(ncr.affectedBoqItem.unitPrice ?? 0).toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                    <Button variant="outline" size="sm" asChild className="w-full">
+                                        <Link href={`/dashboard/procurement/${ncr.purchaseOrderId}`}>
+                                            View item in PO workspace
+                                        </Link>
+                                    </Button>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-muted-foreground">
+                                    No specific BOQ item was linked to this NCR.
+                                </p>
                             )}
                         </CardContent>
                     </Card>

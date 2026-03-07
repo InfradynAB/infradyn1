@@ -85,7 +85,7 @@ function ActivityItemComponent({ activity }: { activity: ActivityItem }) {
 export function ActivityFeed({
     activities,
     className,
-    maxHeight = "400px",
+    maxHeight = "clamp(360px, 55dvh, 720px)",
 }: ActivityFeedProps) {
     if (activities.length === 0) {
         return (
@@ -102,15 +102,15 @@ export function ActivityFeed({
     }
 
     return (
-        <Card className={className}>
+        <Card className={cn("flex min-h-0 flex-col", className)}>
             <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <Clock className="h-4 w-4 text-primary" />
                     Recent Activity
                 </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
-                <ScrollArea className="pr-4" style={{ maxHeight }}>
+            <CardContent className="pt-0 flex-1 min-h-0">
+                <ScrollArea className="h-full pr-4" style={{ height: maxHeight }}>
                     <div className="space-y-1">
                         {activities.map((activity) => (
                             <ActivityItemComponent key={activity.id} activity={activity} />
