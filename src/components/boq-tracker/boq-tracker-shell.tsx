@@ -1205,11 +1205,11 @@ export function BoqTrackerShell({ projectId }: Props) {
       </div>
 
       {/* Items table — viewport-height contained */}
-      <div className="mx-4 mb-4 rounded-lg border bg-background text-foreground overflow-hidden flex flex-col h-[calc(100dvh-340px)] min-h-60">
+      <div className="mx-4 mb-4 rounded-lg border bg-white text-foreground dark:bg-background overflow-hidden flex flex-col h-[calc(100dvh-340px)] min-h-60">
         <div className="overflow-x-auto shrink-0 border-b">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/40 hover:bg-muted/40">
+              <TableRow className="bg-white hover:bg-white dark:bg-muted/40 dark:hover:bg-muted/40">
                 {visibleCols.map((colKey) => {
                   const def = ALL_COLUMN_DEFS[colKey];
                   if (!def) return null;
@@ -1299,7 +1299,7 @@ export function BoqTrackerShell({ projectId }: Props) {
                                 ? "bg-violet-500/5 hover:bg-violet-500/10 border-l-2 border-l-violet-500/40"
                                 : isAmended
                                   ? "bg-amber-500/5 hover:bg-amber-500/10 border-l-2 border-l-amber-500/40"
-                                  : "hover:bg-muted/30",
+                                  : "hover:bg-slate-50 dark:hover:bg-muted/30",
                           ].join(" ")}
                         >
                           {visibleCols.map((colKey) => {
@@ -1366,7 +1366,7 @@ export function BoqTrackerShell({ projectId }: Props) {
                                 ? "bg-violet-500/5 hover:bg-violet-500/10 border-l-2 border-l-violet-500/40"
                                 : isAmended
                                   ? "bg-amber-500/5 hover:bg-amber-500/10 border-l-2 border-l-amber-500/40"
-                                  : "hover:bg-muted/30",
+                                  : "hover:bg-slate-50 dark:hover:bg-muted/30",
                           ].join(" ")}
                         >
                           {visibleCols.map((colKey) => {
@@ -1399,11 +1399,11 @@ export function BoqTrackerShell({ projectId }: Props) {
         </div>
 
         {/* Sticky totals row */}
-        <div className="shrink-0 border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
+        <div className="shrink-0 border-t bg-white dark:bg-background/95 backdrop-blur supports-backdrop-filter:bg-white/80 dark:supports-backdrop-filter:bg-background/80">
           <div className="overflow-x-auto">
             <Table>
               <TableBody>
-                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                <TableRow className="bg-white hover:bg-white dark:bg-muted/30 dark:hover:bg-muted/30">
                   {visibleCols.map((colKey, idx) => {
                     const def = ALL_COLUMN_DEFS[colKey];
                     if (!def) return null;
