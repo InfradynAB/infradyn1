@@ -787,7 +787,7 @@ export function ExportBuilderClient({ userRole }: ExportBuilderClientProps) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="projectId">Project ID (optional)</Label>
+                            <Label htmlFor="projectId">Select Project</Label>
                             <Select
                                 value={projectId || "__all__"}
                                 onValueChange={(value) => setProjectId(value === "__all__" ? "" : value)}

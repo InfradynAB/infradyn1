@@ -207,8 +207,8 @@ export async function getFinancialKPIs(filters: KPIFilters): Promise<FinancialKP
     if (poIdList.length > 0) {
         const coTotals = await db
             .select({
-                approvedTotal: sql<number>`COALESCE(SUM(CASE WHEN ${changeOrder.status} = 'APPROVED' THEN ${changeOrder.amountDelta}::numeric ELSE 0 END), 0)`,
-                pendingTotal: sql<number>`COALESCE(SUM(CASE WHEN ${changeOrder.status} IN ('SUBMITTED', 'UNDER_REVIEW') THEN ${changeOrder.amountDelta}::numeric ELSE 0 END), 0)`,
+                approvedTotal: sql<number>`COALESCE(SUM(CASE WHEN UPPER(TRIM(COALESCE(${changeOrder.status}, ''))) = 'APPROVED' THEN ${changeOrder.amountDelta}::numeric ELSE 0 END), 0)`,
+                pendingTotal: sql<number>`COALESCE(SUM(CASE WHEN UPPER(TRIM(COALESCE(${changeOrder.status}, ''))) IN ('SUBMITTED', 'UNDER_REVIEW') THEN ${changeOrder.amountDelta}::numeric ELSE 0 END), 0)`,
             })
             .from(changeOrder)
             .where(and(
@@ -258,7 +258,7 @@ export async function getFinancialKPIs(filters: KPIFilters): Promise<FinancialKP
  * Get Change Order breakdown by category (for donut/bar charts)
  */
 export async function getCOBreakdown(filters: KPIFilters): Promise<COBreakdown> {
-    const { organizationId, projectId, supplierId } = filters;
+    const { organizationId, projectId, supplierId, dateFrom, dateTo } = filters;
 
     // Build PO filter conditions
     const poConditions = [
@@ -279,6 +279,18 @@ export async function getCOBreakdown(filters: KPIFilters): Promise<COBreakdown> 
         return { scope: 0, rate: 0, quantity: 0, schedule: 0, total: 0 };
     }
 
+    const coWhereConditions = [
+        inArray(changeOrder.purchaseOrderId, poIdList),
+        eq(changeOrder.isDeleted, false),
+        sql`UPPER(TRIM(COALESCE(${changeOrder.status}, ''))) = 'APPROVED'`,
+    ];
+    if (dateFrom) {
+        coWhereConditions.push(sql`${changeOrder.approvedAt} >= ${dateFrom}`);
+    }
+    if (dateTo) {
+        coWhereConditions.push(sql`${changeOrder.approvedAt} <= ${dateTo}`);
+    }
+
     const coBreakdown = await db
         .select({
             scope: sql<number>`COALESCE(SUM(CASE WHEN ${changeOrder.coCategory} = 'SCOPE' THEN ${changeOrder.amountDelta}::numeric ELSE 0 END), 0)`,
@@ -288,11 +300,7 @@ export async function getCOBreakdown(filters: KPIFilters): Promise<COBreakdown> 
             total: sql<number>`COALESCE(SUM(${changeOrder.amountDelta}::numeric), 0)`,
         })
         .from(changeOrder)
-        .where(and(
-            inArray(changeOrder.purchaseOrderId, poIdList),
-            eq(changeOrder.isDeleted, false),
-            eq(changeOrder.status, 'APPROVED')
-        ));
+        .where(and(...coWhereConditions));
 
     return {
         scope: Number(coBreakdown[0]?.scope) || 0,

@@ -73,8 +73,6 @@ import { MilestoneProgressChart } from "./charts/milestone-progress";
 import type { MilestoneItem } from "./charts/milestone-progress";
 import { NCRTrendChart } from "./charts/ncr-trend-chart";
 import type { NCRTrendPoint } from "./charts/ncr-trend-chart";
-import { CostWaterfallChart } from "./charts/cost-waterfall-chart";
-import type { WaterfallItem } from "./charts/cost-waterfall-chart";
 import { BudgetUtilizationBar } from "./charts/budget-utilization";
 import { InspectionCalendar } from "./charts/inspection-calendar";
 import type { InspectionEvent } from "./charts/inspection-calendar";
@@ -193,7 +191,6 @@ export function PMDashboardClient() {
     const [trafficLight] = useState<TrafficLightData>(mockTrafficLight);
     const [milestones] = useState<MilestoneItem[]>(mockMilestones);
     const [ncrTrend] = useState<NCRTrendPoint[]>(mockNCRTrend);
-    const [waterfall, setWaterfall] = useState<WaterfallItem[]>([]);
     const [inspections] = useState<InspectionEvent[]>(mockInspections);
     const [supplierCards] = useState<SupplierScorecard[]>(mockSupplierScorecards);
     const [materials] = useState<MaterialItem[]>(mockMaterials);
@@ -390,10 +387,6 @@ export function PMDashboardClient() {
             const json = await res.json();
             if (!json.success || !json.data) throw new Error(json.error || "Invalid response");
             setData(json.data);
-
-            // Build waterfall from KPIs
-            const k = json.data.kpis;
-            setWaterfall(buildWaterfall(k));
 
             // Try fetching PM-specific risk data
             try {
@@ -1038,7 +1031,12 @@ export function PMDashboardClient() {
                             />
                         </GlowCard>
                         <GlowCard>
-                            <CostWaterfallChart data={waterfall} />
+                            <ProgramSnapshot
+                                kpis={data.kpis}
+                                deliveryCount={filteredDeliveries.length}
+                                milestoneCount={filteredMilestones.length}
+                                materialCount={filteredMaterials.length}
+                            />
                         </GlowCard>
                         <div className="grid gap-4 md:grid-cols-4">
                             <FinCard label="Total Committed" value={fmt(data.kpis.financial.totalCommitted)} icon={CurrencyDollar} color="blue" />
@@ -1247,12 +1245,86 @@ function FinCard({ label, value, icon: Icon, color }: { label: string; value: st
     );
 }
 
+function ProgramSnapshot({
+    kpis,
+    deliveryCount,
+    milestoneCount,
+    materialCount,
+}: {
+    kpis: DashboardKPIs;
+    deliveryCount: number;
+    milestoneCount: number;
+    materialCount: number;
+}) {
+    const financialCompletion = Math.min(100, Math.max(0, kpis.progress.financialProgress));
+    const deliveryOnTime = Math.min(100, Math.max(0, kpis.logistics.onTimeRate));
+    const milestoneCompletion = kpis.progress.milestonesTotal > 0
+        ? (kpis.progress.milestonesCompleted / kpis.progress.milestonesTotal) * 100
+        : 0;
+    const ncrRate = Math.min(100, Math.max(0, kpis.quality.ncrRate));
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Executive Snapshot</h3>
+                <p className="text-[11px] text-muted-foreground">Finance, deliverables, quality, milestones</p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-xl border bg-muted/20 p-3.5 space-y-1">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Financial</p>
+                    <p className="text-sm font-semibold tabular-nums">{fmt(kpis.financial.totalCommitted)} committed</p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                        {fmt(kpis.financial.totalPaid)} paid · {fmt(kpis.financial.totalPending)} pending
+                    </p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                        {financialCompletion.toFixed(1)}% financially complete
+                    </p>
+                </div>
+
+                <div className="rounded-xl border bg-muted/20 p-3.5 space-y-1">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Deliverables</p>
+                    <p className="text-sm font-semibold tabular-nums">{deliveryCount.toLocaleString()} tracked deliveries</p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                        {kpis.logistics.deliveredOnTime.toLocaleString()} on-time · {kpis.logistics.delayedShipments.toLocaleString()} delayed
+                    </p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                        {deliveryOnTime.toFixed(1)}% on-time delivery rate
+                    </p>
+                </div>
+
+                <div className="rounded-xl border bg-muted/20 p-3.5 space-y-1">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Quality (NCR)</p>
+                    <p className="text-sm font-semibold tabular-nums">{kpis.quality.openNCRs.toLocaleString()} open NCRs</p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                        {kpis.quality.criticalNCRs.toLocaleString()} critical · {kpis.quality.closedNCRs.toLocaleString()} closed
+                    </p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                        NCR rate: {ncrRate.toFixed(1)}%
+                    </p>
+                </div>
+
+                <div className="rounded-xl border bg-muted/20 p-3.5 space-y-1">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Milestones & Materials</p>
+                    <p className="text-sm font-semibold tabular-nums">{milestoneCount.toLocaleString()} milestones · {materialCount.toLocaleString()} materials</p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                        {kpis.progress.milestonesCompleted.toLocaleString()} completed · {kpis.progress.delayedCount.toLocaleString()} delayed
+                    </p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                        {milestoneCompletion.toFixed(1)}% milestone completion
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function ScorePill({ score, bold }: { score: number; bold?: boolean }) {
     const color = score >= 80 ? "text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/15"
         : score >= 60 ? "text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/15"
             : "text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-500/15";
     return (
-        <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-[11px] tabular-nums font-sans tabular-nums", color, bold && "font-bold")}>
+        <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-[11px] tabular-nums font-sans", color, bold && "font-bold")}>
             {score}
         </span>
     );
@@ -1399,17 +1471,6 @@ function calcQAPassRate(kpis: DashboardKPIs): number {
     const total = kpis.quality.totalNCRs + kpis.quality.closedNCRs;
     return total > 0 ? ((kpis.quality.closedNCRs) / total) * 100 : 100;
 }
-function buildWaterfall(kpis: DashboardKPIs): WaterfallItem[] {
-    return [
-        { name: "Original Budget", value: kpis.financial.totalCommitted, type: "start" },
-        { name: "Change Orders", value: kpis.financial.changeOrderImpact, type: "increase" },
-        { name: "Payments Made", value: kpis.financial.totalPaid, type: "decrease" },
-        { name: "Committed", value: kpis.financial.totalCommitted + kpis.financial.changeOrderImpact - kpis.financial.totalPaid, type: "total" },
-        { name: "At-Risk Value", value: kpis.financial.forecastToComplete * 0.15, type: "increase" },
-        { name: "Total Exposure", value: kpis.financial.totalCommitted + kpis.financial.changeOrderImpact - kpis.financial.totalPaid + kpis.financial.forecastToComplete * 0.15, type: "total" },
-    ];
-}
-
 // ============================================
 // MOCK DATA
 // ============================================
