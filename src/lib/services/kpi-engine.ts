@@ -463,13 +463,16 @@ export async function getQualityKPIs(filters: KPIFilters): Promise<QualityKPIs> 
     const poTotal = Number(poCount[0]?.count) || 1;
     const openNCRs = Number(ncrStats[0]?.open) || 0;
 
+    const rawNcrRate = Math.round((totalNCRs / poTotal) * 100) / 100;
+    const ncrRate = Math.min(100, Math.max(0, rawNcrRate));
+
     return {
         totalNCRs,
         openNCRs,
         closedNCRs: totalNCRs - openNCRs,
         criticalNCRs: Number(ncrStats[0]?.critical) || 0,
         ncrFinancialImpact: Number(ncrStats[0]?.financialImpact) || 0,
-        ncrRate: Math.round((totalNCRs / poTotal) * 100) / 100,
+        ncrRate,
     };
 }
 

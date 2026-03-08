@@ -101,15 +101,15 @@ export function BudgetUtilizationBar({ originalBudget, committed, invoiced, paid
 
                 {/* ── RIGHT: donut + legend ─────────────────────────── */}
                 <div className="flex-none flex items-center justify-center gap-4">
-                    <div className="relative w-[130px] h-[130px]">
+                    <div className="relative w-[148px] h-[148px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
                                     data={chartData}
                                     cx="50%"
                                     cy="50%"
-                                    innerRadius={42}
-                                    outerRadius={62}
+                                    innerRadius={48}
+                                    outerRadius={72}
                                     paddingAngle={2}
                                     dataKey="value"
                                     stroke="transparent"
@@ -133,10 +133,10 @@ export function BudgetUtilizationBar({ originalBudget, committed, invoiced, paid
                         </ResponsiveContainer>
                         {/* center label */}
                         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <span className="text-[11px] font-bold font-sans tabular-nums text-foreground leading-snug">
+                            <span className="text-xs font-bold font-sans tabular-nums text-foreground leading-snug">
                                 {fmtShort(originalBudget)}
                             </span>
-                            <span className="text-[8px] uppercase tracking-widest text-muted-foreground font-semibold">
+                            <span className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">
                                 Total
                             </span>
                         </div>

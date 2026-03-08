@@ -1258,16 +1258,10 @@ function ScorePill({ score, bold }: { score: number; bold?: boolean }) {
     );
 }
 
-function NCRStatCard({ label, value, color, alert }: { label: string; value: number | string; color: "blue" | "amber" | "red" | "emerald"; alert?: boolean }) {
-    const palette = {
-        blue: "text-blue-600 dark:text-blue-400",
-        amber: "text-amber-600 dark:text-amber-400",
-        red: "text-red-600 dark:text-red-400",
-        emerald: "text-emerald-600 dark:text-emerald-400",
-    }[color];
+function NCRStatCard({ label, value, color: _color, alert }: { label: string; value: number | string; color: "blue" | "amber" | "red" | "emerald"; alert?: boolean }) {
     return (
         <div className={cn("rounded-2xl border border-border/60 bg-card p-5 text-center", alert && "border-red-200/80 dark:border-red-800/40")}>
-            <p className={cn("text-2xl font-semibold font-sans tabular-nums", palette)}>{value}</p>
+            <p className="text-2xl font-semibold font-sans tabular-nums text-foreground">{value}</p>
             <p className="text-xs text-muted-foreground mt-1 font-medium">{label}</p>
         </div>
     );
