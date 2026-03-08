@@ -53,6 +53,9 @@ export function OrgSwitcher({ organizations, activeOrgId }: OrgSwitcherProps) {
             if (result.success) {
                 toast.success("Switched organization");
                 setOpen(false);
+                if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("infradyn:context-changed", { detail: { organizationId: orgId } }));
+                }
                 router.refresh();
             } else {
                 toast.error(result.error || "Failed to switch organization");

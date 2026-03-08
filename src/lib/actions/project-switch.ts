@@ -17,6 +17,7 @@ export async function switchProject(projectId: string | null) {
         // Revalidate dashboard pages to reflect new project context
         revalidatePath("/dashboard");
         revalidatePath("/dashboard/procurement");
+        revalidatePath("/dashboard/boq");
         revalidatePath("/dashboard/alerts");
         revalidatePath("/dashboard/analytics");
     }

@@ -1205,7 +1205,7 @@ export function BoqTrackerShell({ projectId }: Props) {
       </div>
 
       {/* Items table — viewport-height contained */}
-      <div className="mx-4 mb-4 rounded-lg border overflow-hidden flex flex-col h-[calc(100dvh-340px)] min-h-60">
+      <div className="mx-4 mb-4 rounded-lg border bg-background text-foreground overflow-hidden flex flex-col h-[calc(100dvh-340px)] min-h-60">
         <div className="overflow-x-auto shrink-0 border-b">
           <Table>
             <TableHeader>

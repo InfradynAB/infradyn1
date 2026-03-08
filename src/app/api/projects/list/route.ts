@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { getActiveOrganizationId } from "@/lib/utils/org-context";
+import { getActiveProjectId } from "@/lib/utils/project-context";
 
 /**
  * GET /api/projects/list
@@ -21,6 +22,7 @@ export async function GET() {
         }
 
         const activeOrgId = await getActiveOrganizationId();
+        const activeProjectId = await getActiveProjectId();
 
         if (!activeOrgId) {
             return NextResponse.json({ 
@@ -39,7 +41,10 @@ export async function GET() {
 
         return NextResponse.json({
             success: true,
-            data: { projects },
+            data: {
+                projects,
+                activeProjectId,
+            },
         });
     } catch (error) {
         console.error("Error fetching projects:", error);

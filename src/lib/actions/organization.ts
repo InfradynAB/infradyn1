@@ -10,6 +10,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createOrgSchema } from "../schemas/organisation";
 import { setActiveOrganizationId, getActiveOrganizationId, verifyOrgAccess } from "@/lib/utils/org-context";
+import { setActiveProjectId } from "@/lib/utils/project-context";
 
 
 
@@ -177,12 +178,15 @@ export async function switchOrganization(orgId: string) {
     if (!success) {
         return { error: "Failed to switch organization." };
     }
+    // Reset project scope when organization changes to avoid stale cross-org project context.
+    await setActiveProjectId(null);
 
     // Revalidate all dashboard paths
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/projects");
     revalidatePath("/dashboard/suppliers");
     revalidatePath("/dashboard/procurement");
+    revalidatePath("/dashboard/boq");
     revalidatePath("/dashboard/settings");
 
     return { success: true, organizationId: orgId };

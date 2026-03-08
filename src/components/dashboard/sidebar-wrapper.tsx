@@ -46,6 +46,9 @@ export function SidebarWrapper({
         // Empty string means "All Projects"
         const result = await switchProject(projectId || null);
         if (result.success) {
+            if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("infradyn:context-changed", { detail: { projectId: projectId || null } }));
+            }
             router.refresh();
             toast.success(projectId ? "Project switched" : "Viewing all projects");
         } else {

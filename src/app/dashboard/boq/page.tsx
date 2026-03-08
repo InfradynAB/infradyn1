@@ -20,17 +20,46 @@ export default function BoqTrackerPage() {
   const [projectId, setProjectId] = useState<string>("");
   const [loadingProjects, setLoadingProjects] = useState(true);
 
+  const loadProjects = async (preferredProjectId?: string | null) => {
+    setLoadingProjects(true);
+    try {
+      const res = await fetch("/api/projects/list", { cache: "no-store" });
+      const json = await res.json();
+      const list: Project[] = json.success ? (json.data?.projects ?? []) : [];
+      const activeProjectIdFromServer: string | null = json.success
+        ? (json.data?.activeProjectId ?? null)
+        : null;
+
+      setProjects(list);
+      if (list.length === 0) {
+        setProjectId("");
+        return;
+      }
+
+      const desiredId = preferredProjectId ?? activeProjectIdFromServer ?? "";
+      const desiredExists = desiredId && list.some((project) => project.id === desiredId);
+      setProjectId((current) => {
+        if (desiredExists) return desiredId;
+        if (current && list.some((project) => project.id === current)) return current;
+        return list[0].id;
+      });
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
+
   useEffect(() => {
-    fetch("/api/projects/list")
-      .then((res) => res.json())
-      .then((json) => {
-        const list = json.success ? (json.data?.projects ?? []) : [];
-        setProjects(list);
-        if (list.length > 0) {
-          setProjectId((current) => current || list[0].id);
-        }
-      })
-      .finally(() => setLoadingProjects(false));
+    void loadProjects();
+
+    const handleContextChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ projectId?: string | null }>).detail;
+      void loadProjects(detail?.projectId ?? null);
+    };
+
+    window.addEventListener("infradyn:context-changed", handleContextChanged);
+    return () => {
+      window.removeEventListener("infradyn:context-changed", handleContextChanged);
+    };
   }, []);
 
   const selectedProjectName = useMemo(
