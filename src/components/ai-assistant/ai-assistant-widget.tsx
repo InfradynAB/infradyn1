@@ -31,9 +31,15 @@ const SUPPLIER_SUGGESTIONS = [
 
 
 interface AIAssistantWidgetProps {
-    user: { name: string; role?: string };
+    user: { id?: string; name: string; role?: string };
     activeOrgId?: string | null;
     activeProjectId?: string | null;
+}
+
+const RECENT_INTERACTIONS_LIMIT = 6;
+
+function getRecentInteractionsKey(user: { id?: string; name: string; role?: string }) {
+    return `infradyn-ai-recent-interactions-v1:${user.id ?? user.name}:${user.role ?? "USER"}`;
 }
 
 
@@ -41,12 +47,46 @@ interface AIAssistantWidgetProps {
 export function AIAssistantWidget({ user }: AIAssistantWidgetProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [input, setInput] = useState("");
+    const [recentInteractions, setRecentInteractions] = useState<string[]>([]);
     const { messages, isLoading, error, sendMessage, clearMessages } = useAIChat();
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const isSupplier = user.role === "SUPPLIER";
 
     const suggestions = isSupplier ? SUPPLIER_SUGGESTIONS : PM_SUGGESTIONS;
+    const recentInteractionsKey = getRecentInteractionsKey(user);
+
+    useEffect(() => {
+        try {
+            const raw = window.localStorage.getItem(recentInteractionsKey);
+            if (!raw) {
+                setRecentInteractions([]);
+                return;
+            }
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+                setRecentInteractions(parsed.filter((v): v is string => typeof v === "string").slice(0, RECENT_INTERACTIONS_LIMIT));
+            } else {
+                setRecentInteractions([]);
+            }
+        } catch {
+            setRecentInteractions([]);
+        }
+    }, [recentInteractionsKey]);
+
+    const persistInteraction = (content: string) => {
+        const trimmed = content.trim();
+        if (!trimmed) return;
+        setRecentInteractions((prev) => {
+            const deduped = [trimmed, ...prev.filter((item) => item !== trimmed)].slice(0, RECENT_INTERACTIONS_LIMIT);
+            try {
+                window.localStorage.setItem(recentInteractionsKey, JSON.stringify(deduped));
+            } catch {
+                // no-op
+            }
+            return deduped;
+        });
+    };
 
     // Auto-scroll to bottom on new messages
     useEffect(() => {
@@ -66,6 +106,7 @@ export function AIAssistantWidget({ user }: AIAssistantWidgetProps) {
     const handleSend = async (text?: string) => {
         const content = text ?? input.trim();
         if (!content) return;
+        persistInteraction(content);
         setInput("");
         await sendMessage(content);
     };
@@ -150,6 +191,7 @@ export function AIAssistantWidget({ user }: AIAssistantWidgetProps) {
                         <WelcomeView
                             userName={user.name?.split(" ")[0] ?? "there"}
                             suggestions={suggestions}
+                            recentInteractions={recentInteractions}
                             onSuggestionClick={handleSend}
                         />
                     ) : (
@@ -214,10 +256,12 @@ export function AIAssistantWidget({ user }: AIAssistantWidgetProps) {
 function WelcomeView({
     userName,
     suggestions,
+    recentInteractions,
     onSuggestionClick,
 }: {
     userName: string;
     suggestions: string[];
+    recentInteractions: string[];
     onSuggestionClick: (text: string) => void;
 }) {
     return (
@@ -250,6 +294,30 @@ function WelcomeView({
                     </button>
                 ))}
             </div>
+
+            {recentInteractions.length > 0 && (
+                <div className="w-full mt-5 pt-4 border-t border-border/40">
+                    <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2 text-left">
+                        Recent interactions
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {recentInteractions.map((interaction) => (
+                            <button
+                                key={interaction}
+                                onClick={() => onSuggestionClick(interaction)}
+                                className={cn(
+                                    "text-xs text-left px-2.5 py-1.5 rounded-lg",
+                                    "bg-cyan-700/10 hover:bg-cyan-700/15 border border-cyan-700/20",
+                                    "transition-colors text-cyan-800 dark:text-cyan-200",
+                                )}
+                                title={interaction}
+                            >
+                                {interaction}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
