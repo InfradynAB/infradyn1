@@ -550,8 +550,8 @@ export function BoqTrackerShell({ projectId }: Props) {
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [showViewExplanation, setShowViewExplanation] = useState(false);
   const [sectionExpanded, setSectionExpanded] = useState({
-    changed: true,
-    original: false,
+    changed: false,
+    original: true,
   });
 
   // Sheet state
@@ -1259,73 +1259,6 @@ export function BoqTrackerShell({ projectId }: Props) {
                 {items.length > 0 && (
                   <>
                     <TableRow
-                      className="cursor-pointer bg-violet-500/5 hover:bg-violet-500/10"
-                      onClick={() =>
-                        setSectionExpanded((prev) => ({ ...prev, changed: !prev.changed }))
-                      }
-                    >
-                      <TableCell colSpan={visibleCols.length || 1} className="py-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <ChevronDown
-                              className={`h-4 w-4 text-muted-foreground transition-transform ${
-                                sectionExpanded.changed ? "" : "-rotate-90"
-                              }`}
-                            />
-                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                              Changed / Updated
-                            </span>
-                          </div>
-                          <span className="text-xs tabular-nums text-muted-foreground">
-                            {changedItems.length.toLocaleString()} item(s)
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    {sectionExpanded.changed && changedItems.map((item) => {
-                      const isSelected = selectedItem?.id === item.id;
-                      const isAmended = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
-                                        (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
-                      const isVariationRow = item.isVariation;
-                      return (
-                        <TableRow
-                          key={item.id}
-                          onClick={() => openItem(item)}
-                          className={[
-                            "cursor-pointer transition-colors",
-                            isSelected
-                              ? "bg-primary/10 hover:bg-primary/10"
-                              : isVariationRow
-                                ? "bg-violet-500/5 hover:bg-violet-500/10 border-l-2 border-l-violet-500/40"
-                                : isAmended
-                                  ? "bg-amber-500/5 hover:bg-amber-500/10 border-l-2 border-l-amber-500/40"
-                                  : "hover:bg-slate-50 dark:hover:bg-muted/30",
-                          ].join(" ")}
-                        >
-                          {visibleCols.map((colKey) => {
-                            const def = ALL_COLUMN_DEFS[colKey];
-                            if (!def) return null;
-                            return (
-                              <TableCell key={colKey} className={def.width ?? ""}>
-                                {def.cell(item)}
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      );
-                    })}
-                    {sectionExpanded.changed && changedItems.length === 0 && (
-                      <TableRow>
-                        <TableCell
-                          colSpan={visibleCols.length || 1}
-                          className="py-4 text-center text-sm text-muted-foreground"
-                        >
-                          No changed or updated items in this view.
-                        </TableCell>
-                      </TableRow>
-                    )}
-
-                    <TableRow
                       className="cursor-pointer bg-muted/20 hover:bg-muted/30"
                       onClick={() =>
                         setSectionExpanded((prev) => ({ ...prev, original: !prev.original }))
@@ -1391,6 +1324,73 @@ export function BoqTrackerShell({ projectId }: Props) {
                         </TableCell>
                       </TableRow>
                     )}
+
+                    <TableRow
+                      className="cursor-pointer bg-violet-500/5 hover:bg-violet-500/10"
+                      onClick={() =>
+                        setSectionExpanded((prev) => ({ ...prev, changed: !prev.changed }))
+                      }
+                    >
+                      <TableCell colSpan={visibleCols.length || 1} className="py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <ChevronDown
+                              className={`h-4 w-4 text-muted-foreground transition-transform ${
+                                sectionExpanded.changed ? "" : "-rotate-90"
+                              }`}
+                            />
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Changed / Updated
+                            </span>
+                          </div>
+                          <span className="text-xs tabular-nums text-muted-foreground">
+                            {changedItems.length.toLocaleString()} item(s)
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {sectionExpanded.changed && changedItems.map((item) => {
+                      const isSelected = selectedItem?.id === item.id;
+                      const isAmended = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
+                                        (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
+                      const isVariationRow = item.isVariation;
+                      return (
+                        <TableRow
+                          key={item.id}
+                          onClick={() => openItem(item)}
+                          className={[
+                            "cursor-pointer transition-colors",
+                            isSelected
+                              ? "bg-primary/10 hover:bg-primary/10"
+                              : isVariationRow
+                                ? "bg-violet-500/5 hover:bg-violet-500/10 border-l-2 border-l-violet-500/40"
+                                : isAmended
+                                  ? "bg-amber-500/5 hover:bg-amber-500/10 border-l-2 border-l-amber-500/40"
+                                  : "hover:bg-slate-50 dark:hover:bg-muted/30",
+                          ].join(" ")}
+                        >
+                          {visibleCols.map((colKey) => {
+                            const def = ALL_COLUMN_DEFS[colKey];
+                            if (!def) return null;
+                            return (
+                              <TableCell key={colKey} className={def.width ?? ""}>
+                                {def.cell(item)}
+                              </TableCell>
+                            );
+                          })}
+                        </TableRow>
+                      );
+                    })}
+                    {sectionExpanded.changed && changedItems.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={visibleCols.length || 1}
+                          className="py-4 text-center text-sm text-muted-foreground"
+                        >
+                          No changed or updated items in this view.
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </>
                 )}
               </TableBody>
@@ -1408,24 +1408,12 @@ export function BoqTrackerShell({ projectId }: Props) {
                     const def = ALL_COLUMN_DEFS[colKey];
                     if (!def) return null;
 
-                    let content: ReactNode = <span className="text-muted-foreground">—</span>;
+                    let content: ReactNode = null;
 
                     if (idx === 0) {
                       content = (
                         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                           Totals ({items.length})
-                        </span>
-                      );
-                    } else if (colKey === "quantity") {
-                      content = (
-                        <span className="tabular-nums text-sm font-semibold">
-                          {totals.quantity.toLocaleString()}
-                        </span>
-                      );
-                    } else if (colKey === "unitPrice") {
-                      content = (
-                        <span className="tabular-nums text-sm font-semibold">
-                          {fmt(totals.unitPrice)}
                         </span>
                       );
                     } else if (colKey === "totalPrice") {
@@ -1434,46 +1422,10 @@ export function BoqTrackerShell({ projectId }: Props) {
                           {fmt(totals.totalPrice)}
                         </span>
                       );
-                    } else if (colKey === "quantityDelivered") {
-                      content = (
-                        <span className="tabular-nums text-sm font-semibold">
-                          {totals.quantityDelivered.toLocaleString()}
-                        </span>
-                      );
-                    } else if (colKey === "quantityInstalled") {
-                      content = (
-                        <span className="tabular-nums text-sm font-semibold">
-                          {totals.quantityInstalled.toLocaleString()}
-                        </span>
-                      );
-                    } else if (colKey === "quantityCertified") {
-                      content = (
-                        <span className="tabular-nums text-sm font-semibold">
-                          {totals.quantityCertified.toLocaleString()}
-                        </span>
-                      );
                     } else if (colKey === "delivery") {
                       content = (
                         <span className="tabular-nums text-sm font-semibold">
                           {totals.deliveryPct.toFixed(1)}%
-                        </span>
-                      );
-                    } else if (colKey === "originalQuantity") {
-                      content = (
-                        <span className="tabular-nums text-sm font-semibold">
-                          {totals.originalQuantity.toLocaleString()}
-                        </span>
-                      );
-                    } else if (colKey === "originalUnitPrice") {
-                      content = (
-                        <span className="tabular-nums text-sm font-semibold">
-                          {fmt(totals.originalUnitPrice)}
-                        </span>
-                      );
-                    } else if (colKey === "revisedQuantity") {
-                      content = (
-                        <span className="tabular-nums text-sm font-semibold">
-                          {totals.revisedQuantity.toLocaleString()}
                         </span>
                       );
                     } else if (colKey === "lateDays") {
