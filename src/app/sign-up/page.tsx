@@ -1,6 +1,7 @@
 import { SignUpForm } from "@/components/auth/sign-up-form";
 import Link from "next/link";
 
+
 export default function SignUpPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f5f5f7] px-4 py-4 sm:py-6">

@@ -14,7 +14,6 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CircleNotchIcon, GoogleLogoIcon, Eye, EyeSlash } from "@phosphor-icons/react";
@@ -127,21 +126,29 @@ export function SignInForm() {
 
     const content = showTwoFactor ? (
         <Form {...otpForm}>
-            <form onSubmit={otpForm.handleSubmit(onOTPSubmit)} className="space-y-4">
+            <form onSubmit={otpForm.handleSubmit(onOTPSubmit)} className="space-y-3">
                 <FormField
                     control={otpForm.control}
                     name="otp"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>OTP Code</FormLabel>
+                            <FormLabel className="text-xs font-medium text-neutral-800">OTP Code</FormLabel>
                             <FormControl>
-                                <Input placeholder="123456" {...field} />
+                                <Input
+                                    placeholder="123456"
+                                    className="h-10 border-neutral-300 placeholder:text-neutral-400"
+                                    {...field}
+                                />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
                     )}
                 />
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button
+                    type="submit"
+                    className="h-10 w-full rounded-md bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90"
+                    disabled={isLoading}
+                >
                     {isLoading && <CircleNotchIcon className="mr-2 h-4 w-4 animate-spin" />}
                     Verify
                 </Button>
@@ -150,15 +157,20 @@ export function SignInForm() {
     ) : (
         <>
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
                     <FormField
                         control={form.control}
                         name="email"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Email</FormLabel>
+                                <FormLabel className="text-xs font-medium text-neutral-800">Email address</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Enter your email" autoComplete="email" {...field} />
+                                    <Input
+                                        placeholder="Provide your email address"
+                                        autoComplete="email"
+                                        className="h-10 border-neutral-300 placeholder:text-neutral-400"
+                                        {...field}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -170,10 +182,10 @@ export function SignInForm() {
                         render={({ field }) => (
                             <FormItem>
                                 <div className="flex items-center justify-between">
-                                    <FormLabel>Password</FormLabel>
+                                    <FormLabel className="text-xs font-medium text-neutral-800">Password</FormLabel>
                                     <Link
                                         href="/reset-password"
-                                        className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                                        className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
                                     >
                                         Forgot Password?
                                     </Link>
@@ -184,6 +196,7 @@ export function SignInForm() {
                                             type={showPassword ? "text" : "password"}
                                             autoComplete="current-password"
                                             placeholder="Enter your password"
+                                            className="h-10 border-neutral-300 placeholder:text-neutral-400"
                                             {...field}
                                         />
                                         <Button
@@ -206,49 +219,53 @@ export function SignInForm() {
                             </FormItem>
                         )}
                     />
-                    <Button type="submit" className="w-full" disabled={isLoading}>
+                    <Button
+                        type="submit"
+                        className="h-10 w-full rounded-md bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90"
+                        disabled={isLoading}
+                    >
                         {isLoading && <CircleNotchIcon className="mr-2 h-4 w-4 animate-spin" />}
                         Sign In
                     </Button>
                 </form>
             </Form>
 
-            <div className="relative py-2">
+            <div className="relative py-4">
                 <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
+                    <span className="w-full border-t border-neutral-200" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">OR</span>
+                    <span className="bg-white px-2 font-medium tracking-wide text-neutral-400">OR</span>
                 </div>
             </div>
 
-            <Button variant="outline" onClick={handleGoogleSignIn} disabled={isLoading} className="w-full">
+            <Button
+                variant="outline"
+                onClick={handleGoogleSignIn}
+                disabled={isLoading}
+                className="h-10 w-full border-neutral-300 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+            >
                 <GoogleLogoIcon className="mr-2 h-4 w-4" weight="bold" />
                 Continue with Google
             </Button>
-
-            <p className="pt-2 text-center text-sm text-muted-foreground">
-                Don&apos;t have an account?{" "}
-                <Link href="/sign-up" className="underline underline-offset-4">
-                    Sign Up
-                </Link>
-            </p>
         </>
     );
 
     if (showTwoFactor) {
         return (
-            <Card className="w-full max-w-md">
-                <CardHeader>
-                    <CardTitle>Two-Factor Authentication</CardTitle>
-                    <CardDescription>Enter the code sent to your email.</CardDescription>
-                </CardHeader>
-                <CardContent>{content}</CardContent>
-            </Card>
+            <div className="w-full space-y-2">
+                <div>
+                    <h2 className="text-sm font-semibold text-neutral-900">Two-Factor Authentication</h2>
+                    <p className="mt-1 text-xs leading-5 text-neutral-600">
+                        Enter the verification code sent to your email.
+                    </p>
+                </div>
+                {content}
+            </div>
         );
     }
 
     return (
-        <div className="w-full max-w-md">{content}</div>
+        <div className="w-full">{content}</div>
     );
 }
