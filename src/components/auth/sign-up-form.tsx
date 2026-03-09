@@ -19,7 +19,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CircleNotch, Eye, EyeSlash, GoogleLogoIcon } from "@phosphor-icons/react";
 import { PasswordStrengthIndicator } from "@/components/ui/password-strength";
-import Link from "next/link";
 
 const signUpSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
@@ -103,17 +102,22 @@ export function SignUpForm() {
     }
 
     return (
-        <div className="w-full max-w-md">
+        <div className="w-full">
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
                     <FormField
                         control={form.control}
                         name="name"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Full Name</FormLabel>
+                                <FormLabel className="text-xs font-medium text-neutral-800">Full Name</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Enter your name" autoComplete="name" {...field} />
+                                    <Input
+                                        placeholder="Enter your name"
+                                        autoComplete="name"
+                                        className="h-10 border-neutral-300 placeholder:text-neutral-400"
+                                        {...field}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -124,9 +128,14 @@ export function SignUpForm() {
                         name="email"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Email</FormLabel>
+                                <FormLabel className="text-xs font-medium text-neutral-800">Email address</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Enter your email" autoComplete="email" {...field} />
+                                    <Input
+                                        placeholder="Provide your email address"
+                                        autoComplete="email"
+                                        className="h-10 border-neutral-300 placeholder:text-neutral-400"
+                                        {...field}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -137,9 +146,14 @@ export function SignUpForm() {
                         name="phone"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Phone (Optional)</FormLabel>
+                                <FormLabel className="text-xs font-medium text-neutral-800">Phone (Optional)</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="+1234567890" autoComplete="tel" {...field} />
+                                    <Input
+                                        placeholder="+1234567890"
+                                        autoComplete="tel"
+                                        className="h-10 border-neutral-300 placeholder:text-neutral-400"
+                                        {...field}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -150,13 +164,14 @@ export function SignUpForm() {
                         name="password"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Password</FormLabel>
+                                <FormLabel className="text-xs font-medium text-neutral-800">Password</FormLabel>
                                 <FormControl>
                                     <div className="relative">
                                         <Input
                                             type={showPassword ? "text" : "password"}
                                             autoComplete="new-password"
                                             placeholder="Create a password"
+                                            className="h-10 border-neutral-300 placeholder:text-neutral-400"
                                             {...field}
                                         />
                                         <Button
@@ -185,13 +200,14 @@ export function SignUpForm() {
                         name="confirmPassword"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Confirm Password</FormLabel>
+                                <FormLabel className="text-xs font-medium text-neutral-800">Confirm Password</FormLabel>
                                 <FormControl>
                                     <div className="relative">
                                         <Input
                                             type={showConfirmPassword ? "text" : "password"}
                                             autoComplete="new-password"
                                             placeholder="Confirm your password"
+                                            className="h-10 border-neutral-300 placeholder:text-neutral-400"
                                             {...field}
                                         />
                                         <Button
@@ -214,33 +230,35 @@ export function SignUpForm() {
                             </FormItem>
                         )}
                     />
-                    <Button type="submit" className="w-full" disabled={isLoading}>
+                    <Button
+                        type="submit"
+                        className="h-10 w-full rounded-md bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90"
+                        disabled={isLoading}
+                    >
                         {isLoading && <CircleNotch className="mr-2 h-4 w-4 animate-spin" />}
                         Sign Up
                     </Button>
                 </form>
             </Form>
 
-            <div className="relative py-6">
+            <div className="relative py-4">
                 <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
+                    <span className="w-full border-t border-neutral-200" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">OR</span>
+                    <span className="bg-white px-2 font-medium tracking-wide text-neutral-400">OR</span>
                 </div>
             </div>
 
-            <Button variant="outline" onClick={handleGoogleContinue} disabled={isLoading} className="w-full">
+            <Button
+                variant="outline"
+                onClick={handleGoogleContinue}
+                disabled={isLoading}
+                className="h-10 w-full border-neutral-300 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+            >
                 <GoogleLogoIcon className="mr-2 h-4 w-4" weight="bold" />
                 Continue with Google
             </Button>
-
-            <p className="mt-4 text-center text-sm text-muted-foreground">
-                Already have an account?{" "}
-                <Link href="/sign-in" className="underline underline-offset-4">
-                    Sign in
-                </Link>
-            </p>
         </div>
     );
 }
