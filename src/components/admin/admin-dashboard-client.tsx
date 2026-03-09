@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -124,6 +125,8 @@ export function AdminDashboardClient({
     const [orgSize, setOrgSize] = useState(organization.size || "");
     const [orgDescription, setOrgDescription] = useState(organization.description || "");
     const [bulkRows, setBulkRows] = useState<BulkInviteRow[]>([]);
+    const [bulkEmailList, setBulkEmailList] = useState("");
+    const [bulkEmailRole, setBulkEmailRole] = useState<BulkInviteRole>("PM");
     const [isSendingBulk, setIsSendingBulk] = useState(false);
     const [isEditEmailOpen, setIsEditEmailOpen] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -183,6 +186,46 @@ export function AdminDashboardClient({
             ...rows,
             { id: createRowId(), name: "", email: "", role: "PM" }
         ]);
+    };
+
+    const addBulkEmailsFromList = () => {
+        const chunks = bulkEmailList
+            .split(/[\n,;]+/g)
+            .map((item) => item.trim().toLowerCase())
+            .filter(Boolean);
+
+        if (chunks.length === 0) {
+            toast.error("Paste at least one email.");
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const uniqueIncoming = Array.from(new Set(chunks));
+        const existingEmails = new Set(bulkRows.map((row) => row.email.trim().toLowerCase()));
+
+        const validNewEmails = uniqueIncoming.filter((email) => emailRegex.test(email) && !existingEmails.has(email));
+        const invalidOrDuplicateCount = uniqueIncoming.length - validNewEmails.length;
+
+        if (validNewEmails.length === 0) {
+            toast.error("No new valid emails found to add.");
+            return;
+        }
+
+        setBulkRows((rows) => [
+            ...rows,
+            ...validNewEmails.map((email) => ({
+                id: createRowId(),
+                name: "",
+                email,
+                role: bulkEmailRole,
+            })),
+        ]);
+        setBulkEmailList("");
+
+        toast.success(`Added ${validNewEmails.length} email${validNewEmails.length === 1 ? "" : "s"} to bulk invite.`);
+        if (invalidOrDuplicateCount > 0) {
+            toast.warning(`${invalidOrDuplicateCount} invalid or duplicate email${invalidOrDuplicateCount === 1 ? "" : "s"} skipped.`);
+        }
     };
 
     const downloadBulkTemplate = () => {
@@ -653,6 +696,43 @@ export function AdminDashboardClient({
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
+                                <div className="rounded-xl border border-border/60 p-3">
+                                    <div className="grid gap-3 md:grid-cols-[1fr_240px]">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="bulk-emails-list">Comma-separated emails</Label>
+                                            <Textarea
+                                                id="bulk-emails-list"
+                                                value={bulkEmailList}
+                                                onChange={(e) => setBulkEmailList(e.target.value)}
+                                                placeholder="a@company.com, b@company.com"
+                                                className="min-h-20"
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                You can separate emails with commas, new lines, or semicolons.
+                                            </p>
+                                        </div>
+                                        <div className="space-y-2 md:self-start">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="bulk-email-role">Role for pasted emails</Label>
+                                                <Select value={bulkEmailRole} onValueChange={(value) => setBulkEmailRole(value as BulkInviteRole)}>
+                                                    <SelectTrigger id="bulk-email-role">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="PM">Project Manager</SelectItem>
+                                                        <SelectItem value="SUPPLIER">Supplier</SelectItem>
+                                                        <SelectItem value="QA">Quality Assurance</SelectItem>
+                                                        <SelectItem value="SITE_RECEIVER">Site Receiver</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <Button type="button" variant="outline" className="w-full" onClick={addBulkEmailsFromList}>
+                                                Add Emails
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="rounded-xl border border-border/60 overflow-hidden">
                                     <Table>
                                         <TableHeader>
