@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { FileText, DotsSixVertical } from "@phosphor-icons/react";
 import {
     SectionHeader, ViewToggle, StatusPill,
-    mockKPIs, mockPOs, mockPOStatus, fmt,
+    fmt,
 } from "@/components/dashboard/supplier/analytics-shared";
 import { useAnalyticsFilters } from "@/components/dashboard/supplier/analytics-shell";
 import { POStatusRadial } from "@/components/dashboard/supplier/charts/po-status-radial";
@@ -19,10 +19,10 @@ function reorderCols(
 }
 
 export default function OrdersPage() {
-    const kpis = mockKPIs();
-    const pos = mockPOs();
-    const poStatus = mockPOStatus();
-    const { searchQuery, projectFilter, statusFilter } = useAnalyticsFilters();
+    const { searchQuery, statusFilter, analyticsData } = useAnalyticsFilters();
+    const kpis = analyticsData?.kpis;
+    const pos = analyticsData?.pos;
+    const poStatus = analyticsData?.poStatus;
     const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
     const toggleView = useCallback((_s: string, mode: "chart" | "table") => setViewMode(mode), []);
     const [ordCols, setOrdCols] = useState(["poNumber", "project", "value", "status", "progress", "date"]);
@@ -30,12 +30,15 @@ export default function OrdersPage() {
     const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     const filteredPOs = useMemo(() => {
-        let items = pos;
+        let items = pos ?? [];
         if (searchQuery) items = items.filter(p => p.poNumber.toLowerCase().includes(searchQuery.toLowerCase()) || p.project.toLowerCase().includes(searchQuery.toLowerCase()));
-        if (projectFilter !== "all") items = items.filter(p => p.project === projectFilter);
-        if (statusFilter !== "all") items = items.filter(p => p.status.toLowerCase() === statusFilter);
+        if (statusFilter !== "all") items = items.filter(p => p.status.toLowerCase().replace(/_/g, "-") === statusFilter);
         return items;
-    }, [pos, searchQuery, projectFilter, statusFilter]);
+    }, [pos, searchQuery, statusFilter]);
+
+    if (!kpis || !poStatus) {
+        return null;
+    }
 
     const ORD_DEF: Record<string, { label: string; cell: (po: (typeof filteredPOs)[number]) => ReactNode }> = {
         poNumber: { label: "PO Number", cell: (po) => <span className="font-semibold">{po.poNumber}</span> },

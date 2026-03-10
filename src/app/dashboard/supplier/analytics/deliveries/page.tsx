@@ -6,7 +6,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Truck, DotsSixVertical } from "@phosphor-icons/react";
 import {
     SectionHeader, ViewToggle, StatusPill,
-    mockKPIs, mockPOs, mockDeliveryTimeline,
 } from "@/components/dashboard/supplier/analytics-shared";
 import { useAnalyticsFilters } from "@/components/dashboard/supplier/analytics-shell";
 import { DeliveryGantt } from "@/components/dashboard/supplier/charts/delivery-gantt";
@@ -19,10 +18,9 @@ function reorderCols(
 }
 
 export default function DeliveriesPage() {
-    const kpis = mockKPIs();
-    const pos = mockPOs();
-    const deliveryTimeline = mockDeliveryTimeline();
-    const { searchQuery, projectFilter } = useAnalyticsFilters();
+    const { searchQuery, analyticsData } = useAnalyticsFilters();
+    const kpis = analyticsData?.kpis;
+    const deliveryTimeline = analyticsData?.deliveryTimeline;
     const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
     const toggleView = useCallback((_s: string, mode: "chart" | "table") => setViewMode(mode), []);
     const [delivCols, setDelivCols] = useState(["po", "description", "dispatched", "transit", "delivered", "inspected", "status"]);
@@ -30,14 +28,14 @@ export default function DeliveriesPage() {
     const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     const filteredDeliveries = useMemo(() => {
-        let items = deliveryTimeline;
+        let items = deliveryTimeline ?? [];
         if (searchQuery) items = items.filter(d => d.poNumber.toLowerCase().includes(searchQuery.toLowerCase()) || d.description.toLowerCase().includes(searchQuery.toLowerCase()));
-        if (projectFilter !== "all") {
-            const projectPOs = pos.filter(p => p.project === projectFilter).map(p => p.poNumber);
-            items = items.filter(d => projectPOs.includes(d.poNumber));
-        }
         return items;
-    }, [deliveryTimeline, searchQuery, projectFilter, pos]);
+    }, [deliveryTimeline, searchQuery]);
+
+    if (!kpis) {
+        return null;
+    }
 
     const DELIV_DEF: Record<string, { label: string; cell: (d: (typeof filteredDeliveries)[number]) => ReactNode }> = {
         po:          { label: "PO",          cell: (d) => <span className="font-semibold">{d.poNumber}</span> },

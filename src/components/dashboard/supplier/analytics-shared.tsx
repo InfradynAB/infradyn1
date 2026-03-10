@@ -78,6 +78,21 @@ export interface NCRItem {
     slaDueAt: string | null;
 }
 
+export interface SupplierAnalyticsPayload {
+    projects: { id: string; name: string }[];
+    kpis: SupplierKPIs;
+    pos: POItem[];
+    poStatus: POStatusData;
+    deliveryTimeline: DeliveryTimelineItem[];
+    invoiceCycle: InvoiceCyclePoint[];
+    invoices: InvoiceItem[];
+    complianceData: ComplianceData;
+    documents: DocumentStatusItem[];
+    ncrMonthly: NCRMonthData[];
+    ncrs: NCRItem[];
+    milestones: MilestoneItem[];
+}
+
 // ============================================
 // HELPERS
 // ============================================

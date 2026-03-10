@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Receipt, DotsSixVertical } from "@phosphor-icons/react";
 import {
     SectionHeader, ViewToggle, StatusPill, StatCard,
-    mockKPIs, mockInvoices, mockInvoiceCycle, fmt,
+    fmt,
 } from "@/components/dashboard/supplier/analytics-shared";
 import { useAnalyticsFilters } from "@/components/dashboard/supplier/analytics-shell";
 import { InvoiceCycleLine } from "@/components/dashboard/supplier/charts/invoice-cycle-line";
@@ -19,10 +19,10 @@ function reorderCols(
 }
 
 export default function InvoicesPage() {
-    const kpis = mockKPIs();
-    const invoices = mockInvoices();
-    const invoiceCycle = mockInvoiceCycle();
-    const { searchQuery, statusFilter } = useAnalyticsFilters();
+    const { searchQuery, statusFilter, analyticsData } = useAnalyticsFilters();
+    const kpis = analyticsData?.kpis;
+    const invoices = useMemo(() => analyticsData?.invoices ?? [], [analyticsData?.invoices]);
+    const invoiceCycle = analyticsData?.invoiceCycle ?? [];
     const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
     const toggleView = useCallback((_s: string, mode: "chart" | "table") => setViewMode(mode), []);
     const [invCols, setInvCols] = useState(["invoiceNum", "po", "amount", "submitted", "dueDate", "status", "paid"]);
@@ -35,6 +35,10 @@ export default function InvoicesPage() {
         if (statusFilter !== "all") items = items.filter(i => i.status.toLowerCase().replace(/_/g, "-") === statusFilter);
         return items;
     }, [invoices, searchQuery, statusFilter]);
+
+    if (!kpis) {
+        return null;
+    }
 
     const INV_DEF: Record<string, { label: string; cell: (inv: (typeof filteredInvoices)[number]) => ReactNode }> = {
         invoiceNum: { label: "Invoice #",  cell: (inv) => <span className="font-semibold">{inv.invoiceNumber}</span> },

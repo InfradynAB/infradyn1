@@ -2,12 +2,10 @@
 
 import { useState, useMemo, useCallback, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
-import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Target, DotsSixVertical } from "@phosphor-icons/react";
 import {
     SectionHeader, StatusPill, fmt,
-    mockMilestones,
 } from "@/components/dashboard/supplier/analytics-shared";
 import { MilestoneGantt } from "@/components/dashboard/supplier/charts/milestone-gantt";
 import { useAnalyticsFilters } from "@/components/dashboard/supplier/analytics-shell";
@@ -22,8 +20,8 @@ function reorderCols(
 }
 
 export default function MilestonesPage() {
-    const milestones = mockMilestones();
-    const { searchQuery, statusFilter } = useAnalyticsFilters();
+    const { searchQuery, statusFilter, analyticsData } = useAnalyticsFilters();
+    const milestones = analyticsData?.milestones;
     const [viewMode, setViewMode] = useState<"gantt" | "cards" | "table">("gantt");
     const toggleView = useCallback((mode: "gantt" | "cards" | "table") => setViewMode(mode), []);
     const [now] = useState(() => Date.now());
@@ -32,15 +30,15 @@ export default function MilestonesPage() {
     const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     const filteredMilestones = useMemo(() => {
-        let items = milestones;
+        let items = milestones ?? [];
         if (searchQuery) items = items.filter(m => m.title.toLowerCase().includes(searchQuery.toLowerCase()) || m.poNumber.toLowerCase().includes(searchQuery.toLowerCase()));
-        if (statusFilter !== "all") items = items.filter(m => m.status.toLowerCase() === statusFilter);
+        if (statusFilter !== "all") items = items.filter(m => m.status.toLowerCase().replace(/_/g, "-") === statusFilter);
         return items;
     }, [milestones, searchQuery, statusFilter]);
 
-    const completed = milestones.filter(m => m.status === "COMPLETED").length;
-    const pending = milestones.filter(m => m.status === "PENDING").length;
-    const submitted = milestones.filter(m => m.status === "SUBMITTED").length;
+    const completed = (milestones ?? []).filter(m => m.status === "COMPLETED").length;
+    const pending = (milestones ?? []).filter(m => m.status === "PENDING").length;
+    const submitted = (milestones ?? []).filter(m => m.status === "SUBMITTED").length;
 
     const MILEST_DEF: Record<string, { label: string; cell: (m: (typeof filteredMilestones)[number]) => ReactNode }> = {
         milestone: { label: "Milestone", cell: (m) => <span className="font-semibold max-w-[200px] truncate block">{m.title}</span> },
@@ -57,7 +55,7 @@ export default function MilestonesPage() {
                 iconBg="bg-indigo-100 dark:bg-indigo-500/20"
                 iconColor="text-indigo-600 dark:text-indigo-400"
                 title="Milestones"
-                subtitle={`${milestones.length} total milestones`}
+                subtitle={`${(milestones ?? []).length} total milestones`}
                 badge={submitted > 0 ? { label: `${submitted} Submitted`, variant: "default" } : undefined}
                 rightContent={
                     <div className="flex items-center rounded-xl border border-border/60 bg-muted/30 p-0.5">

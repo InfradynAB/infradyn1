@@ -1,14 +1,14 @@
 "use client";
 
 import {
-    FileText, Truck, Receipt, ShieldWarning, CheckCircle,
-    ShieldCheck, Target, CurrencyDollar, Clock, CalendarCheck,
-    Gauge, ArrowUp, ArrowDown, Warning, TrendUp, TrendDown,
-    CaretRight,
+    FileText, Truck, Receipt,
+    Target, CurrencyDollar, CalendarCheck,
+    Gauge, CaretRight,
 } from "@phosphor-icons/react";
 import {
-    SectionHeader, mockKPIs, fmt, pct,
+    SectionHeader, fmt, pct,
 } from "@/components/dashboard/supplier/analytics-shared";
+import { useAnalyticsFilters } from "@/components/dashboard/supplier/analytics-shell";
 import { cn } from "@/lib/utils";
 
 // ─── Reusable Components ─────────────────────────────────────────────────────
@@ -132,7 +132,12 @@ function CircularKPI({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AnalyticsOverviewPage() {
-    const kpis = mockKPIs();
+    const { analyticsData } = useAnalyticsFilters();
+    const kpis = analyticsData?.kpis;
+
+    if (!kpis) {
+        return null;
+    }
 
     return (
         <div className="space-y-8 pb-12">

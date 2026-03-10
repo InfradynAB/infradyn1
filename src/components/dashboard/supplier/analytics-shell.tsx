@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
@@ -18,7 +18,7 @@ import {
 import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { FilterChip, mockPOs } from "./analytics-shared";
+import { AnalyticsSkeleton, FilterChip, type SupplierAnalyticsPayload } from "./analytics-shared";
 
 // ============================================
 // FILTER CONTEXT
@@ -41,6 +41,10 @@ interface FilterContextType extends FilterState {
     setCustomTo: (v: Date | undefined) => void;
     clearAll: () => void;
     hasActiveFilters: boolean;
+    analyticsData: SupplierAnalyticsPayload | null;
+    analyticsLoading: boolean;
+    analyticsError: string | null;
+    refreshAnalytics: () => void;
 }
 
 const FilterContext = createContext<FilterContextType | null>(null);
@@ -120,6 +124,9 @@ export function AnalyticsShell({ children }: { children: React.ReactNode }) {
     const [customFrom, setCustomFrom] = useState<Date | undefined>(undefined);
     const [customTo, setCustomTo] = useState<Date | undefined>(undefined);
     const [showFilters, setShowFilters] = useState(false);
+    const [analyticsData, setAnalyticsData] = useState<SupplierAnalyticsPayload | null>(null);
+    const [analyticsLoading, setAnalyticsLoading] = useState(true);
+    const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
     const setTimeframe = useCallback((value: string) => {
         setTimeframeValue(value);
@@ -138,37 +145,70 @@ export function AnalyticsShell({ children }: { children: React.ReactNode }) {
     const validStatusValues = statusOptions.map(o => o.value);
     const effectiveStatusFilter = statusFilter === "all" || validStatusValues.includes(statusFilter) ? statusFilter : "all";
 
-    // Projects list from PO data
-    const pos = useMemo(() => mockPOs(), []);
-    const uniqueProjects = useMemo(() => [...new Set(pos.map(p => p.project))].sort(), [pos]);
+    const fetchAnalytics = useCallback(async () => {
+        setAnalyticsLoading(true);
+        setAnalyticsError(null);
+        try {
+            const params = new URLSearchParams();
 
-    // Real projects from API
-    const [projectList, setProjectList] = useState<Array<{ id: string; name: string }>>([]);
-    useEffect(() => {
-        async function fetchProjects() {
-            try {
-                const res = await fetch("/api/projects/list");
-                if (res.ok) {
-                    const json = await res.json();
-                    if (json.success && json.data?.projects) {
-                        setProjectList(json.data.projects.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })));
-                    }
+            if (projectFilter !== "all") {
+                params.set("projectId", projectFilter);
+            }
+
+            if (timeframe === "custom") {
+                if (customFrom) params.set("dateFrom", customFrom.toISOString());
+                if (customTo) params.set("dateTo", customTo.toISOString());
+            } else if (timeframe !== "all") {
+                const now = new Date();
+                let from: Date | null = null;
+                if (timeframe === "7d") from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                if (timeframe === "30d") from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                if (timeframe === "90d") from = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+                if (from) {
+                    params.set("dateFrom", from.toISOString());
+                    params.set("dateTo", now.toISOString());
                 }
-            } catch { /* ignore */ }
-        }
-        fetchProjects();
-    }, []);
+            }
 
-    const hasActiveFilters = searchQuery !== "" || projectFilter !== "all" || effectiveStatusFilter !== "all";
+            const res = await fetch(`/api/dashboard/supplier/analytics?${params.toString()}`);
+            if (!res.ok) {
+                throw new Error("Failed to fetch supplier analytics");
+            }
+
+            const json = await res.json();
+            if (!json.success || !json.data) {
+                throw new Error(json.error || "Invalid analytics response");
+            }
+
+            setAnalyticsData(json.data as SupplierAnalyticsPayload);
+        } catch (error) {
+            setAnalyticsError(error instanceof Error ? error.message : "Failed to load analytics");
+        } finally {
+            setAnalyticsLoading(false);
+        }
+    }, [projectFilter, timeframe, customFrom, customTo]);
+
+    useEffect(() => {
+        fetchAnalytics();
+    }, [fetchAnalytics]);
+
+    const projectList = analyticsData?.projects ?? [];
+
+    const hasActiveFilters =
+        searchQuery !== "" ||
+        projectFilter !== "all" ||
+        effectiveStatusFilter !== "all" ||
+        timeframe !== "all";
     const clearAll = useCallback(() => {
         setSearchQuery("");
         setProjectFilter("all");
         setStatusFilter("all");
-    }, []);
+        setTimeframe("all");
+    }, [setTimeframe]);
 
     const handleExport = useCallback((format: "csv" | "xlsx") => {
-        toast.success(`Exported ${activeSection} data as ${format.toUpperCase()}`);
-    }, [activeSection]);
+        toast.info(`Supplier analytics ${format.toUpperCase()} export is not wired yet.`);
+    }, []);
 
     const filterCtx: FilterContextType = {
         searchQuery,
@@ -184,6 +224,10 @@ export function AnalyticsShell({ children }: { children: React.ReactNode }) {
         setCustomFrom,
         setCustomTo,
         clearAll, hasActiveFilters,
+        analyticsData,
+        analyticsLoading,
+        analyticsError,
+        refreshAnalytics: fetchAnalytics,
     };
 
     return (
@@ -208,8 +252,8 @@ export function AnalyticsShell({ children }: { children: React.ReactNode }) {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Projects</SelectItem>
-                                {(projectList.length > 0 ? projectList : uniqueProjects.map((p, i) => ({ id: `p-${i}`, name: p }))).map(p => (
-                                    <SelectItem key={typeof p === "string" ? p : p.id} value={typeof p === "string" ? p : p.name}>{typeof p === "string" ? p : p.name}</SelectItem>
+                                {projectList.map(p => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -300,7 +344,7 @@ export function AnalyticsShell({ children }: { children: React.ReactNode }) {
                         {hasActiveFilters && (
                             <div className="flex flex-wrap gap-1.5 mt-3">
                                 {searchQuery && <FilterChip label={`Search: "${searchQuery}"`} onRemove={() => setSearchQuery("")} />}
-                                {projectFilter !== "all" && <FilterChip label={`Project: ${projectFilter}`} onRemove={() => setProjectFilter("all")} />}
+                                {projectFilter !== "all" && <FilterChip label={`Project: ${projectList.find(p => p.id === projectFilter)?.name ?? projectFilter}`} onRemove={() => setProjectFilter("all")} />}
                                 {statusFilter !== "all" && <FilterChip label={`Status: ${statusFilter}`} onRemove={() => setStatusFilter("all")} />}
                             </div>
                         )}
@@ -333,7 +377,17 @@ export function AnalyticsShell({ children }: { children: React.ReactNode }) {
                 </div>
 
                 {/* ── PAGE CONTENT ── */}
-                {children}
+                {analyticsLoading ? (
+                    <div className="py-4">
+                        <AnalyticsSkeleton />
+                    </div>
+                ) : analyticsError ? (
+                    <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                        {analyticsError}
+                    </div>
+                ) : (
+                    children
+                )}
             </div>
         </FilterContext.Provider>
     );

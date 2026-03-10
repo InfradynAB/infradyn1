@@ -6,7 +6,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ShieldCheck, FileText, CheckCircle, DotsSixVertical } from "@phosphor-icons/react";
 import {
     SectionHeader, ViewToggle, StatusPill,
-    mockDocuments, mockComplianceData,
 } from "@/components/dashboard/supplier/analytics-shared";
 import { useAnalyticsFilters } from "@/components/dashboard/supplier/analytics-shell";
 import { ComplianceGauge } from "@/components/dashboard/supplier/charts/compliance-gauge";
@@ -20,9 +19,9 @@ function reorderCols(
 }
 
 export default function CompliancePage() {
-    const complianceData = mockComplianceData();
-    const documents = mockDocuments();
-    const { searchQuery, statusFilter } = useAnalyticsFilters();
+    const { searchQuery, statusFilter, analyticsData } = useAnalyticsFilters();
+    const complianceData = analyticsData?.complianceData;
+    const documents = analyticsData?.documents;
     const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
     const toggleView = useCallback((_s: string, mode: "chart" | "table") => setViewMode(mode), []);
     const [complCols, setComplCols] = useState(["docType", "docStatus", "uploaded", "expiry"]);
@@ -30,7 +29,7 @@ export default function CompliancePage() {
     const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     const filteredDocs = useMemo(() => {
-        let items = documents;
+        let items = documents ?? [];
         if (searchQuery) items = items.filter(d => d.type.toLowerCase().includes(searchQuery.toLowerCase()));
         if (statusFilter !== "all") {
             items = items.filter(d => d.status === statusFilter);
@@ -38,10 +37,14 @@ export default function CompliancePage() {
         return items;
     }, [documents, searchQuery, statusFilter]);
 
-    const validCount = documents.filter(d => d.status === "valid").length;
-    const expiringCount = documents.filter(d => d.status === "expiring").length;
-    const missingCount = documents.filter(d => d.status === "missing").length;
-    const expiredCount = documents.filter(d => d.status === "expired").length;
+    const validCount = (documents ?? []).filter(d => d.status === "valid").length;
+    const expiringCount = (documents ?? []).filter(d => d.status === "expiring").length;
+    const missingCount = (documents ?? []).filter(d => d.status === "missing").length;
+    const expiredCount = (documents ?? []).filter(d => d.status === "expired").length;
+
+    if (!complianceData) {
+        return null;
+    }
 
     const COMPL_DEF: Record<string, { label: string; cell: (doc: (typeof filteredDocs)[number]) => ReactNode }> = {
         docType:   { label: "Document", cell: (doc) => <span className="font-medium flex items-center gap-2"><FileText weight="fill" className="h-4 w-4 text-muted-foreground" />{doc.type}</span> },

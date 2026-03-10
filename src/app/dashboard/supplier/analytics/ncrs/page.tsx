@@ -6,7 +6,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ShieldWarning, DotsSixVertical } from "@phosphor-icons/react";
 import {
     SectionHeader, ViewToggle, StatusPill, StatCard, SeverityBadge,
-    mockKPIs, mockNCRs, mockNCRMonthly,
 } from "@/components/dashboard/supplier/analytics-shared";
 import { useAnalyticsFilters } from "@/components/dashboard/supplier/analytics-shell";
 import { NCRStackedBars } from "@/components/dashboard/supplier/charts/ncr-stacked-bars";
@@ -19,10 +18,10 @@ function reorderCols(
 }
 
 export default function NCRsPage() {
-    const kpis = mockKPIs();
-    const ncrs = mockNCRs();
-    const ncrMonthly = mockNCRMonthly();
-    const { searchQuery, statusFilter } = useAnalyticsFilters();
+    const { searchQuery, statusFilter, analyticsData } = useAnalyticsFilters();
+    const kpis = analyticsData?.kpis;
+    const ncrs = analyticsData?.ncrs;
+    const ncrMonthly = analyticsData?.ncrMonthly ?? [];
     const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
     const toggleView = useCallback((_s: string, mode: "chart" | "table") => setViewMode(mode), []);
     const [ncrSACols, setNcrSACols] = useState(["ncrNum", "title", "severity", "status", "reported", "slaDue"]);
@@ -30,11 +29,15 @@ export default function NCRsPage() {
     const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     const filteredNCRs = useMemo(() => {
-        let items = ncrs;
+        let items = ncrs ?? [];
         if (searchQuery) items = items.filter(n => n.ncrNumber.toLowerCase().includes(searchQuery.toLowerCase()) || n.title.toLowerCase().includes(searchQuery.toLowerCase()));
-        if (statusFilter !== "all") items = items.filter(n => n.status.toLowerCase() === statusFilter);
+        if (statusFilter !== "all") items = items.filter(n => n.status.toLowerCase().replace(/_/g, "-") === statusFilter);
         return items;
     }, [ncrs, searchQuery, statusFilter]);
+
+    if (!kpis) {
+        return null;
+    }
 
     const NCR_SA_DEF: Record<string, { label: string; cell: (ncr: (typeof filteredNCRs)[number]) => ReactNode }> = {
         ncrNum:   { label: "NCR #",    cell: (ncr) => <span className="font-semibold">{ncr.ncrNumber}</span> },
