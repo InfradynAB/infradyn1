@@ -46,7 +46,7 @@ export interface QualityKPIs {
     closedNCRs: number;
     criticalNCRs: number;
     ncrFinancialImpact: number;
-    ncrRate: number; // NCRs per PO
+    ncrRate: number; // NCRs as % of PO count
 }
 
 export interface SupplierKPIs {
@@ -471,7 +471,7 @@ export async function getQualityKPIs(filters: KPIFilters): Promise<QualityKPIs> 
     const poTotal = Number(poCount[0]?.count) || 1;
     const openNCRs = Number(ncrStats[0]?.open) || 0;
 
-    const rawNcrRate = Math.round((totalNCRs / poTotal) * 100) / 100;
+    const rawNcrRate = Math.round((totalNCRs / poTotal) * 1000) / 10;
     const ncrRate = Math.min(100, Math.max(0, rawNcrRate));
 
     return {
@@ -523,11 +523,25 @@ export async function getSupplierKPIs(filters: KPIFilters): Promise<SupplierKPIs
         .orderBy(sql`SUM(${purchaseOrder.totalValue}::numeric) DESC`)
         .limit(5);
 
+    const { getSupplierProgressData } = await import("./report-engine");
+    const supplierProgress = await getSupplierProgressData(filters);
+
+    const avgDeliveryScore = supplierProgress.length > 0
+        ? supplierProgress.reduce((sum, item) => sum + item.onTimeRate, 0) / supplierProgress.length
+        : 0;
+
+    const avgQualityScore = supplierProgress.length > 0
+        ? supplierProgress.reduce((sum, item) => {
+            const derivedQualityScore = Math.max(0, 100 - Math.min(100, item.ncrCount * 12));
+            return sum + derivedQualityScore;
+        }, 0) / supplierProgress.length
+        : 0;
+
     return {
         totalSuppliers: Number(supplierStats[0]?.total) || 0,
         activeSuppliers: Number(supplierStats[0]?.active) || 0,
-        avgDeliveryScore: 85, // TODO: Calculate from actual delivery data
-        avgQualityScore: 90, // TODO: Calculate from NCR data
+        avgDeliveryScore: Math.round(avgDeliveryScore * 10) / 10,
+        avgQualityScore: Math.round(avgQualityScore * 10) / 10,
         topExposure: topSuppliers.map(s => ({
             supplierId: s.supplierId,
             supplierName: s.supplierName,

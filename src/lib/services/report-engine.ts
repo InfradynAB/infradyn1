@@ -527,11 +527,14 @@ export async function getCashflowForecast(filters: ReportFilters): Promise<Cashf
                     if (inv.dueDate) {
                         const dueDate = new Date(inv.dueDate);
                         if (dueDate >= periodStart && dueDate < periodEnd) {
-                            const invValue = Number(inv.amount || 0);
-                            if (inv.status === "PENDING" || inv.status === "SUBMITTED") {
-                                pendingInvoices += invValue;
-                            } else if (inv.status === "APPROVED") {
-                                expectedPayments += invValue;
+                            const outstandingValue = Math.max(
+                                0,
+                                Number(inv.amount || 0) - Number(inv.paidAmount || 0),
+                            );
+                            if (inv.status === "PENDING_APPROVAL") {
+                                pendingInvoices += outstandingValue;
+                            } else if (inv.status === "APPROVED" || inv.status === "PARTIALLY_PAID") {
+                                expectedPayments += outstandingValue;
                             }
                         }
                     }

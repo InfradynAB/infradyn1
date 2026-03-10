@@ -7,8 +7,6 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
     CurrencyDollar,
-    TrendUp,
-    TrendDown,
     Clock,
     Warning,
     CheckCircle,
@@ -126,6 +124,10 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
         ? (payments.totalPaid / payments.totalCommitted) * 100
         : 0;
 
+    const hasPendingInvoices = payments.totalPending > 0;
+    const hasOverduePayments = payments.totalOverdue > 0;
+    const hasPendingChangeOrders = Boolean(data.coImpact && data.coImpact.pendingCOs > 0);
+
     return (
         <div className="space-y-6">
             {/* Financial Summary Row */}
@@ -136,7 +138,7 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                             <CardTitle className="text-sm font-medium">Total Committed to Suppliers</CardTitle>
                             <HelpTooltip content={TOOLTIPS.totalCommitted} />
                         </div>
-                        <CurrencyDollar className="h-5 w-5 text-blue-500" weight="duotone" />
+                        <CurrencyDollar className="h-5 w-5 text-muted-foreground" weight="duotone" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
@@ -146,7 +148,7 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                             Across {data.budget?.totalPOs || 0} purchase order{data.budget?.totalPOs !== 1 ? 's' : ''}
                         </p>
                         {payments.totalCommitted === 0 && (
-                            <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                            <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                                 <Warning className="h-3 w-3" />
                                 No active orders yet
                             </p>
@@ -160,10 +162,10 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                             <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
                             <HelpTooltip content={TOOLTIPS.totalPaid} />
                         </div>
-                        <CheckCircle className="h-5 w-5 text-green-500" weight="duotone" />
+                        <CheckCircle className="h-5 w-5 text-muted-foreground" weight="duotone" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-green-600">
+                        <div className="text-2xl font-bold">
                             ${payments.totalPaid.toLocaleString()}
                         </div>
                         {payments.totalCommitted > 0 && (
@@ -188,24 +190,27 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                             <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
                             <HelpTooltip content={TOOLTIPS.pendingPayments} />
                         </div>
-                        <Clock className="h-5 w-5 text-amber-500" weight="duotone" />
+                        <Clock className="h-5 w-5 text-muted-foreground" weight="duotone" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-amber-600">
+                        <div className={cn(
+                            "text-2xl font-bold",
+                            hasPendingInvoices ? "text-foreground" : "text-muted-foreground"
+                        )}>
                             ${payments.totalPending.toLocaleString()}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                             {data.pendingInvoices?.length || 0} invoice{data.pendingInvoices?.length !== 1 ? 's' : ''} waiting for approval
                         </p>
                         {payments.totalPending === 0 ? (
-                            <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                            <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                                 <CheckCircle className="h-3 w-3" />
                                 All caught up!
                             </p>
                         ) : (
                             <a 
                                 href="/dashboard/invoices?status=pending" 
-                                className="text-xs text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300 mt-2 inline-flex items-center gap-1 font-medium hover:underline"
+                                className="text-xs text-primary hover:text-primary/80 mt-2 inline-flex items-center gap-1 font-medium hover:underline"
                             >
                                 → Review Invoices
                             </a>
@@ -221,13 +226,13 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                         </div>
                         <Warning className={cn(
                             "h-5 w-5",
-                            payments.totalOverdue > 0 ? "text-red-500" : "text-muted-foreground"
+                            hasOverduePayments ? "text-destructive" : "text-muted-foreground"
                         )} weight="duotone" />
                     </CardHeader>
                     <CardContent>
                         <div className={cn(
                             "text-2xl font-bold",
-                            payments.totalOverdue > 0 ? "text-red-600" : "text-muted-foreground"
+                            hasOverduePayments ? "text-destructive" : "text-muted-foreground"
                         )}>
                             ${payments.totalOverdue.toLocaleString()}
                         </div>
@@ -235,19 +240,19 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                             Retained: ${payments.totalRetained.toLocaleString()}
                         </p>
                         {payments.totalOverdue === 0 ? (
-                            <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                            <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                                 <CheckCircle className="h-3 w-3" />
                                 No overdue payments
                             </p>
                         ) : (
                             <div className="mt-2 space-y-1">
-                                <p className="text-xs text-red-600 flex items-center gap-1">
+                                <p className="text-xs text-destructive flex items-center gap-1">
                                     <Warning className="h-3 w-3" />
                                     Needs immediate attention
                                 </p>
                                 <a 
                                     href="/dashboard/invoices?status=overdue" 
-                                    className="text-xs text-red-700 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center gap-1 font-medium hover:underline"
+                                    className="text-xs text-primary hover:text-primary/80 inline-flex items-center gap-1 font-medium hover:underline"
                                 >
                                     → View Overdue Payments
                                 </a>
@@ -264,7 +269,7 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <Users className="h-5 w-5 text-blue-500" weight="duotone" />
+                                <Users className="h-5 w-5 text-muted-foreground" weight="duotone" />
                                 <CardTitle>Material Delivery by Supplier</CardTitle>
                                 <HelpTooltip content="Track how much work and materials each supplier has delivered compared to their milestones" />
                             </div>
@@ -290,12 +295,7 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                                             <span className="font-medium truncate max-w-[200px]">
                                                 {supplier.supplierName}
                                             </span>
-                                            <span className={cn(
-                                                "font-semibold",
-                                                supplier.avgProgress >= 80 ? "text-green-600" :
-                                                supplier.avgProgress >= 50 ? "text-amber-600" :
-                                                "text-red-600"
-                                            )}>
+                                            <span className="font-semibold text-foreground">
                                                 {supplier.avgProgress}% delivered
                                             </span>
                                         </div>
@@ -313,24 +313,19 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                 </Card>
 
                 {/* CO Impact Summary */}
-                <Card className={cn(
-                    "border-l-4",
-                    data.coImpact && data.coImpact.pendingCOs > 0 
-                        ? "border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/10" 
-                        : "border-l-gray-300"
-                )}>
+                <Card>
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <ArrowsClockwise className={cn(
                                     "h-5 w-5",
-                                    data.coImpact && data.coImpact.pendingCOs > 0 ? "text-amber-500" : "text-muted-foreground"
+                                    hasPendingChangeOrders ? "text-foreground" : "text-muted-foreground"
                                 )} weight="duotone" />
                                 <CardTitle>Change Order Impact</CardTitle>
                                 <HelpTooltip content={TOOLTIPS.changeOrderImpact} />
                             </div>
-                            {data.coImpact && data.coImpact.pendingCOs > 0 && (
-                                <Badge variant="default" className="bg-amber-500">
+                            {hasPendingChangeOrders && data.coImpact && (
+                                <Badge variant="outline" className="text-foreground">
                                     {data.coImpact.pendingCOs} Pending
                                 </Badge>
                             )}
@@ -344,9 +339,9 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                             <div className="space-y-4">
                                 {/* Alert if pending */}
                                 {data.coImpact.pendingCOs > 0 && (
-                                    <div className="bg-amber-100 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-3 flex items-start gap-2">
-                                        <Warning className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" weight="fill" />
-                                        <p className="text-sm text-amber-900 dark:text-amber-100">
+                                    <div className="rounded-lg border bg-muted/40 p-3 flex items-start gap-2">
+                                        <Warning className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" weight="fill" />
+                                        <p className="text-sm text-foreground">
                                             <strong>{data.coImpact.pendingCOs} change order{data.coImpact.pendingCOs !== 1 ? 's are' : ' is'}</strong> waiting for your approval
                                         </p>
                                     </div>
@@ -358,17 +353,16 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                                         <p className="text-xs text-muted-foreground">Total</p>
                                     </div>
                                     <div className="space-y-1 flex flex-col items-center">
-                                        <div className="flex items-center gap-1">
-                                            <div className="h-2 w-2 rounded-full bg-green-500" />
-                                            <p className="text-2xl font-bold text-green-600">{data.coImpact.approvedCOs}</p>
-                                        </div>
+                                        <p className="text-2xl font-bold">{data.coImpact.approvedCOs}</p>
                                         <p className="text-xs text-muted-foreground">Approved</p>
                                     </div>
                                     <div className="space-y-1 flex flex-col items-center">
-                                        <div className="flex items-center gap-1">
-                                            <div className="h-2 w-2 rounded-full bg-orange-500" />
-                                            <p className="text-2xl font-bold text-orange-600">{data.coImpact.pendingCOs}</p>
-                                        </div>
+                                        <p className={cn(
+                                            "text-2xl font-bold",
+                                            data.coImpact.pendingCOs > 0 ? "text-foreground" : "text-muted-foreground"
+                                        )}>
+                                            {data.coImpact.pendingCOs}
+                                        </p>
                                         <p className="text-xs text-muted-foreground">Pending</p>
                                     </div>
                                 </div>
@@ -376,20 +370,14 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                                 <div className="border-t pt-4 space-y-2">
                                     <div className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">Cost Impact:</span>
-                                        <span className={cn(
-                                            "font-bold",
-                                            data.coImpact.totalCostImpact > 0 ? "text-orange-600" : "text-green-600"
-                                        )}>
+                                        <span className="font-semibold text-foreground">
                                             {data.coImpact.totalCostImpact >= 0 ? "+" : ""}
                                             ${data.coImpact.totalCostImpact.toLocaleString()}
                                         </span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">Schedule Impact:</span>
-                                        <span className={cn(
-                                            "font-medium",
-                                            data.coImpact.totalScheduleImpact > 0 ? "text-amber-600" : ""
-                                        )}>
+                                        <span className="font-medium text-foreground">
                                             {data.coImpact.totalScheduleImpact > 0 ? "+" : ""}
                                             {data.coImpact.totalScheduleImpact} days
                                         </span>
@@ -411,7 +399,7 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                                 {data.coImpact.pendingCOs > 0 && (
                                     <a 
                                         href="/dashboard/change-orders?status=pending" 
-                                        className="text-sm text-orange-700 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300 inline-flex items-center gap-1 font-medium hover:underline"
+                                        className="text-sm text-primary hover:text-primary/80 inline-flex items-center gap-1 font-medium hover:underline"
                                     >
                                         → Review Change Orders
                                     </a>
@@ -430,15 +418,15 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <FileText className="h-5 w-5 text-blue-500" weight="duotone" />
+                            <FileText className="h-5 w-5 text-muted-foreground" weight="duotone" />
                             Pending Invoices
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         {data.pendingInvoices.length === 0 ? (
                             <div className="text-center py-6">
-                                <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-2" weight="fill" />
-                                <p className="text-sm font-medium text-green-600">No pending invoices</p>
+                                <CheckCircle className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-60" weight="fill" />
+                                <p className="text-sm font-medium text-foreground">No pending invoices</p>
                                 <p className="text-xs text-muted-foreground mt-1">
                                     All supplier payments are up to date
                                 </p>
@@ -473,15 +461,15 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <ArrowsClockwise className="h-5 w-5 text-amber-500" weight="duotone" />
+                            <ArrowsClockwise className="h-5 w-5 text-muted-foreground" weight="duotone" />
                             Pending Change Orders
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         {data.pendingCOs.length === 0 ? (
                             <div className="text-center py-6">
-                                <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-2" weight="fill" />
-                                <p className="text-sm font-medium text-green-600">No pending change orders</p>
+                                <CheckCircle className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-60" weight="fill" />
+                                <p className="text-sm font-medium text-foreground">No pending change orders</p>
                                 <p className="text-xs text-muted-foreground mt-1">
                                     All changes have been reviewed
                                 </p>
@@ -497,10 +485,7 @@ export function ProgressDashboard({ projectId }: ProgressDashboardProps) {
                                             </p>
                                         </div>
                                         <div className="text-right">
-                                            <p className={cn(
-                                                "font-semibold",
-                                                Number(co.amountDelta) > 0 ? "text-amber-600" : "text-green-600"
-                                            )}>
+                                            <p className="font-semibold text-foreground">
                                                 {Number(co.amountDelta) >= 0 ? "+" : ""}
                                                 ${Number(co.amountDelta).toLocaleString()}
                                             </p>
