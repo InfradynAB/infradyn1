@@ -20,7 +20,7 @@ function reorderCols(
 export default function NCRsPage() {
     const { searchQuery, statusFilter, analyticsData } = useAnalyticsFilters();
     const kpis = analyticsData?.kpis;
-    const ncrs = analyticsData?.ncrs;
+    const ncrs = useMemo(() => analyticsData?.ncrs ?? [], [analyticsData?.ncrs]);
     const ncrMonthly = analyticsData?.ncrMonthly ?? [];
     const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
     const toggleView = useCallback((_s: string, mode: "chart" | "table") => setViewMode(mode), []);
@@ -29,7 +29,7 @@ export default function NCRsPage() {
     const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
     const filteredNCRs = useMemo(() => {
-        let items = ncrs ?? [];
+        let items = ncrs;
         if (searchQuery) items = items.filter(n => n.ncrNumber.toLowerCase().includes(searchQuery.toLowerCase()) || n.title.toLowerCase().includes(searchQuery.toLowerCase()));
         if (statusFilter !== "all") items = items.filter(n => n.status.toLowerCase().replace(/_/g, "-") === statusFilter);
         return items;
