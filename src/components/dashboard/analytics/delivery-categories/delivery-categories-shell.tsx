@@ -2,77 +2,9 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { ChevronRight, RefreshCw } from "lucide-react";
-import type {
-    DisciplineSummaryRow,
-    MaterialClassRow,
-    MaterialClassDetailRow,
-} from "@/lib/actions/delivery-analytics";
-import { getDisciplineLabel } from "@/lib/constants/material-categories";
+import { RefreshCw } from "lucide-react";
+import type { DisciplineSummaryRow } from "@/lib/actions/delivery-analytics";
 import { DisciplineSummaryTable } from "./discipline-summary-table";
-import { MaterialClassTable } from "./material-class-table";
-import { DeliveryBatchTimeline } from "./delivery-batch-timeline";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TYPES
-// ─────────────────────────────────────────────────────────────────────────────
-
-type Level = 1 | 2 | 3;
-
-interface DrillState {
-    level: Level;
-    discipline: string | null;
-    materialClass: string | null;
-}
-
-// No prop needed — projectId is read from the URL query string,
-// matching the pattern used by all other analytics panels.
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BREADCRUMB
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface BreadcrumbProps {
-    drill: DrillState;
-    onNavigate: (level: Level) => void;
-}
-
-function Breadcrumb({ drill, onNavigate }: BreadcrumbProps) {
-    return (
-        <nav className="flex items-center gap-1 text-sm text-muted-foreground">
-            <button
-                className="transition-colors hover:text-foreground"
-                onClick={() => onNavigate(1)}
-            >
-                All Disciplines
-            </button>
-
-            {drill.discipline && (
-                <>
-                    <ChevronRight className="h-3.5 w-3.5" />
-                    <button
-                        className={`transition-colors hover:text-foreground ${drill.level === 2 ? "text-foreground" : ""
-                            }`}
-                        onClick={() => onNavigate(2)}
-                    >
-                        {getDisciplineLabel(drill.discipline)}
-                    </button>
-                </>
-            )}
-
-            {drill.materialClass && (
-                <>
-                    <ChevronRight className="h-3.5 w-3.5" />
-                    <span className="text-foreground">{drill.materialClass}</span>
-                </>
-            )}
-        </nav>
-    );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// FETCH HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
 
 async function fetchLevel1(projectId: string): Promise<DisciplineSummaryRow[]> {
     const res = await fetch(`/api/dashboard/delivery-categories?projectId=${projectId}`);
@@ -80,114 +12,39 @@ async function fetchLevel1(projectId: string): Promise<DisciplineSummaryRow[]> {
     return json.success ? json.data : [];
 }
 
-async function fetchLevel2(
-    projectId: string,
-    discipline: string,
-): Promise<MaterialClassRow[]> {
-    const res = await fetch(
-        `/api/dashboard/delivery-categories?projectId=${projectId}&discipline=${encodeURIComponent(discipline)}`,
-    );
-    const json = await res.json();
-    return json.success ? json.data : [];
-}
-
-async function fetchLevel3(
-    projectId: string,
-    discipline: string,
-    materialClass: string,
-): Promise<MaterialClassDetailRow[]> {
-    const res = await fetch(
-        `/api/dashboard/delivery-categories?projectId=${projectId}&discipline=${encodeURIComponent(discipline)}&materialClass=${encodeURIComponent(materialClass)}`,
-    );
-    const json = await res.json();
-    return json.success ? json.data : [];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN SHELL
-// ─────────────────────────────────────────────────────────────────────────────
-
 export function DeliveryCategoriesShell() {
     const searchParams = useSearchParams();
     const projectId = searchParams.get("projectId");
     const hasProject = Boolean(projectId);
-    const [drill, setDrill] = useState<DrillState>({
-        level: 1,
-        discipline: null,
-        materialClass: null,
-    });
 
     const [l1Data, setL1Data] = useState<DisciplineSummaryRow[]>([]);
-    const [l2Data, setL2Data] = useState<MaterialClassRow[]>([]);
-    const [l3Data, setL3Data] = useState<MaterialClassDetailRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Reset drilldown + cached data when switching projects to avoid stale L2/L3 state.
     useEffect(() => {
-        setDrill({ level: 1, discipline: null, materialClass: null });
         setL1Data([]);
-        setL2Data([]);
-        setL3Data([]);
         setError(null);
         setLoading(false);
     }, [projectId]);
 
-    // ── Load data whenever drill state changes ──
     const loadData = useCallback(async () => {
-        if (!projectId) return;          // narrowed: string from here
-        const pid: string = projectId;
+        if (!projectId) return;
         setLoading(true);
         setError(null);
         try {
-            if (drill.level === 1) {
-                const data = await fetchLevel1(pid);
-                setL1Data(data);
-            } else if (drill.level === 2 && drill.discipline) {
-                const data = await fetchLevel2(pid, drill.discipline);
-                setL2Data(data);
-            } else if (drill.level === 3 && drill.discipline && drill.materialClass) {
-                const data = await fetchLevel3(
-                    pid,
-                    drill.discipline,
-                    drill.materialClass,
-                );
-                setL3Data(data);
-            }
-        } catch (e) {
+            const data = await fetchLevel1(projectId);
+            setL1Data(data);
+        } catch {
             setError("Failed to load delivery data. Please try again.");
         } finally {
             setLoading(false);
         }
-    }, [drill, projectId]);
+    }, [projectId]);
 
     useEffect(() => {
         if (!projectId) return;
         loadData();
     }, [loadData, projectId]);
-
-    // ── Navigation handlers ──
-    const handleDisciplineClick = useCallback((discipline: string) => {
-        setDrill({ level: 2, discipline, materialClass: null });
-    }, []);
-
-    const handleMaterialClassClick = useCallback(
-        (materialClass: string) => {
-            setDrill((prev) => ({ ...prev, level: 3, materialClass }));
-        },
-        [],
-    );
-
-    const handleBreadcrumbNav = useCallback((level: Level) => {
-        setDrill((prev) => {
-            if (level === 1) return { level: 1, discipline: null, materialClass: null };
-            if (level === 2) return { ...prev, level: 2, materialClass: null };
-            return prev;
-        });
-    }, []);
-
-    // ── Render ──
-    const disciplineLabel = getDisciplineLabel(drill.discipline);
 
     return (
         <div className="space-y-5">
@@ -197,7 +54,7 @@ export function DeliveryCategoriesShell() {
                     <h3 className="text-base font-semibold text-foreground">
                         Delivery by Category
                     </h3>
-                    <Breadcrumb drill={drill} onNavigate={handleBreadcrumbNav} />
+                    <p className="text-sm text-muted-foreground">All Disciplines</p>
                 </div>
 
                 <button
@@ -210,7 +67,6 @@ export function DeliveryCategoriesShell() {
                 </button>
             </div>
 
-            {/* Empty state if no project selected */}
             {!hasProject && (
                 <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
                     <p className="text-sm">No project selected.</p>
@@ -218,14 +74,12 @@ export function DeliveryCategoriesShell() {
                 </div>
             )}
 
-            {/* Error state */}
             {hasProject && error && (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                     {error}
                 </div>
             )}
 
-            {/* Loading skeleton */}
             {hasProject && loading && (
                 <div className="space-y-2">
                     {[...Array(4)].map((_, i) => (
@@ -237,34 +91,11 @@ export function DeliveryCategoriesShell() {
                 </div>
             )}
 
-            {/* Content */}
             {hasProject && !loading && !error && (
-                <>
-                    {drill.level === 1 && (
-                        <DisciplineSummaryTable
-                            rows={l1Data}
-                            onDisciplineClick={handleDisciplineClick}
-                        />
-                    )}
-
-                    {drill.level === 2 && drill.discipline && (
-                        <MaterialClassTable
-                            rows={l2Data}
-                            disciplineLabel={disciplineLabel}
-                            onMaterialClassClick={handleMaterialClassClick}
-                        />
-                    )}
-
-                    {drill.level === 3 &&
-                        drill.discipline &&
-                        drill.materialClass && (
-                            <DeliveryBatchTimeline
-                                rows={l3Data}
-                                materialClass={drill.materialClass}
-                                disciplineLabel={disciplineLabel}
-                            />
-                        )}
-                </>
+                <DisciplineSummaryTable
+                    rows={l1Data}
+                    projectId={projectId!}
+                />
             )}
         </div>
     );
