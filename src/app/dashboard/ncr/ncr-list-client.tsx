@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, type ReactNode } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatDistanceToNow, format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -101,6 +101,7 @@ function reorderCols(
 }
 
 export function NCRListPageClient({ organizationId, initialFilter }: NCRListPageClientProps) {
+    const router = useRouter();
     const [ncrs, setNCRs] = useState<NCR[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -385,20 +386,16 @@ export function NCRListPageClient({ organizationId, initialFilter }: NCRListPage
                             </TableHeader>
                             <TableBody>
                                 {filteredNCRs.map((ncr) => (
-                                    <TableRow key={ncr.id}>
+                                    <TableRow
+                                        key={ncr.id}
+                                        className="group cursor-pointer hover:bg-muted/50 transition-colors"
+                                        onClick={() => router.push(`/dashboard/procurement/ncr/${ncr.id}`)}
+                                    >
                                         {ncrCols.map((col) => (
                                             <TableCell key={col}>{NCR_CLIENT_DEF[col].cell(ncr)}</TableCell>
                                         ))}
                                         <TableCell>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                asChild
-                                            >
-                                                <Link href={`/dashboard/procurement/ncr/${ncr.id}`}>
-                                                    <ArrowRight className="h-4 w-4" />
-                                                </Link>
-                                            </Button>
+                                            <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                                         </TableCell>
                                     </TableRow>
                                 ))}

@@ -2,7 +2,7 @@
 
 import db from "@/db/drizzle";
 import { notification, user, supplier, purchaseOrder, milestone } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import {
     sendEmail,
     buildChaseReminderEmail,
@@ -164,10 +164,10 @@ export async function getUnreadNotifications(userId: string) {
         const notifications = await db.query.notification.findMany({
             where: and(
                 eq(notification.userId, userId),
-                // readAt is null means unread
+                isNull(notification.readAt),
             ),
             orderBy: (n, { desc }) => [desc(n.createdAt)],
-            limit: 20,
+            limit: 50,
         });
 
         return { success: true, data: notifications };
