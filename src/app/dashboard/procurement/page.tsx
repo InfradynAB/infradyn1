@@ -179,16 +179,7 @@ export default async function ProcurementPage() {
             {/* 1️⃣ ATTENTION STRIP - What needs action NOW */}
             <AttentionStrip />
 
-            {/* 2️⃣ FINANCIAL SNAPSHOT */}
-            <ProgressDashboard />
-
-            {/* 3️⃣ QUICK ACTIONS */}
-            <QuickActions />
-
-            {/* 4️⃣ QUALITY OVERVIEW */}
-            <NCRDashboardWidget />
-
-            {/* 5️⃣ ACTIVE PURCHASE ORDERS */}
+            {/* 2️⃣ ACTIVE PURCHASE ORDERS */}
             <Card>
                 <CardHeader>
                     <CardTitle>Purchase Orders</CardTitle>
@@ -196,12 +187,23 @@ export default async function ProcurementPage() {
                         All purchase orders across your projects
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <Suspense fallback={<POTableSkeleton />}>
-                        <POList />
-                    </Suspense>
+                <CardContent className="p-0">
+                    <div className="max-h-[340px] overflow-y-auto">
+                        <Suspense fallback={<POTableSkeleton />}>
+                            <POList />
+                        </Suspense>
+                    </div>
                 </CardContent>
             </Card>
+
+            {/* 3️⃣ FINANCIAL SNAPSHOT */}
+            <ProgressDashboard />
+
+            {/* 4️⃣ QUALITY OVERVIEW */}
+            <NCRDashboardWidget />
+
+            {/* 5️⃣ QUICK ACTIONS */}
+            <QuickActions />
         </div>
     );
 }

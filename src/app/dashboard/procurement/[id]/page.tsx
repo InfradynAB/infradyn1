@@ -682,6 +682,153 @@ export default async function PODetailPage({ params, searchParams }: PageProps) 
                         </div>
                     </TabsContent>
 
+                    {/* Change Orders Tab */}
+                    <TabsContent value="change-orders" className="min-h-[520px]">
+                        <div className="space-y-6">
+                            {/* Header */}
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-base font-semibold flex items-center gap-2">
+                                        <ArrowsClockwise className="h-5 w-5" />
+                                        Change Orders
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground mt-0.5">
+                                        Scope additions and omissions for {po.poNumber}
+                                    </p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <ClientInstructionUpload
+                                        projectId={(po as any).projectId}
+                                    />
+                                    <ChangeOrderSheet
+                                        purchaseOrderId={po.id}
+                                        currentPOValue={Number(po.totalValue)}
+                                        milestones={(po as any).milestones?.map((m: any) => ({
+                                            id: m.id,
+                                            title: m.title,
+                                            status: m.status,
+                                        })) || []}
+                                        boqItems={(po as any).boqItems || []}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* CO Impact Summary */}
+                            {coImpact.totalCOs > 0 && (
+                                <div className="grid grid-cols-3 gap-4">
+                                    <Card className="text-center p-4">
+                                        <p className="text-2xl font-bold text-emerald-600">{coImpact.approvedCOs}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Approved</p>
+                                    </Card>
+                                    <Card className="text-center p-4">
+                                        <p className="text-2xl font-bold text-amber-600">{coImpact.pendingCOs}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Pending</p>
+                                    </Card>
+                                    <Card className="text-center p-4">
+                                        <p className={`text-2xl font-bold ${coImpact.totalCostImpact >= 0 ? "text-amber-600" : "text-emerald-600"}`}>
+                                            {coImpact.totalCostImpact >= 0 ? "+" : ""}{po.currency} {coImpact.totalCostImpact.toLocaleString()}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground mt-1">Cost Impact</p>
+                                    </Card>
+                                </div>
+                            )}
+
+                            {/* Client Instructions */}
+                            <ClientInstructionList
+                                projectId={(po as any).projectId}
+                                purchaseOrderId={po.id}
+                                currentPOValue={Number(po.totalValue)}
+                                milestones={(po as any).milestones || []}
+                                boqItems={(po as any).boqItems || []}
+                            />
+
+                            {/* Processed Change Orders */}
+                            <div>
+                                <h4 className="text-sm font-medium mb-3 flex items-center gap-2 text-muted-foreground">
+                                    <ArrowsClockwise size={14} />
+                                    Processed Change Orders
+                                </h4>
+                                {changeOrders.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {changeOrders.map((co: any) => (
+                                            <div
+                                                key={co.id}
+                                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${co.status === "APPROVED" ? "bg-green-100 dark:bg-green-950" :
+                                                        co.status === "REJECTED" ? "bg-red-100 dark:bg-red-950" : "bg-blue-100 dark:bg-blue-950"
+                                                        }`}>
+                                                        <ArrowsClockwise className={`h-5 w-5 ${co.status === "APPROVED" ? "text-green-600" :
+                                                            co.status === "REJECTED" ? "text-red-600" : "text-blue-600"
+                                                            }`} />
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-medium">{co.changeNumber}</p>
+                                                            {co.changeOrderType === "ADDITION" && (
+                                                                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-400">
+                                                                    Variation
+                                                                </Badge>
+                                                            )}
+                                                            {co.changeOrderType === "OMISSION" && (
+                                                                <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300 dark:bg-red-950 dark:text-red-400">
+                                                                    De-Scope
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-sm text-muted-foreground truncate max-w-[280px]">
+                                                            {co.reason}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="text-right">
+                                                        <p className={`font-mono font-medium ${Number(co.amountDelta) > 0 ? "text-amber-600" :
+                                                            Number(co.amountDelta) < 0 ? "text-emerald-600" : ""
+                                                            }`}>
+                                                            {Number(co.amountDelta) >= 0 ? "+" : ""}
+                                                            {po.currency} {Number(co.amountDelta).toLocaleString()}
+                                                        </p>
+                                                        <COStatusBadge status={co.status} />
+                                                    </div>
+                                                    <COActions
+                                                        changeOrderId={co.id}
+                                                        changeNumber={co.changeNumber}
+                                                        status={co.status}
+                                                        amountDelta={Number(co.amountDelta)}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-border py-14 text-center">
+                                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted/60">
+                                            <ArrowsClockwise className="h-7 w-7 text-muted-foreground opacity-60" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-foreground">No change orders yet</p>
+                                            <p className="mt-1 text-sm text-muted-foreground">
+                                                Submit a change order to request scope additions or omissions.
+                                            </p>
+                                        </div>
+                                        <ChangeOrderSheet
+                                            purchaseOrderId={po.id}
+                                            currentPOValue={Number(po.totalValue)}
+                                            milestones={(po as any).milestones?.map((m: any) => ({
+                                                id: m.id,
+                                                title: m.title,
+                                                status: m.status,
+                                            })) || []}
+                                            boqItems={(po as any).boqItems || []}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </TabsContent>
+
                     {/* Progress Tab - Phase 4 */}
                     <TabsContent value="progress" className="h-[calc(100vh-230px)] min-h-[520px]">
                         <div className="grid h-full gap-6 grid-cols-1">

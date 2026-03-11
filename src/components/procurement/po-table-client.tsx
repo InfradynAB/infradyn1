@@ -111,7 +111,7 @@ export function POTableClient({ purchaseOrders }: POTableClientProps) {
     return (
         <div className="rounded-lg border">
             <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-10 bg-card">
                     <TableRow className="bg-muted/50">
                         {poCols.map((col) => (
                             <TableHead
