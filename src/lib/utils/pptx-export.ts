@@ -17,6 +17,7 @@ export type PptxExportOptions = {
     reportType?: "summary" | "detailed";
     timeframeLabel: string;
     organizationName?: string;
+    exporterName?: string;
     projectId?: string;
     supplierId?: string;
     sections?: string[];
@@ -544,24 +545,16 @@ export async function generatePptxReport(
             });
         }
 
-        // Organization name block (replaces logo)
-        slide.addShape("roundRect" as PptxShapeType, {
+        // Organization name — plain text, no background box
+        slide.addText(organizationName, {
             x: 0.5,
             y: 0.5,
-            w: 3.8,
-            h: 0.8,
-            fill: { color: "E2E8F0" },
-            line: { color: "CBD5E1", pt: 1 },
-        });
-        slide.addText(organizationName, {
-            x: 0.65,
-            y: 0.72,
-            w: 3.5,
-            h: 0.35,
+            w: 7.0,
+            h: 0.55,
             fontFace: "Calibri",
-            fontSize: 14,
+            fontSize: 20,
             bold: true,
-            color: "334155",
+            color: THEME.accent,
             fit: "shrink",
         });
 
@@ -587,7 +580,8 @@ export async function generatePptxReport(
             options.timeframeLabel,
         ].filter(Boolean);
 
-        const subText = `BY [PRESENTERS NAME HERE]\n\n${subtitleParts.join("  •  ")}`;
+        const presenterName = (options.exporterName || "").trim() || "Unknown";
+        const subText = `BY ${presenterName.toUpperCase()}\n\n${subtitleParts.join("  •  ")}`;
 
         slide.addText(subText, {
             x: 0.5,
@@ -958,84 +952,293 @@ export async function generatePptxReport(
             }
         }
 
-        // Program Snapshot (replaces milestone timeline)
+        // Program Snapshot — visual-first executive layout
         {
             const slide = nextSlide(options.timeframeLabel);
             addHeader(slide, "Program Snapshot", options.timeframeLabel);
 
             const k = exportData.kpis;
-            const pendingExposure = Number(k.financial.totalPending || 0) + Number(k.financial.totalUnpaid || 0);
 
-            addKpiTile(slide, 0.6, 1.25, "Financial Exposure", fmtCurrency(pendingExposure));
-            addKpiTile(slide, 6.85, 1.25, "On-Time Delivery", fmtPercent(k.logistics.onTimeRate));
-            addKpiTile(slide, 0.6, 2.45, "Open NCRs", fmtNumber(k.quality.openNCRs));
-            addKpiTile(slide, 6.85, 2.45, "Milestones Complete", `${fmtNumber(k.progress.milestonesCompleted)} / ${fmtNumber(k.progress.milestonesTotal)}`);
+            // ── Colour helpers ────────────────────────────────────────────
+            const GREEN  = "16A34A";
+            const AMBER  = "D97706";
+            const RED    = "DC2626";
+            const GREY   = "94A3B8";
+            const TEAL   = THEME.accent; // "0E7490"
 
-            addPanel(slide, 0.6, 3.75, 6.1, 1.45, "Finance & Deliverables");
-            const leftSummary = [
-                `• Committed: ${fmtCurrency(k.financial.totalCommitted)}`,
-                `• Paid: ${fmtCurrency(k.financial.totalPaid)} | Pending: ${fmtCurrency(k.financial.totalPending)}`,
-                `• Shipments: ${fmtNumber(k.logistics.totalShipments)} total, ${fmtNumber(k.logistics.delayedShipments)} delayed`,
-            ];
-            slide.addText(leftSummary.join("\n"), {
-                x: 0.82,
-                y: 4.15,
-                w: 5.7,
-                h: 0.9,
-                fontFace: "Calibri",
-                fontSize: 11,
-                color: THEME.text,
-                valign: "top",
-                lineSpacingMultiple: 1.1,
-            });
+            function statusColor(value: number, goodThreshold: number, warnThreshold: number): string {
+                if (value >= goodThreshold) return GREEN;
+                if (value >= warnThreshold) return AMBER;
+                return RED;
+            }
 
-            addPanel(slide, 6.85, 3.75, 6.1, 1.45, "Quality & Milestones");
-            const rightSummary = [
-                `• NCRs: ${fmtNumber(k.quality.totalNCRs)} total, ${fmtNumber(k.quality.criticalNCRs)} critical`,
-                `• NCR Rate: ${fmtPercent(k.quality.ncrRate)} | Financial impact: ${fmtCurrency(k.quality.ncrFinancialImpact)}`,
-                `• Progress: ${fmtPercent(k.progress.physicalProgress)} physical, ${fmtPercent(k.progress.financialProgress)} financial`,
-            ];
-            slide.addText(rightSummary.join("\n"), {
-                x: 7.07,
-                y: 4.15,
-                w: 5.7,
-                h: 0.9,
-                fontFace: "Calibri",
-                fontSize: 11,
-                color: THEME.text,
-                valign: "top",
-                lineSpacingMultiple: 1.1,
-            });
+            // ── Layout constants ──────────────────────────────────────────
+            // 4 equal KPI columns across the full width
+            const colW    = 2.95;
+            const colGap  = 0.12;
+            const colY    = 1.2;
+            const colH    = 3.1;
+            const cols    = [0.6, 0.6 + colW + colGap, 0.6 + (colW + colGap) * 2, 0.6 + (colW + colGap) * 3];
 
-            addPanel(slide, 0.6, 5.35, 12.35, 1.7, "Upcoming Milestones");
-                    const milestoneRows = [...(exportData.milestones || [])]
-                .filter((m) => m.expectedDate)
-                .sort((a, b) => new Date(a.expectedDate!).getTime() - new Date(b.expectedDate!).getTime())
-                        .slice(0, 4)
-                .map((m) => [
-                            String(m.milestoneName ?? "—").slice(0, 36),
-                    String(m.expectedDate ?? "—"),
-                    `${Number(m.progressPercent ?? 0).toFixed(0)}%`,
-                    String(m.status ?? "—"),
-                ]);
+            // ── Derived values ─────────────────────────────────────────────
+            const totalCommitted  = Math.max(Number(k.financial.totalCommitted || 0), 1);
+            const totalPaid       = Number(k.financial.totalPaid || 0);
+            const totalPending    = Number(k.financial.totalPending || 0);
+            const paidPct         = Math.min(100, (totalPaid / totalCommitted) * 100);
+            const pendingPct      = Math.min(100 - paidPct, (totalPending / totalCommitted) * 100);
+            const remainingPct    = Math.max(0, 100 - paidPct - pendingPct);
 
-            const tableData = buildStyledTable(
-                ["Milestone", "Due", "Progress", "Status"],
-                milestoneRows.length ? milestoneRows : [["No upcoming milestones in current scope", "—", "—", "—"]],
+            const onTimeRate      = Number(k.logistics.onTimeRate || 0);
+            const delayedRate     = Math.max(0, 100 - onTimeRate);
+
+            const totalNCRs       = Number(k.quality.totalNCRs || 0);
+            const openNCRs        = Number(k.quality.openNCRs || 0);
+            const criticalNCRs    = Number(k.quality.criticalNCRs || 0);
+            const resolvedNCRs    = Math.max(0, totalNCRs - openNCRs);
+
+            const milestonesTotal     = Math.max(Number(k.progress.milestonesTotal || 0), 1);
+            const milestonesCompleted = Number(k.progress.milestonesCompleted || 0);
+            const milestonesPct       = Math.min(100, (milestonesCompleted / milestonesTotal) * 100);
+
+            // ── Helper: draw one visual KPI card ──────────────────────────
+            function addVisualKpiCard(
+                cx: number,
+                cy: number,
+                cw: number,
+                ch: number,
+                title: string,
+                bigLabel: string,
+                subLabel: string,
+                accentColor: string,
+                chartSegments: { value: number; color: string }[],
+            ) {
+                // Card background
+                slide.addShape("roundRect" as PptxShapeType, {
+                    x: cx, y: cy, w: cw, h: ch,
+                    fill: { color: THEME.bg },
+                    line: { color: THEME.border, pt: 1 },
+                });
+
+                // Top colour bar
+                slide.addShape("rect" as PptxShapeType, {
+                    x: cx, y: cy, w: cw, h: 0.07,
+                    fill: { color: accentColor },
+                    line: { color: accentColor },
+                });
+
+                // Title
+                slide.addText(title.toUpperCase(), {
+                    x: cx + 0.18, y: cy + 0.15, w: cw - 0.36, h: 0.3,
+                    fontFace: "Calibri", fontSize: 9, bold: true,
+                    color: THEME.muted2, charSpacing: 1,
+                });
+
+                // Donut chart — centred in card
+                const chartSize = 1.55;
+                const chartX = cx + (cw - chartSize) / 2;
+                const chartY = cy + 0.5;
+                const chartData: PptxChartData = [{
+                    name: title,
+                    labels: chartSegments.map((_, i) => String(i)),
+                    values: chartSegments.map((s) => s.value),
+                }];
+                slide.addChart("doughnut" as Parameters<PptxSlide["addChart"]>[0], chartData, {
+                    x: chartX, y: chartY, w: chartSize, h: chartSize,
+                    dataLabelFontSize: 0,
+                    showLegend: false,
+                    showLabel: false,
+                    showValue: false,
+                    showPercent: false,
+                    chartColors: chartSegments.map((s) => s.color),
+                    holeSize: 65,
+                } as PptxChartOpts);
+
+                // Big value label centred inside donut hole
+                slide.addText(bigLabel, {
+                    x: chartX, y: chartY + chartSize * 0.3, w: chartSize, h: chartSize * 0.4,
+                    fontFace: "Calibri", fontSize: bigLabel.length > 6 ? 13 : 16,
+                    bold: true, align: "center", color: accentColor,
+                });
+
+                // Sub-label below the chart
+                slide.addText(subLabel, {
+                    x: cx + 0.1, y: cy + ch - 0.42, w: cw - 0.2, h: 0.35,
+                    fontFace: "Calibri", fontSize: 10,
+                    align: "center", color: THEME.muted,
+                });
+            }
+
+            // ── KPI 1: Financial Exposure ─────────────────────────────────
+            const finColor = statusColor(paidPct, 60, 30);
+            addVisualKpiCard(
+                cols[0], colY, colW, colH,
+                "Financial",
+                fmtCurrency(totalPaid),
+                `${paidPct.toFixed(0)}% paid of ${fmtCurrency(totalCommitted)}`,
+                finColor,
+                [
+                    { value: Math.max(paidPct, 0.1),    color: GREEN },
+                    { value: Math.max(pendingPct, 0.1), color: AMBER },
+                    { value: Math.max(remainingPct, 0.1), color: THEME.border },
+                ],
             );
-            slide.addTable(tableData, {
-                x: 0.82,
-                y: 5.78,
-                w: 11.9,
-                h: 1.15,
-                fontFace: "Calibri",
-                        fontSize: 8,
-                border: { type: "solid", color: THEME.border, pt: 1 },
-                fill: { color: THEME.bg },
-                color: THEME.text,
-                        rowH: 0.2,
-                colW: [6.2, 1.8, 1.2, 2.2],
+
+            // ── KPI 2: On-Time Delivery ───────────────────────────────────
+            const otdColor = statusColor(onTimeRate, 80, 50);
+            addVisualKpiCard(
+                cols[1], colY, colW, colH,
+                "On-Time Delivery",
+                `${onTimeRate.toFixed(0)}%`,
+                `${fmtNumber(k.logistics.totalShipments)} shipments · ${fmtNumber(k.logistics.delayedShipments)} delayed`,
+                otdColor,
+                [
+                    { value: Math.max(onTimeRate, 0.1),  color: otdColor },
+                    { value: Math.max(delayedRate, 0.1), color: THEME.border },
+                ],
+            );
+
+            // ── KPI 3: Quality / NCRs ─────────────────────────────────────
+            const ncrColor = openNCRs === 0 ? GREEN : criticalNCRs > 0 ? RED : AMBER;
+            const ncrResolved = Math.max(resolvedNCRs, 0.1);
+            addVisualKpiCard(
+                cols[2], colY, colW, colH,
+                "Quality",
+                `${fmtNumber(openNCRs)} NCRs`,
+                `${fmtNumber(criticalNCRs)} critical · ${fmtNumber(resolvedNCRs)} resolved`,
+                ncrColor,
+                totalNCRs === 0
+                    ? [{ value: 1, color: GREEN }]
+                    : [
+                        { value: ncrResolved,                            color: GREEN },
+                        { value: Math.max(openNCRs - criticalNCRs, 0.1), color: AMBER },
+                        { value: Math.max(criticalNCRs, 0.1),            color: RED },
+                      ],
+            );
+
+            // ── KPI 4: Milestone Progress ─────────────────────────────────
+            const msColor = statusColor(milestonesPct, 70, 30);
+            addVisualKpiCard(
+                cols[3], colY, colW, colH,
+                "Milestones",
+                `${fmtNumber(milestonesCompleted)}/${fmtNumber(milestonesTotal)}`,
+                `${milestonesPct.toFixed(0)}% complete`,
+                msColor,
+                [
+                    { value: Math.max(milestonesPct, 0.1),       color: msColor },
+                    { value: Math.max(100 - milestonesPct, 0.1), color: THEME.border },
+                ],
+            );
+
+            // ── Milestone swim-lane tracker ───────────────────────────────
+            const swimY       = colY + colH + 0.18;
+            const swimH       = SLIDE.h - swimY - SLIDE.footerH - 0.15;
+            const swimX       = 0.6;
+            const swimW       = SLIDE.w - swimX - 0.6;
+
+            // Section label
+            slide.addText("MILESTONE TRACKER", {
+                x: swimX, y: swimY, w: swimW, h: 0.22,
+                fontFace: "Calibri", fontSize: 8, bold: true,
+                color: THEME.muted2, charSpacing: 1,
             });
+
+            const upcomingMilestones = [...(exportData.milestones || [])]
+                .sort((a, b) => {
+                    const da = a.expectedDate ? new Date(a.expectedDate).getTime() : Infinity;
+                    const db = b.expectedDate ? new Date(b.expectedDate).getTime() : Infinity;
+                    return da - db;
+                })
+                .slice(0, 5);
+
+            const laneH        = upcomingMilestones.length > 0 ? Math.min((swimH - 0.25) / upcomingMilestones.length, 0.55) : 0.55;
+            const barTrackX    = swimX + 3.2;
+            const barTrackW    = swimW - 3.2 - 1.6;
+            const statusColX   = barTrackX + barTrackW + 0.15;
+
+            if (upcomingMilestones.length === 0) {
+                slide.addText("No milestones in current scope", {
+                    x: swimX, y: swimY + 0.3, w: swimW, h: 0.4,
+                    fontFace: "Calibri", fontSize: 12,
+                    align: "center", color: THEME.muted,
+                });
+            } else {
+                upcomingMilestones.forEach((m, i) => {
+                    const rowY   = swimY + 0.28 + i * laneH;
+                    const pct    = Math.min(100, Math.max(0, Number(m.progressPercent ?? 0)));
+                    const status = String(m.status ?? "PENDING").toUpperCase();
+
+                    const barColor =
+                        status === "COMPLETE"     ? GREEN :
+                        status === "IN_PROGRESS"  ? TEAL  :
+                        status === "OVERDUE"      ? RED   :
+                        status === "AT_RISK"      ? AMBER :
+                        GREY;
+
+                    // Row background (alternating)
+                    slide.addShape("rect" as PptxShapeType, {
+                        x: swimX - 0.05, y: rowY - 0.04, w: swimW + 0.1, h: laneH - 0.06,
+                        fill: { color: i % 2 === 0 ? THEME.bg : THEME.surface },
+                        line: { color: THEME.border, pt: 0.5 },
+                    });
+
+                    // Milestone name
+                    slide.addText(String(m.milestoneName ?? "—").slice(0, 30), {
+                        x: swimX, y: rowY, w: 3.0, h: laneH - 0.12,
+                        fontFace: "Calibri", fontSize: 10,
+                        color: THEME.text, valign: "middle",
+                    });
+
+                    // Progress bar track (background)
+                    slide.addShape("roundRect" as PptxShapeType, {
+                        x: barTrackX, y: rowY + (laneH - 0.12) / 2 - 0.04,
+                        w: barTrackW, h: 0.18,
+                        fill: { color: THEME.surface2 },
+                        line: { color: THEME.border, pt: 0.5 },
+                    });
+
+                    // Progress bar fill
+                    if (pct > 0) {
+                        slide.addShape("roundRect" as PptxShapeType, {
+                            x: barTrackX, y: rowY + (laneH - 0.12) / 2 - 0.04,
+                            w: Math.max(barTrackW * (pct / 100), 0.08), h: 0.18,
+                            fill: { color: barColor },
+                            line: { color: barColor },
+                        });
+                    }
+
+                    // Pct label on bar
+                    slide.addText(`${pct.toFixed(0)}%`, {
+                        x: barTrackX + barTrackW + 0.07, y: rowY, w: 0.45, h: laneH - 0.12,
+                        fontFace: "Calibri", fontSize: 9, bold: true,
+                        color: barColor, valign: "middle",
+                    });
+
+                    // Status pill
+                    slide.addShape("roundRect" as PptxShapeType, {
+                        x: statusColX + 0.5, y: rowY + (laneH - 0.12) / 2 - 0.04,
+                        w: 1.0, h: 0.18,
+                        fill: { color: barColor + "22" }, // semi-transparent tint
+                        line: { color: barColor, pt: 0.75 },
+                    });
+                    slide.addText(status.replace("_", " "), {
+                        x: statusColX + 0.5, y: rowY + (laneH - 0.12) / 2 - 0.04,
+                        w: 1.0, h: 0.18,
+                        fontFace: "Calibri", fontSize: 7.5, bold: true,
+                        align: "center", valign: "middle",
+                        color: barColor,
+                    });
+
+                    // Due date
+                    const dueStr = m.expectedDate
+                        ? new Date(m.expectedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                        : "—";
+                    slide.addText(dueStr, {
+                        x: statusColX + 0.5, y: rowY + laneH * 0.55, w: 1.0, h: 0.22,
+                        fontFace: "Calibri", fontSize: 7.5,
+                        align: "center", color: THEME.muted,
+                    });
+                });
+            }
         }
     }
 
@@ -1203,7 +1406,7 @@ export async function generatePptxReport(
             color: "334155",
         });
 
-        slide.addText("123-456-7890", {
+        slide.addText("+46 73 151 10 66", {
             x: cardX + 6.0,
             y: cardY + 2.0,
             w: 4.0,

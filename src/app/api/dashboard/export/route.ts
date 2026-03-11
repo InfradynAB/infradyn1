@@ -221,6 +221,7 @@ export async function GET(request: NextRequest) {
                 reportType,
                 timeframeLabel,
                 organizationName,
+                exporterName: session.user.name || session.user.email || undefined,
                 projectId,
                 supplierId,
                 sections,
