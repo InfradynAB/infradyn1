@@ -358,7 +358,7 @@ const ALL_COLUMN_DEFS: Record<string, { label: string; width?: string; cell: (it
   },
   delivery: {
     label: "Delivery",
-    width: "w-20",
+    width: "w-[100px] min-w-[100px]",
     cell: (item) => {
       const pct = item.quantity > 0 ? (item.quantityDelivered / item.quantity) * 100 : 0;
       return (
@@ -389,8 +389,8 @@ const ALL_COLUMN_DEFS: Record<string, { label: string; width?: string; cell: (it
   },
   requiredByDate: {
     label: "Required By",
-    width: "w-[110px]",
-    cell: (item) => <span className="text-sm text-muted-foreground">{formatDate(item.requiredByDate)}</span>,
+    width: "w-[140px] min-w-[140px]",
+    cell: (item) => <span className="text-sm text-muted-foreground whitespace-nowrap tabular-nums">{formatDate(item.requiredByDate)}</span>,
     exportValue: (item) => formatDate(item.requiredByDate),
   },
   rosDate: {
@@ -497,7 +497,7 @@ const ALL_COLUMN_DEFS: Record<string, { label: string; width?: string; cell: (it
   },
   status: {
     label: "Status",
-    width: "w-[90px]",
+    width: "w-[120px] min-w-[120px]",
     cell: (item) => <BoqStatusBadge status={item.status} />,
     exportValue: (item) => item.status,
   },
@@ -1528,15 +1528,16 @@ export function BoqTrackerShell({ projectId }: Props) {
       </div>
 
       {/* Items table — single scroll container */}
-      <div className="mx-3 mb-4 flex min-h-[420px] flex-col rounded-lg border bg-white text-foreground sm:mx-4 dark:bg-background h-[60dvh] lg:h-[calc(100dvh-370px)]">
+      <div className="mx-3 mb-4 flex min-h-[420px] flex-col rounded-lg border bg-white text-foreground sm:mx-4 dark:bg-background h-[60dvh] lg:h-[calc(100dvh-370px)] overflow-hidden">
         <div
           ref={tableScrollRef}
-          className="flex-1 overflow-auto cursor-grab active:cursor-grabbing"
+          className="flex-1 overflow-auto overscroll-contain cursor-grab active:cursor-grabbing"
           onMouseDown={handleTableMouseDown}
           onMouseMove={handleTableMouseMove}
           onMouseUp={handleTableMouseUp}
           onMouseLeave={handleTableMouseUp}
         >
+          <div className="pl-4 pr-24">
           <Table>
             {/* Sticky header */}
             <TableHeader className="sticky top-0 z-10">
@@ -1570,15 +1571,16 @@ export function BoqTrackerShell({ projectId }: Props) {
                   );
                 })}
                 {/* Actions column header */}
-                <TableHead className="w-10 bg-white dark:bg-muted/40" />
-                <TableHead className="w-24 bg-white dark:bg-muted/40" />
+                <TableHead className="w-[72px] min-w-[72px] bg-white dark:bg-muted/40 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Batches
+                </TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
               {liveItems.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={visibleCols.length + 2} className="py-16 text-center text-muted-foreground">
+                  <TableCell colSpan={visibleCols.length + 1} className="py-16 text-center text-muted-foreground">
                     {loading ? "Loading items…" : "No items match your filters."}
                   </TableCell>
                 </TableRow>
@@ -1591,7 +1593,7 @@ export function BoqTrackerShell({ projectId }: Props) {
                     className="cursor-pointer bg-muted/20 hover:bg-muted/30"
                     onClick={() => setSectionExpanded((prev) => ({ ...prev, original: !prev.original }))}
                   >
-                    <TableCell colSpan={originalSectionCols.length + 2} className="py-2">
+                    <TableCell colSpan={originalSectionCols.length + 1} className="py-2">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${sectionExpanded.original ? "" : "-rotate-90"}`} />
@@ -1628,10 +1630,9 @@ export function BoqTrackerShell({ projectId }: Props) {
                           </TableHead>
                         );
                       })}
-                      <TableHead className="w-10 text-[10px] text-muted-foreground uppercase tracking-wider py-1.5 bg-muted/40">
+                      <TableHead className="w-[72px] min-w-[72px] text-[10px] text-muted-foreground uppercase tracking-wider py-1.5 bg-muted/40">
                         Batches
                       </TableHead>
-                      <TableHead className="w-24 bg-muted/40" />
                     </TableRow>
                   )}
 
@@ -1691,22 +1692,56 @@ export function BoqTrackerShell({ projectId }: Props) {
                             </TableCell>
                           );
                         })}
-                        {/* Actions for original rows */}
-                        <TableCell className="w-10 text-center bg-muted/40">
+                        {/* Actions for original rows — same batch dropdown as Changed section */}
+                        <TableCell className="w-[72px] min-w-[72px] p-1 text-center bg-muted/40">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 border border-border bg-background p-0 text-foreground opacity-100 hover:bg-muted"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuItem onClick={() => openCreateBatchModal(row)}>
+                                + Add delivery batch
+                              </DropdownMenuItem>
+                              {(batchMap.get(item.id) ?? []).length > 0 && <DropdownMenuSeparator />}
+                              {(batchMap.get(item.id) ?? []).map((batch) => (
+                                <DropdownMenuItem key={batch.id} onClick={() => openUpdateBatchStatusModal(item.id, batch)}>
+                                  Update: {batch.batchLabel}
+                                </DropdownMenuItem>
+                              ))}
+                              {(batchMap.get(item.id) ?? []).length > 0 && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  {(batchMap.get(item.id) ?? []).map((batch) => (
+                                    <DropdownMenuItem key={`dup-${batch.id}`} onClick={() => openDuplicateBatchModal(item.id, batch)}>
+                                      Duplicate: {batch.batchLabel}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                           {(batchMap.get(item.id)?.length ?? 0) > 0 && (
-                            <span className="text-[10px] tabular-nums text-muted-foreground">
-                              {batchMap.get(item.id)!.length}b
-                            </span>
+                            <div className="mt-0.5 flex justify-center">
+                              <span className="inline-flex items-center justify-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums font-medium text-muted-foreground">
+                                {batchMap.get(item.id)!.length}
+                              </span>
+                            </div>
                           )}
                         </TableCell>
-                        <TableCell className="w-24 bg-muted/40" />
                       </TableRow>
                     );
                   })}
 
                   {sectionExpanded.original && originalItems.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={originalSectionCols.length + 2} className="py-4 text-center text-sm text-muted-foreground">
+                      <TableCell colSpan={originalSectionCols.length + 1} className="py-4 text-center text-sm text-muted-foreground">
                         No original-only items in this view.
                       </TableCell>
                     </TableRow>
@@ -1717,7 +1752,7 @@ export function BoqTrackerShell({ projectId }: Props) {
                     className="cursor-pointer bg-violet-500/5 hover:bg-violet-500/10"
                     onClick={() => setSectionExpanded((prev) => ({ ...prev, changed: !prev.changed }))}
                   >
-                    <TableCell colSpan={changedSectionCols.length + 2} className="py-2">
+                    <TableCell colSpan={changedSectionCols.length + 1} className="py-2">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${sectionExpanded.changed ? "" : "-rotate-90"}`} />
@@ -1755,10 +1790,9 @@ export function BoqTrackerShell({ projectId }: Props) {
                           </TableHead>
                         );
                       })}
-                      <TableHead className="w-10 text-[10px] text-muted-foreground uppercase tracking-wider py-1.5">
+                      <TableHead className="w-[72px] min-w-[72px] text-[10px] text-muted-foreground uppercase tracking-wider py-1.5">
                         Batches
                       </TableHead>
-                      <TableHead className="w-24 bg-muted/40" />
                     </TableRow>
                   )}
 
@@ -1822,16 +1856,16 @@ export function BoqTrackerShell({ projectId }: Props) {
                         })}
 
                         {/* Actions cell — batches button */}
-                        <TableCell className="w-10 p-1 text-center">
+                        <TableCell className="w-[72px] min-w-[72px] p-1 text-center">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0 opacity-50 hover:opacity-100"
+                                className="h-7 w-7 border border-border bg-background p-0 text-foreground opacity-100 hover:bg-muted"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <MoreHorizontal className="h-3.5 w-3.5" />
+                                <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-44">
@@ -1857,19 +1891,20 @@ export function BoqTrackerShell({ projectId }: Props) {
                             </DropdownMenuContent>
                           </DropdownMenu>
                           {itemBatches.length > 0 && (
-                            <div className="text-[9px] tabular-nums text-muted-foreground leading-none mt-0.5">
-                              {itemBatches.length}
+                            <div className="mt-0.5 flex justify-center">
+                              <span className="inline-flex items-center justify-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums font-medium text-muted-foreground">
+                                {itemBatches.length}
+                              </span>
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="w-24 bg-muted/40" />
                       </TableRow>
                     );
                   })}
 
                   {sectionExpanded.changed && changedItems.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={changedSectionCols.length + 2} className="py-4 text-center text-sm text-muted-foreground">
+                      <TableCell colSpan={changedSectionCols.length + 1} className="py-4 text-center text-sm text-muted-foreground">
                         No changed or updated items in this view.
                       </TableCell>
                     </TableRow>
@@ -1900,11 +1935,11 @@ export function BoqTrackerShell({ projectId }: Props) {
                     </td>
                   );
                 })}
-                <td className="w-10" />
-                <td className="w-24" />
+                <td className="w-[72px] min-w-[72px]" />
               </tr>
             </tfoot>
           </Table>
+          </div>
         </div>
 
         {/* Bottom scroll navigation */}

@@ -213,7 +213,7 @@ export default async function DashboardLayout({
                     activeSupplierProjectId={activeSupplierProjectId}
                 />
             )}
-            <SidebarInset className={isSupplierOnboarding ? "ml-0 transition-all duration-300" : "transition-all duration-300"}>
+            <SidebarInset className={isSupplierOnboarding ? "ml-0 min-w-0 transition-all duration-300" : "min-w-0 transition-all duration-300"}>
                 {!isSupplierOnboarding && (
                     <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-sidebar-border/70 bg-sidebar px-4 text-sidebar-foreground shadow-sm">
                         <div className="flex min-w-0 items-center gap-3">
@@ -258,7 +258,7 @@ export default async function DashboardLayout({
                     </header>
                 )}
 
-                <div className={`flex flex-1 flex-col min-h-0 overflow-hidden ${isSupplierOnboarding ? "p-0" : "p-0"}`}>
+                <div className={`flex flex-1 flex-col gap-4 ${isSupplierOnboarding ? "p-0" : "p-4"}`}>
                     {children}
                 </div>
             </SidebarInset>

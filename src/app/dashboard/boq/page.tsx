@@ -68,7 +68,7 @@ export default function BoqTrackerPage() {
   );
 
   return (
-    <div className="flex flex-col min-h-0 h-full overflow-hidden">
+    <div className="flex flex-col min-h-0">
       {/* Page header */}
       <div className="flex items-center justify-between gap-4 flex-wrap px-4 pt-4 pb-3 shrink-0 border-b mb-0">
         <div>
