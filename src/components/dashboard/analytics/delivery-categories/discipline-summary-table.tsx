@@ -220,12 +220,12 @@ function L2Section({
                             </td>
 
                             {/* Delivered / Required */}
-                            <td className="py-2.5 pr-4 tabular-nums text-xs text-zinc-300">
+                            <td className="py-2.5 pr-4 tabular-nums text-xs text-muted-foreground">
                                 {row.deliveredQty.toLocaleString()} / {row.requiredQty.toLocaleString()}
                             </td>
 
                             {/* Schedule impact */}
-                            <td className="py-2.5 pr-4 tabular-nums text-xs text-zinc-300">
+                            <td className="py-2.5 pr-4 tabular-nums text-xs text-muted-foreground">
                                 {row.status === "LATE" && row.lateDays > 0
                                     ? `+${row.lateDays}d`
                                     : row.status === "AT_RISK"
@@ -234,7 +234,7 @@ function L2Section({
                             </td>
 
                             {/* Trend */}
-                            <td className="py-2.5 pr-4 text-xs text-zinc-400">
+                            <td className="py-2.5 pr-4 text-xs text-muted-foreground">
                                 {row.trend === "IMPROVING"
                                     ? "Improving"
                                     : row.trend === "DETERIORATING"
@@ -396,7 +396,7 @@ export function DisciplineSummaryTable({ rows, projectId }: Props) {
             <table className="w-full text-sm">
                 <thead>
                     <tr className="border-b border-border/60 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        <th className="pb-3 pr-4">Discipline</th>
+                        <th className="pb-3 pr-4 min-w-[200px]">Discipline</th>
                         <th className="pb-3 pr-4">Status</th>
                         <th className="pb-3 pr-4">Delivered / Required</th>
                         <th className="pb-3 pr-4">Schedule Impact</th>
@@ -454,13 +454,13 @@ export function DisciplineSummaryTable({ rows, projectId }: Props) {
                                     </td>
 
                                     {/* Delivered / Required */}
-                                    <td className="py-3 pr-4 tabular-nums text-zinc-300">
+                                    <td className="py-3 pr-4 tabular-nums text-muted-foreground">
                                         {row.deliveredQty.toLocaleString()} /{" "}
                                         {row.requiredQty.toLocaleString()}
                                     </td>
 
                                     {/* Schedule impact */}
-                                    <td className="py-3 pr-4 tabular-nums text-zinc-300">
+                                    <td className="py-3 pr-4 tabular-nums text-muted-foreground">
                                         {row.status === "LATE" && row.lateDays > 0
                                             ? `+${row.lateDays}d`
                                             : row.status === "AT_RISK"
@@ -469,7 +469,7 @@ export function DisciplineSummaryTable({ rows, projectId }: Props) {
                                     </td>
 
                                     {/* Trend */}
-                                    <td className="py-3 pr-4 text-zinc-400">
+                                    <td className="py-3 pr-4 text-muted-foreground">
                                         {row.trend === "IMPROVING"
                                             ? "Improving"
                                             : row.trend === "DETERIORATING"

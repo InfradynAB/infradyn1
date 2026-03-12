@@ -1,14 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { format as formatDateValue } from "date-fns";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -36,19 +32,28 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { GripVertical, Columns3, ChevronDown, FileSpreadsheet, FileText, Download, ArrowUpRight } from "lucide-react";
+import {
+  GripVertical,
+  Columns3,
+  ChevronDown,
+  FileSpreadsheet,
+  FileText,
+  Download,
+  ArrowUpRight,
+  MoreHorizontal,
+  Loader2,
+} from "lucide-react";
 import type { BoqTrackerStatus } from "@/lib/actions/boq-tracker";
 import { BoqStatusBadge } from "./boq-status-badge";
 import { BoqBatchModal, type BatchModalMode, type BatchStatus } from "./boq-batch-modal";
 import { exportTabularData } from "@/lib/export-engine";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INTERFACES
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface Props {
   projectId: string;
@@ -106,6 +111,17 @@ interface ItemRow {
   lateDays: number;
 }
 
+// Fields that can be edited inline (matching PATCH payload)
+interface RowDraft {
+  quantity?: number;
+  unitPrice?: number;
+  deliveryPercent?: number;
+  requiredByDate?: string;
+  criticality?: string;
+  scheduleDaysAtRisk?: number;
+  scheduleActivityRef?: string;
+}
+
 interface NcrRow {
   id: string;
   ncrNumber: string;
@@ -114,18 +130,61 @@ interface NcrRow {
   severity: "CRITICAL" | "MAJOR" | "MINOR";
   issueType: string;
   createdAt: string;
-  affectedBoqItem?: {
-    id: string;
-    itemNumber: string;
-    description: string;
-  } | null;
-  purchaseOrder?: {
-    poNumber: string;
-  } | null;
+  affectedBoqItem?: { id: string; itemNumber: string; description: string } | null;
+  purchaseOrder?: { poNumber: string } | null;
 }
 
-// All available columns — key maps to ItemRow fields
+interface BatchRow {
+  id: string;
+  boqItemId: string;
+  linkedPoId: string | null;
+  batchLabel: string;
+  expectedDate: string | null;
+  actualDate: string | null;
+  quantityExpected: number;
+  quantityDelivered: number;
+  status: "PENDING" | "IN_TRANSIT" | "PARTIALLY_DELIVERED" | "DELIVERED" | "LATE" | "CANCELLED";
+  notes: string | null;
+  poNumber: string | null;
+}
+
+interface BatchModalState {
+  open: boolean;
+  mode: BatchModalMode;
+  itemId: string;
+  batchId?: string;
+  initialValues?: {
+    batchLabel?: string;
+    expectedDate?: string;
+    actualDate?: string;
+    quantityExpected?: number;
+    quantityDelivered?: number;
+    status?: BatchStatus;
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COLUMN DEFINITIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
 const ALL_COLUMN_DEFS: Record<string, { label: string; width?: string; cell: (item: ItemRow) => ReactNode; exportValue: (item: ItemRow) => string }> = {
+  itemNumber: {
+    label: "Item #",
+    width: "w-[110px]",
+    cell: (item) => (
+      <TruncatedCell value={`#${item.itemNumber}`} className="font-semibold text-sm tabular-nums" />
+    ),
+    exportValue: (item) => `#${item.itemNumber}`,
+  },
+  poNumber: {
+    label: "PO",
+    width: "w-[140px]",
+    cell: (item) => (
+      <TruncatedCell value={item.poNumber} className="font-mono text-[11px] text-muted-foreground" />
+    ),
+    exportValue: (item) => item.poNumber,
+  },
+  // Legacy combined column — kept for backwards compat with saved views
   poItem: {
     label: "PO / Item #",
     width: "w-40",
@@ -139,26 +198,27 @@ const ALL_COLUMN_DEFS: Record<string, { label: string; width?: string; cell: (it
   },
   description: {
     label: "Description",
+    width: "w-[260px]",
     cell: (item) => {
       const isAmended = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
                         (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
       return (
-        <div className="space-y-0.5">
-          <div className="flex items-start gap-1.5 flex-wrap">
-            <p className="font-medium text-sm leading-snug">{item.description}</p>
+        <div className="space-y-0.5 w-[260px]">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <TruncatedCell value={item.description} className="font-medium text-sm flex-1 min-w-0" />
             {item.isVariation && (
-              <span className="inline-flex items-center rounded px-1 py-0 text-[10px] font-semibold bg-violet-500/10 text-violet-400 border border-violet-500/20 shrink-0 mt-0.5">
+              <span className="inline-flex items-center rounded px-1 py-0 text-[10px] font-semibold bg-violet-500/10 text-violet-400 border border-violet-500/20 shrink-0">
                 {item.variationOrderNumber ?? "VO"}
               </span>
             )}
             {isAmended && !item.isVariation && (
-              <span className="inline-flex items-center rounded px-1 py-0 text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0 mt-0.5">
+              <span className="inline-flex items-center rounded px-1 py-0 text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
                 Amended
               </span>
             )}
           </div>
           {item.materialClass && (
-            <p className="text-[11px] text-muted-foreground">{item.materialClass}</p>
+            <p className="text-[11px] text-muted-foreground truncate">{item.materialClass}</p>
           )}
         </div>
       );
@@ -182,17 +242,27 @@ const ALL_COLUMN_DEFS: Record<string, { label: string; width?: string; cell: (it
     width: "w-[130px]",
     cell: (item) => {
       const hasBaseline = item.originalQuantity != null && item.originalQuantity !== item.quantity;
+      const displayQty = hasBaseline ? (item.originalQuantity ?? item.quantity) : item.quantity;
+      return (
+        <div className="flex items-center justify-end gap-1">
+          <span className="tabular-nums text-sm font-medium leading-none">{displayQty.toLocaleString()}</span>
+          <span className="text-muted-foreground text-xs">{item.unit}</span>
+        </div>
+      );
+    },
+    exportValue: (item) => {
+      const hasBaseline = item.originalQuantity != null && item.originalQuantity !== item.quantity;
+      return `${hasBaseline ? (item.originalQuantity ?? item.quantity) : item.quantity} ${item.unit}`;
+    },
+  },
+  newQuantity: {
+    label: "New Qty / Unit",
+    width: "w-[130px]",
+    cell: (item) => {
+      const hasBaseline = item.originalQuantity != null && item.originalQuantity !== item.quantity;
       const delta = hasBaseline ? item.quantity - (item.originalQuantity ?? 0) : 0;
       return (
         <div className="text-right space-y-0.5">
-          {hasBaseline && (
-            <div className="flex items-center justify-end gap-1">
-              <span className="tabular-nums text-[11px] text-muted-foreground line-through leading-none">
-                {(item.originalQuantity ?? 0).toLocaleString()}
-              </span>
-              <span className="text-muted-foreground text-[10px]">{item.unit}</span>
-            </div>
-          )}
           <div className="flex items-center justify-end gap-1">
             <span className="tabular-nums text-sm font-medium leading-none">{item.quantity.toLocaleString()}</span>
             <span className="text-muted-foreground text-xs">{item.unit}</span>
@@ -212,14 +282,24 @@ const ALL_COLUMN_DEFS: Record<string, { label: string; width?: string; cell: (it
     width: "w-[120px]",
     cell: (item) => {
       const hasBaseline = item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice;
+      const displayPrice = hasBaseline ? (item.originalUnitPrice ?? item.unitPrice) : item.unitPrice;
+      return (
+        <span className="tabular-nums text-sm block leading-none text-right">{fmt(displayPrice)}</span>
+      );
+    },
+    exportValue: (item) => {
+      const hasBaseline = item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice;
+      return String(hasBaseline ? (item.originalUnitPrice ?? item.unitPrice) : item.unitPrice);
+    },
+  },
+  newUnitPrice: {
+    label: "New Unit Cost",
+    width: "w-[120px]",
+    cell: (item) => {
+      const hasBaseline = item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice;
       const delta = hasBaseline ? item.unitPrice - (item.originalUnitPrice ?? 0) : 0;
       return (
         <div className="text-right space-y-0.5">
-          {hasBaseline && (
-            <span className="tabular-nums text-[11px] text-muted-foreground line-through block leading-none">
-              {fmt(item.originalUnitPrice ?? 0)}
-            </span>
-          )}
           <span className="tabular-nums text-sm block leading-none">{fmt(item.unitPrice)}</span>
           {hasBaseline && (
             <span className={`text-[10px] font-semibold tabular-nums block leading-none ${delta > 0 ? "text-amber-400" : "text-blue-400"}`}>
@@ -240,14 +320,31 @@ const ALL_COLUMN_DEFS: Record<string, { label: string; width?: string; cell: (it
       const origTotal = origQty * origRate;
       const hasBaseline = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
                           (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
+      const displayTotal = hasBaseline ? origTotal : item.totalPrice;
+      return (
+        <span className="tabular-nums text-sm font-semibold block leading-none text-right">{fmt(displayTotal)}</span>
+      );
+    },
+    exportValue: (item) => {
+      const origQty = item.originalQuantity ?? item.quantity;
+      const origRate = item.originalUnitPrice ?? item.unitPrice;
+      const hasBaseline = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
+                          (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
+      return String(hasBaseline ? origQty * origRate : item.totalPrice);
+    },
+  },
+  newTotalValue: {
+    label: "New Total Value",
+    width: "w-[130px]",
+    cell: (item) => {
+      const origQty = item.originalQuantity ?? item.quantity;
+      const origRate = item.originalUnitPrice ?? item.unitPrice;
+      const origTotal = origQty * origRate;
+      const hasBaseline = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
+                          (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
       const delta = item.totalPrice - origTotal;
       return (
         <div className="text-right space-y-0.5">
-          {hasBaseline && (
-            <span className="tabular-nums text-[11px] text-muted-foreground line-through block leading-none">
-              {fmt(origTotal)}
-            </span>
-          )}
           <span className="tabular-nums text-sm font-semibold block leading-none">{fmt(item.totalPrice)}</span>
           {hasBaseline && (
             <span className={`text-[10px] font-semibold tabular-nums block leading-none ${delta > 0 ? "text-amber-400" : "text-blue-400"}`}>
@@ -406,8 +503,23 @@ const ALL_COLUMN_DEFS: Record<string, { label: string; width?: string; cell: (it
   },
 };
 
-// Default visible columns (matches existing UI)
-const DEFAULT_COLUMNS = ["poItem", "description", "quantity", "unitPrice", "totalPrice", "delivery", "requiredByDate", "status"];
+// Default visible columns
+const DEFAULT_COLUMNS = ["itemNumber", "poNumber", "description", "quantity", "unitPrice", "totalPrice", "delivery", "requiredByDate", "status"];
+
+// Editable columns in the Changed section (maps col key → draft field)
+const EDITABLE_COLS: Record<string, keyof RowDraft> = {
+  newQuantity: "quantity",
+  newUnitPrice: "unitPrice",
+  delivery: "deliveryPercent",
+  requiredByDate: "requiredByDate",
+  criticality: "criticality",
+  scheduleDaysAtRisk: "scheduleDaysAtRisk",
+  scheduleActivityRef: "scheduleActivityRef",
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
 function reorderCols(arr: string[], from: string, to: string, setter: (val: string[]) => void) {
   const next = [...arr];
@@ -419,64 +531,9 @@ function reorderCols(arr: string[], from: string, to: string, setter: (val: stri
   setter(next);
 }
 
-interface BatchRow {
-  id: string;
-  boqItemId: string;
-  linkedPoId: string | null;
-  batchLabel: string;
-  expectedDate: string | null;
-  actualDate: string | null;
-  quantityExpected: number;
-  quantityDelivered: number;
-  status: "PENDING" | "IN_TRANSIT" | "PARTIALLY_DELIVERED" | "DELIVERED" | "LATE" | "CANCELLED";
-  notes: string | null;
-  poNumber: string | null;
-}
-
-interface BatchModalState {
-  open: boolean;
-  mode: BatchModalMode;
-  itemId: string;
-  batchId?: string;
-  initialValues?: {
-    batchLabel?: string;
-    expectedDate?: string;
-    actualDate?: string;
-    quantityExpected?: number;
-    quantityDelivered?: number;
-    status?: BatchStatus;
-  };
-}
-
-interface EditDraft {
-  itemNumber: string;
-  unit: string;
-  quantity: number;
-  unitPrice: number;
-  deliveryPercent: number;
-  requiredByDate: string;
-  criticality: string;
-  scheduleDaysAtRisk: number;
-  scheduleActivityRef: string;
-}
-
-const BATCH_STATUS_LABELS: Record<string, string> = {
-  PENDING: "Pending",
-  IN_TRANSIT: "In transit",
-  PARTIALLY_DELIVERED: "Partial",
-  DELIVERED: "Delivered",
-  LATE: "Late",
-  CANCELLED: "Cancelled",
-};
-
 function formatDate(value: string | null) {
   if (!value) return "—";
   return new Date(value).toISOString().slice(0, 10);
-}
-
-function parseIsoDate(value: string) {
-  if (!value) return undefined;
-  return new Date(`${value}T00:00:00`);
 }
 
 function fmt(n: number) {
@@ -508,7 +565,246 @@ function ncrSeverityClass(severity: NcrRow["severity"]) {
   return "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
 }
 
+// Merge draft edits into an ItemRow and recompute totalPrice live
+function liveRow(item: ItemRow, draft: RowDraft | undefined): ItemRow {
+  if (!draft) return item;
+  const qty = draft.quantity ?? item.quantity;
+  const price = draft.unitPrice ?? item.unitPrice;
+  const deliveryPct = draft.deliveryPercent ?? (item.quantity > 0 ? (item.quantityDelivered / item.quantity) * 100 : 0);
+  const quantityDelivered = item.quantity > 0 ? Math.round((deliveryPct / 100) * qty) : item.quantityDelivered;
+  return {
+    ...item,
+    quantity: qty,
+    unitPrice: price,
+    totalPrice: qty * price,
+    quantityDelivered,
+    requiredByDate: draft.requiredByDate !== undefined ? (draft.requiredByDate || null) : item.requiredByDate,
+    criticality: draft.criticality ?? item.criticality,
+    scheduleDaysAtRisk: draft.scheduleDaysAtRisk ?? item.scheduleDaysAtRisk,
+    scheduleActivityRef: draft.scheduleActivityRef !== undefined ? (draft.scheduleActivityRef || null) : item.scheduleActivityRef,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRUNCATED CELL — truncates text, double-click opens full-value popover
+// ─────────────────────────────────────────────────────────────────────────────
+
+function TruncatedCell({ value, className = "" }: { value: string; className?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <span
+          className={`block truncate cursor-default select-text ${className}`}
+          onDoubleClick={(e) => { e.stopPropagation(); setOpen(true); }}
+          title="Double-click to expand"
+        >
+          {value}
+        </span>
+      </PopoverTrigger>
+      <PopoverContent
+        className="max-w-xs text-sm wrap-break-word p-3"
+        side="bottom"
+        align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        {value}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EDITABLE CELL COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface EditableCellProps {
+  item: ItemRow;
+  colKey: string;
+  draft: RowDraft | undefined;
+  isActive: boolean;
+  isSaving: boolean;
+  onActivate: () => void;
+  onChange: (field: keyof RowDraft, value: string | number) => void;
+  onCommit: () => void;
+  onDiscard: () => void;
+  onKeyNav: (e: React.KeyboardEvent) => void;
+}
+
+function EditableCell({
+  item,
+  colKey,
+  draft,
+  isActive,
+  isSaving,
+  onActivate,
+  onChange,
+  onCommit,
+  onDiscard,
+  onKeyNav,
+}: EditableCellProps) {
+  const inputRef = useRef<HTMLInputElement | HTMLSelectElement>(null);
+  const draftField = EDITABLE_COLS[colKey];
+
+  useEffect(() => {
+    if (isActive && inputRef.current) {
+      inputRef.current.focus();
+      if (inputRef.current instanceof HTMLInputElement) {
+        inputRef.current.select();
+      }
+    }
+  }, [isActive]);
+
+  if (!draftField) {
+    // Not an editable column — render read-only
+    const def = ALL_COLUMN_DEFS[colKey];
+    return <>{def?.cell(item)}</>;
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") { e.preventDefault(); onCommit(); }
+    else if (e.key === "Escape") { e.preventDefault(); onDiscard(); }
+    else { onKeyNav(e); }
+  };
+
+  const handleBlur = () => {
+    // Small delay so Tab can move to next cell before commit fires
+    setTimeout(() => onCommit(), 80);
+  };
+
+  if (isSaving) {
+    return (
+      <div className="flex items-center justify-center h-7">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // ── DISPLAY MODE ──
+  if (!isActive) {
+    const def = ALL_COLUMN_DEFS[colKey];
+    return (
+      <div
+        className="min-h-[28px] flex items-center cursor-cell group relative"
+        onClick={(e) => { e.stopPropagation(); onActivate(); }}
+      >
+        {def?.cell(item)}
+        <span className="absolute inset-0 rounded opacity-0 group-hover:opacity-100 ring-1 ring-inset ring-primary/30 pointer-events-none transition-opacity" />
+      </div>
+    );
+  }
+
+  // ── EDIT MODE ──
+  const baseInputClass = "h-7 w-full text-sm tabular-nums border-0 rounded px-1.5 bg-primary/5 ring-2 ring-primary focus:outline-none focus:ring-2 focus:ring-primary";
+
+  if (draftField === "criticality") {
+    const val = draft?.criticality ?? item.criticality ?? "BUFFERED";
+    return (
+      <select
+        ref={inputRef as React.RefObject<HTMLSelectElement>}
+        value={val}
+        onChange={(e) => onChange("criticality", e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        className={`${baseInputClass} cursor-pointer`}
+      >
+        <option value="BUFFERED">Buffered</option>
+        <option value="JUST_IN_TIME">JIT</option>
+      </select>
+    );
+  }
+
+  if (draftField === "requiredByDate") {
+    const val = draft?.requiredByDate ?? (item.requiredByDate ? formatDate(item.requiredByDate) : "");
+    return (
+      <input
+        ref={inputRef as React.RefObject<HTMLInputElement>}
+        type="date"
+        value={val === "—" ? "" : val}
+        onChange={(e) => onChange("requiredByDate", e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        className={baseInputClass}
+      />
+    );
+  }
+
+  if (draftField === "scheduleActivityRef") {
+    const val = draft?.scheduleActivityRef ?? item.scheduleActivityRef ?? "";
+    return (
+      <input
+        ref={inputRef as React.RefObject<HTMLInputElement>}
+        type="text"
+        value={val}
+        onChange={(e) => onChange("scheduleActivityRef", e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        className={baseInputClass}
+      />
+    );
+  }
+
+  // Number fields: quantity, unitPrice, deliveryPercent, scheduleDaysAtRisk
+  let numVal: number;
+  if (draftField === "quantity") numVal = draft?.quantity ?? item.quantity;
+  else if (draftField === "unitPrice") numVal = draft?.unitPrice ?? item.unitPrice;
+  else if (draftField === "deliveryPercent") numVal = draft?.deliveryPercent ?? (item.quantity > 0 ? (item.quantityDelivered / item.quantity) * 100 : 0);
+  else numVal = draft?.scheduleDaysAtRisk ?? item.scheduleDaysAtRisk;
+
+  return (
+    <input
+      ref={inputRef as React.RefObject<HTMLInputElement>}
+      type="number"
+      min={0}
+      max={draftField === "deliveryPercent" ? 100 : undefined}
+      step={draftField === "unitPrice" ? "0.01" : "1"}
+      value={numVal}
+      onChange={(e) => onChange(draftField, parseFloat(e.target.value) || 0)}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      className={baseInputClass}
+    />
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function BoqTrackerShell({ projectId }: Props) {
+  // ── Drag-to-scroll ──
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const dragScroll = useRef({ active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 });
+
+  const handleTableMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("button, a, input, select, [role='checkbox'], [draggable='true']")) return;
+    dragScroll.current = { active: true, startX: e.clientX, startY: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop };
+    el.style.cursor = "grabbing";
+    el.style.userSelect = "none";
+  }, []);
+
+  const handleTableMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!dragScroll.current.active) return;
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const dx = e.clientX - dragScroll.current.startX;
+    const dy = e.clientY - dragScroll.current.startY;
+    el.scrollLeft = dragScroll.current.scrollLeft - dx;
+    el.scrollTop = dragScroll.current.scrollTop - dy;
+  }, []);
+
+  const handleTableMouseUp = useCallback(() => {
+    dragScroll.current.active = false;
+    const el = tableScrollRef.current;
+    if (!el) return;
+    el.style.cursor = "";
+    el.style.userSelect = "";
+  }, []);
+
+  // ── Data ──
   const [loading, setLoading] = useState(false);
   const [discipline, setDiscipline] = useState<string>("ALL");
   const [materialClass, setMaterialClass] = useState<string>("ALL");
@@ -523,50 +819,54 @@ export function BoqTrackerShell({ projectId }: Props) {
   const [loadingProjectNcrs, setLoadingProjectNcrs] = useState(false);
   const [showProjectNcrs, setShowProjectNcrs] = useState(false);
 
-  // Column management state
+  // ── Inline editing state ──
+  const [edits, setEdits] = useState<Map<string, RowDraft>>(new Map());
+  const [activeCell, setActiveCell] = useState<{ id: string; col: string } | null>(null);
+  const [savingRows, setSavingRows] = useState<Set<string>>(new Set());
+
+  // ── Column management ──
+  function migrateSavedCols(cols: string[]): string[] {
+    const result: string[] = [];
+    for (const c of cols) {
+      if (c === "poItem") {
+        if (!result.includes("itemNumber")) result.push("itemNumber");
+        if (!result.includes("poNumber")) result.push("poNumber");
+      } else {
+        result.push(c);
+      }
+    }
+    return result;
+  }
+
   const [savedCustomCols, setSavedCustomCols] = useState<string[]>(() => {
     if (typeof window === "undefined") return DEFAULT_COLUMNS;
     try {
       const raw = window.localStorage.getItem("boq-tracker-custom-view-v1");
       if (!raw) return DEFAULT_COLUMNS;
-      return JSON.parse(raw) as string[];
-    } catch {
-      return DEFAULT_COLUMNS;
-    }
+      return migrateSavedCols(JSON.parse(raw) as string[]);
+    } catch { return DEFAULT_COLUMNS; }
   });
   const [visibleCols, setVisibleCols] = useState<string[]>(() => {
     if (typeof window === "undefined") return DEFAULT_COLUMNS;
     try {
       const raw = window.localStorage.getItem("boq-tracker-custom-view-v1");
       if (!raw) return DEFAULT_COLUMNS;
-      return JSON.parse(raw) as string[];
-    } catch {
-      return DEFAULT_COLUMNS;
-    }
+      return migrateSavedCols(JSON.parse(raw) as string[]);
+    } catch { return DEFAULT_COLUMNS; }
   });
   const [dragCol, setDragCol] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [colPickerOpen, setColPickerOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [showViewExplanation, setShowViewExplanation] = useState(false);
-  const [sectionExpanded, setSectionExpanded] = useState({
-    changed: false,
-    original: true,
-  });
+  const [sectionExpanded, setSectionExpanded] = useState({ changed: true, original: true });
 
-  // Sheet state
-  const [selectedItem, setSelectedItem] = useState<ItemRow | null>(null);
-  const [draft, setDraft] = useState<EditDraft | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  const [batchModal, setBatchModal] = useState<BatchModalState>({
-    open: false,
-    mode: "create",
-    itemId: "",
-  });
+  // ── Batch modal ──
+  const [batchModal, setBatchModal] = useState<BatchModalState>({ open: false, mode: "create", itemId: "" });
   const [batchModalSeed, setBatchModalSeed] = useState(0);
   const [batchSaving, setBatchSaving] = useState(false);
 
+  // ── Load data ──
   const loadData = useCallback(async () => {
     setLoading(true);
     setLoadingProjectNcrs(true);
@@ -600,6 +900,10 @@ export function BoqTrackerShell({ projectId }: Props) {
         setBatches(json.data.batches ?? []);
       }
 
+      // Clear edits on reload
+      setEdits(new Map());
+      setActiveCell(null);
+
       const ncrRes = await fetch(`/api/ncr?projectId=${projectId}`);
       const ncrJson = await ncrRes.json();
       if (ncrJson.success) {
@@ -615,9 +919,7 @@ export function BoqTrackerShell({ projectId }: Props) {
     }
   }, [projectId, discipline, materialClass, search, statusFilter]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const batchMap = useMemo(() => {
     const map = new Map<string, BatchRow[]>();
@@ -629,123 +931,154 @@ export function BoqTrackerShell({ projectId }: Props) {
     return map;
   }, [batches]);
 
-  const livePoValue = useMemo(() => {
-    return items.reduce((sum, item) => sum + item.totalPrice, 0);
-  }, [items]);
+  // ── Live items (merges edits into display) ──
+  const liveItems = useMemo(() => {
+    return items.map((item) => liveRow(item, edits.get(item.id)));
+  }, [items, edits]);
 
+  const livePoValue = useMemo(() => liveItems.reduce((sum, item) => sum + item.totalPrice, 0), [liveItems]);
   const liveDelivery = useMemo(() => {
-    const totalQty = items.reduce((s, i) => s + i.quantity, 0);
-    const totalDel = items.reduce((s, i) => s + i.quantityDelivered, 0);
+    const totalQty = liveItems.reduce((s, i) => s + i.quantity, 0);
+    const totalDel = liveItems.reduce((s, i) => s + i.quantityDelivered, 0);
     return totalQty > 0 ? (totalDel / totalQty) * 100 : 0;
-  }, [items]);
+  }, [liveItems]);
+  const lateCount = useMemo(() => liveItems.filter((i) => i.status === "LATE").length, [liveItems]);
 
-  const lateCount = useMemo(() => items.filter((i) => i.status === "LATE").length, [items]);
   const isChangedItem = useCallback((item: ItemRow) => {
     const isAmended =
       (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
       (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
     return item.isVariation || isAmended;
   }, []);
-  const changedItems = useMemo(() => items.filter(isChangedItem), [items, isChangedItem]);
-  const originalItems = useMemo(() => items.filter((item) => !isChangedItem(item)), [items, isChangedItem]);
+
+  const changedItems = useMemo(() => liveItems.filter(isChangedItem), [liveItems, isChangedItem]);
+  const originalItems = useMemo(() => liveItems.filter((item) => !isChangedItem(item)), [liveItems, isChangedItem]);
+
+  // Expand qty/price columns to show original + new side by side (shared by both sections)
+  const SECTION_EXPAND_MAP: Record<string, string[]> = {
+    quantity: ["quantity", "newQuantity"],
+    unitPrice: ["unitPrice", "newUnitPrice"],
+    totalPrice: ["totalPrice", "newTotalValue"],
+  };
+
+  const changedSectionCols = useMemo(() => {
+    const result: string[] = [];
+    for (const col of visibleCols) {
+      if (SECTION_EXPAND_MAP[col]) result.push(...SECTION_EXPAND_MAP[col]);
+      else result.push(col);
+    }
+    return result;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleCols]);
+
+  const originalSectionCols = changedSectionCols; // same expansion
+
+  // All editable cols present in the current changed section view (for Tab nav)
+  const editableColsInView = useMemo(
+    () => changedSectionCols.filter((c) => c in EDITABLE_COLS),
+    [changedSectionCols],
+  );
+
   const totals = useMemo(() => {
-    const quantity = items.reduce((sum, item) => sum + item.quantity, 0);
-    const unitPrice = items.reduce((sum, item) => sum + item.unitPrice, 0);
-    const totalPrice = items.reduce((sum, item) => sum + item.totalPrice, 0);
-    const quantityDelivered = items.reduce((sum, item) => sum + item.quantityDelivered, 0);
-    const quantityInstalled = items.reduce((sum, item) => sum + (item.quantityInstalled ?? 0), 0);
-    const quantityCertified = items.reduce((sum, item) => sum + (item.quantityCertified ?? 0), 0);
-    const originalQuantity = items.reduce((sum, item) => sum + (item.originalQuantity ?? 0), 0);
-    const originalUnitPrice = items.reduce((sum, item) => sum + (item.originalUnitPrice ?? 0), 0);
-    const revisedQuantity = items.reduce((sum, item) => sum + (item.revisedQuantity ?? 0), 0);
-    const lateDays = items.reduce((sum, item) => sum + item.lateDays, 0);
+    const quantity = liveItems.reduce((sum, item) => sum + item.quantity, 0);
+    const totalPrice = liveItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    const quantityDelivered = liveItems.reduce((sum, item) => sum + item.quantityDelivered, 0);
+    const lateDays = liveItems.reduce((sum, item) => sum + item.lateDays, 0);
     const deliveryPct = quantity > 0 ? (quantityDelivered / quantity) * 100 : 0;
+    return { quantity, totalPrice, quantityDelivered, lateDays, deliveryPct };
+  }, [liveItems]);
 
-    return {
-      quantity,
-      unitPrice,
-      totalPrice,
-      quantityDelivered,
-      quantityInstalled,
-      quantityCertified,
-      originalQuantity,
-      originalUnitPrice,
-      revisedQuantity,
-      lateDays,
-      deliveryPct,
-    };
-  }, [items]);
-
-  function openItem(item: ItemRow) {
-    setSelectedItem(item);
-    setDraft({
-      itemNumber: item.itemNumber,
-      unit: item.unit,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      deliveryPercent: item.quantity > 0 ? (item.quantityDelivered / item.quantity) * 100 : 0,
-      requiredByDate: formatDate(item.requiredByDate) === "—" ? "" : formatDate(item.requiredByDate),
-      criticality: item.criticality ?? "BUFFERED",
-      scheduleDaysAtRisk: item.scheduleDaysAtRisk,
-      scheduleActivityRef: item.scheduleActivityRef ?? "",
+  // ── Inline edit handlers ──
+  const handleCellChange = useCallback((itemId: string, field: keyof RowDraft, value: string | number) => {
+    setEdits((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(itemId) ?? {};
+      next.set(itemId, { ...existing, [field]: value });
+      return next;
     });
-  }
+  }, []);
 
-  function closeSheet() {
-    setSelectedItem(null);
-    setDraft(null);
-  }
+  const saveRowField = useCallback(async (itemId: string) => {
+    const draft = edits.get(itemId);
+    if (!draft || Object.keys(draft).length === 0) {
+      setActiveCell(null);
+      return;
+    }
 
-  function setDraftField<K extends keyof EditDraft>(key: K, value: EditDraft[K]) {
-    setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
-  }
+    setSavingRows((prev) => new Set(prev).add(itemId));
+    setActiveCell(null);
 
-  async function saveItem() {
-    if (!selectedItem || !draft) return;
-    setSaving(true);
     try {
-      const res = await fetch(`/api/boq/tracker/${selectedItem.id}`, {
+      const item = items.find((i) => i.id === itemId);
+      if (!item) return;
+
+      const body: Record<string, unknown> = {};
+      if (draft.quantity !== undefined) body.quantity = draft.quantity;
+      if (draft.unitPrice !== undefined) body.unitPrice = draft.unitPrice;
+      if (draft.deliveryPercent !== undefined) body.deliveryPercent = draft.deliveryPercent;
+      if (draft.requiredByDate !== undefined) body.requiredByDate = draft.requiredByDate || null;
+      if (draft.criticality !== undefined) body.criticality = draft.criticality;
+      if (draft.scheduleDaysAtRisk !== undefined) body.scheduleDaysAtRisk = draft.scheduleDaysAtRisk;
+      if (draft.scheduleActivityRef !== undefined) body.scheduleActivityRef = draft.scheduleActivityRef || null;
+
+      const res = await fetch(`/api/boq/tracker/${itemId}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          itemNumber: draft.itemNumber,
-          unit: draft.unit,
-          quantity: draft.quantity,
-          unitPrice: draft.unitPrice,
-          deliveryPercent: draft.deliveryPercent,
-          requiredByDate: draft.requiredByDate || null,
-          criticality: draft.criticality,
-          scheduleDaysAtRisk: draft.scheduleDaysAtRisk,
-          scheduleActivityRef: draft.scheduleActivityRef,
-        }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!json.success) {
-        toast.error(json.error || "Failed to update item");
+        toast.error(json.error || "Failed to save");
         return;
       }
-      toast.success("Item updated");
-      closeSheet();
-      await loadData();
+
+      // Update items array in place (no full reload)
+      setItems((prev) =>
+        prev.map((i) => {
+          if (i.id !== itemId) return i;
+          return liveRow(i, draft);
+        }),
+      );
+      // Clear draft for this row
+      setEdits((prev) => {
+        const next = new Map(prev);
+        next.delete(itemId);
+        return next;
+      });
+    } catch {
+      toast.error("Network error — changes not saved");
     } finally {
-      setSaving(false);
+      setSavingRows((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
     }
-  }
+  }, [edits, items]);
 
-  async function markDelivered(item: ItemRow) {
-    const res = await fetch(`/api/boq/tracker/${item.id}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ quantityDelivered: item.quantity }),
+  const discardRowEdit = useCallback((itemId: string) => {
+    setEdits((prev) => {
+      const next = new Map(prev);
+      next.delete(itemId);
+      return next;
     });
-    const json = await res.json();
-    if (!json.success) { toast.error(json.error || "Failed"); return; }
-    toast.success("Marked as fully delivered");
-    await loadData();
-  }
+    setActiveCell(null);
+  }, []);
 
+  // Keyboard navigation: Tab/Shift+Tab moves between editable cells in the same row
+  const handleCellKeyNav = useCallback((e: React.KeyboardEvent, itemId: string, colKey: string) => {
+    if (e.key !== "Tab") return;
+    e.preventDefault();
+    const idx = editableColsInView.indexOf(colKey);
+    if (idx === -1) return;
+    const next = e.shiftKey ? idx - 1 : idx + 1;
+    if (next >= 0 && next < editableColsInView.length) {
+      setActiveCell({ id: itemId, col: editableColsInView[next] });
+    }
+  }, [editableColsInView]);
+
+  // ── Batch modal helpers ──
   function openCreateBatchModal(item: ItemRow) {
     setBatchModalSeed((v) => v + 1);
     setBatchModal({
@@ -843,46 +1176,40 @@ export function BoqTrackerShell({ projectId }: Props) {
     }
   }
 
-  const selectedItemBatches = selectedItem ? (batchMap.get(selectedItem.id) ?? []) : [];
-  const liveDraftTotal = draft ? draft.quantity * draft.unitPrice : 0;
-
+  // ── View explanation ──
   const viewExplanation = useMemo(() => {
     const disciplineText = discipline !== "ALL" ? ` filtered by ${discipline}` : "";
     const statusText = statusFilter !== "ALL" ? `, status: ${statusFilter}` : "";
     const searchText = search.trim() ? `, search: "${search.trim()}"` : "";
     const isSaved = JSON.stringify(visibleCols) === JSON.stringify(savedCustomCols);
     const viewType = isSaved ? "custom saved view" : "current view";
-    return `You are viewing BOQ items in ${viewType}${disciplineText}${statusText}${searchText}. ${items.length.toLocaleString()} item(s) visible across ${visibleCols.length} column(s).`;
-  }, [discipline, statusFilter, search, visibleCols, savedCustomCols, items.length]);
+    return `You are viewing BOQ items in ${viewType}${disciplineText}${statusText}${searchText}. ${liveItems.length.toLocaleString()} item(s) visible across ${visibleCols.length} column(s).`;
+  }, [discipline, statusFilter, search, visibleCols, savedCustomCols, liveItems.length]);
 
   function saveCustomView() {
     setSavedCustomCols(visibleCols);
     try {
       window.localStorage.setItem("boq-tracker-custom-view-v1", JSON.stringify(visibleCols));
       toast.success("Custom view saved");
-    } catch {
-      toast.error("Failed to save view");
-    }
+    } catch { toast.error("Failed to save view"); }
   }
 
   async function handleExport(format: "csv" | "excel" | "pdf") {
     const exportCols = visibleCols
-      .filter((k) => k !== "poItem") // split poItem into two columns for export
+      .filter((k) => k !== "poItem")
       .map((k) => ({ key: k, label: ALL_COLUMN_DEFS[k]?.label ?? k }));
 
-    // Always prepend PO Number and Item Number for export
+    const hasPo = exportCols.some((c) => c.key === "poNumber");
+    const hasItem = exportCols.some((c) => c.key === "itemNumber");
     const allExportCols = [
-      { key: "poNumber", label: "PO Number" },
-      { key: "itemNumber", label: "Item Number" },
-      ...exportCols.filter((c) => c.key !== "description" || true),
+      ...(!hasItem ? [{ key: "itemNumber", label: "Item #" }] : []),
+      ...(!hasPo ? [{ key: "poNumber", label: "PO" }] : []),
+      ...exportCols,
     ];
 
-    const rows = items.map((item) => {
-      const row: Record<string, string> = {
-        poNumber: item.poNumber,
-        itemNumber: item.itemNumber,
-      };
-      for (const col of exportCols) {
+    const rows = liveItems.map((item) => {
+      const row: Record<string, string> = {};
+      for (const col of allExportCols) {
         const def = ALL_COLUMN_DEFS[col.key];
         if (def) row[col.key] = def.exportValue(item);
       }
@@ -898,32 +1225,36 @@ export function BoqTrackerShell({ projectId }: Props) {
     });
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────
+
   return (
-    <div className="flex flex-col gap-0">
+    <div className="flex min-w-0 flex-col gap-3">
       {/* KPI bar */}
-      <div className="flex flex-wrap gap-3 px-4 pt-4 pb-3 shrink-0">
-        <div className="flex-1 min-w-[130px] rounded-lg border bg-card px-4 py-3">
+      <div className="grid grid-cols-1 gap-3 px-3 pt-3 sm:grid-cols-2 sm:px-4 lg:grid-cols-4 shrink-0">
+        <div className="min-w-0 rounded-lg border bg-card px-4 py-3">
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">PO Value</p>
           <p className="text-xl font-bold tabular-nums">{fmt(livePoValue)}</p>
         </div>
-        <div className="flex-1 min-w-[130px] rounded-lg border bg-card px-4 py-3">
+        <div className="min-w-0 rounded-lg border bg-card px-4 py-3">
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Delivery</p>
           <p className="text-xl font-bold tabular-nums">{liveDelivery.toFixed(1)}%</p>
         </div>
-        <div className="flex-1 min-w-[110px] rounded-lg border bg-card px-4 py-3">
+        <div className="min-w-0 rounded-lg border bg-card px-4 py-3">
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Items</p>
-          <p className="text-xl font-bold tabular-nums">{items.length}</p>
+          <p className="text-xl font-bold tabular-nums">{liveItems.length}</p>
         </div>
-        <div className={`flex-1 min-w-[110px] rounded-lg border px-4 py-3 ${lateCount > 0 ? "border-red-500/30 bg-red-500/5" : "bg-card"}`}>
+        <div className={`min-w-0 rounded-lg border px-4 py-3 ${lateCount > 0 ? "border-red-500/30 bg-red-500/5" : "bg-card"}`}>
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Late items</p>
           <p className={`text-xl font-bold tabular-nums ${lateCount > 0 ? "text-red-400" : ""}`}>{lateCount}</p>
         </div>
       </div>
 
       {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2 px-4 pb-3 shrink-0">
+      <div className="flex flex-wrap items-stretch gap-2 px-3 sm:px-4 shrink-0">
         <Select value={discipline} onValueChange={(v) => { setDiscipline(v); setMaterialClass("ALL"); }}>
-          <SelectTrigger className="h-8 w-[170px] text-sm">
+          <SelectTrigger className="h-8 w-full text-sm sm:w-[170px]">
             <SelectValue placeholder="Discipline" />
           </SelectTrigger>
           <SelectContent>
@@ -936,7 +1267,7 @@ export function BoqTrackerShell({ projectId }: Props) {
 
         {discipline !== "ALL" && materialSummary.length > 0 && (
           <Select value={materialClass} onValueChange={setMaterialClass}>
-            <SelectTrigger className="h-8 w-[170px] text-sm">
+            <SelectTrigger className="h-8 w-full text-sm sm:w-[170px]">
               <SelectValue placeholder="Material class" />
             </SelectTrigger>
             <SelectContent>
@@ -949,7 +1280,7 @@ export function BoqTrackerShell({ projectId }: Props) {
         )}
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="h-8 w-[140px] text-sm">
+          <SelectTrigger className="h-8 w-full text-sm sm:w-[140px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -965,17 +1296,17 @@ export function BoqTrackerShell({ projectId }: Props) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search PO, item, material…"
-          className="h-8 w-[210px] text-sm"
+          className="h-8 w-full text-sm sm:min-w-[220px] sm:flex-1 lg:min-w-[280px]"
         />
 
-        <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+        <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={loadData} disabled={loading}>
           {loading ? "Loading…" : "Refresh"}
         </Button>
 
         {/* Column picker */}
         <Popover open={colPickerOpen} onOpenChange={setColPickerOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1.5">
+            <Button variant="outline" size="sm" className="w-full gap-1.5 sm:w-auto">
               <Columns3 className="h-3.5 w-3.5" />
               Columns ({visibleCols.length})
               <ChevronDown className="h-3 w-3 opacity-60" />
@@ -987,7 +1318,7 @@ export function BoqTrackerShell({ projectId }: Props) {
             </p>
             <ScrollArea className="h-[300px]">
               <div className="space-y-0.5 pr-2">
-                {Object.entries(ALL_COLUMN_DEFS).map(([key, def]) => {
+                {Object.entries(ALL_COLUMN_DEFS).filter(([key]) => key !== "poItem").map(([key, def]) => {
                   const isVisible = visibleCols.includes(key);
                   return (
                     <label
@@ -997,15 +1328,15 @@ export function BoqTrackerShell({ projectId }: Props) {
                       <Checkbox
                         checked={isVisible}
                         onCheckedChange={(checked) => {
-                          if (checked) {
-                            setVisibleCols((prev) => [...prev, key]);
-                          } else {
-                            setVisibleCols((prev) => prev.filter((k) => k !== key));
-                          }
+                          if (checked) setVisibleCols((prev) => [...prev, key]);
+                          else setVisibleCols((prev) => prev.filter((k) => k !== key));
                         }}
                         className="h-3.5 w-3.5"
                       />
                       <span className="text-sm">{def.label}</span>
+                      {key in EDITABLE_COLS && (
+                        <span className="ml-auto text-[9px] text-emerald-500 font-semibold uppercase tracking-wide">editable</span>
+                      )}
                     </label>
                   );
                 })}
@@ -1013,20 +1344,12 @@ export function BoqTrackerShell({ projectId }: Props) {
             </ScrollArea>
             <Separator className="my-2" />
             <div className="flex gap-1.5 px-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-xs flex-1"
-                onClick={() => setVisibleCols(Object.keys(ALL_COLUMN_DEFS))}
-              >
+              <Button variant="ghost" size="sm" className="h-6 text-xs flex-1"
+                onClick={() => setVisibleCols(Object.keys(ALL_COLUMN_DEFS).filter((k) => k !== "poItem"))}>
                 Select all
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-xs flex-1"
-                onClick={() => setVisibleCols(DEFAULT_COLUMNS)}
-              >
+              <Button variant="ghost" size="sm" className="h-6 text-xs flex-1"
+                onClick={() => setVisibleCols(DEFAULT_COLUMNS)}>
                 Reset
               </Button>
             </div>
@@ -1036,21 +1359,21 @@ export function BoqTrackerShell({ projectId }: Props) {
         <Button
           variant="outline"
           size="sm"
+          className={`w-full sm:w-auto ${showViewExplanation ? "bg-muted" : ""}`}
           onClick={() => setShowViewExplanation((v) => !v)}
-          className={showViewExplanation ? "bg-muted" : ""}
         >
           Explain View
         </Button>
 
-        <Button variant="outline" size="sm" onClick={saveCustomView}>
+        <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={saveCustomView}>
           Save Custom View
         </Button>
 
         <Button
           variant="outline"
           size="sm"
+          className={`w-full sm:w-auto ${showProjectNcrs ? "bg-muted" : ""}`}
           onClick={() => setShowProjectNcrs((prev) => !prev)}
-          className={showProjectNcrs ? "bg-muted" : ""}
         >
           NCRs ({projectNcrs.length})
         </Button>
@@ -1058,7 +1381,7 @@ export function BoqTrackerShell({ projectId }: Props) {
         {/* Export dropdown */}
         <DropdownMenu open={exportMenuOpen} onOpenChange={setExportMenuOpen}>
           <DropdownMenuTrigger asChild>
-            <Button size="sm" className="gap-1.5">
+            <Button size="sm" className="w-full gap-1.5 sm:w-auto">
               <Download className="h-3.5 w-3.5" />
               Export
               <ChevronDown className="h-3 w-3 opacity-60" />
@@ -1084,17 +1407,17 @@ export function BoqTrackerShell({ projectId }: Props) {
 
       {/* Explain View panel */}
       {showViewExplanation && (
-        <div className="mx-4 mb-2 rounded-lg border bg-muted/20 px-4 py-2.5 text-sm text-muted-foreground shrink-0">
+        <div className="mx-3 rounded-lg border bg-muted/20 px-4 py-2.5 text-sm text-muted-foreground sm:mx-4 shrink-0">
           {viewExplanation}
         </div>
       )}
 
       {/* Discipline pills */}
       {disciplineSummary.length > 0 && (
-        <div className="flex flex-wrap gap-2 px-4 pb-3 shrink-0">
+        <div className="flex gap-2 overflow-x-auto px-3 pb-1 sm:flex-wrap sm:px-4 shrink-0">
           <button
             onClick={() => { setDiscipline("ALL"); setMaterialClass("ALL"); }}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors
               ${discipline === "ALL" ? "border-primary bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground hover:text-foreground"}`}
           >
             All
@@ -1103,7 +1426,7 @@ export function BoqTrackerShell({ projectId }: Props) {
             <button
               key={row.discipline}
               onClick={() => { setDiscipline(row.discipline); setMaterialClass("ALL"); }}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors
                 ${discipline === row.discipline
                   ? "border-primary bg-primary/10 text-primary"
                   : `${statusColor(row.status)} hover:opacity-80`}`}
@@ -1116,11 +1439,11 @@ export function BoqTrackerShell({ projectId }: Props) {
       )}
 
       {/* Hint + legend */}
-      <div className="px-4 pb-2 shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1">
-        <p className="text-[11px] text-muted-foreground">
-          Click any row to edit it and manage delivery batches.
+      <div className="mx-3 flex shrink-0 flex-col gap-2 rounded-lg border bg-muted/10 px-3 py-2 sm:mx-4 sm:flex-row sm:items-start sm:justify-between">
+        <p className="text-[11px] leading-relaxed text-muted-foreground sm:max-w-xl">
+          Click a cell in the <strong>Changed / Updated</strong> section to edit inline. Tab to move between cells. Enter to confirm, Esc to cancel.
         </p>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <span className="inline-block w-2.5 h-2.5 rounded-sm border-l-2 border-l-amber-500/60 bg-amber-500/10" />
             Amended
@@ -1129,15 +1452,19 @@ export function BoqTrackerShell({ projectId }: Props) {
             <span className="inline-block w-2.5 h-2.5 rounded-sm border-l-2 border-l-violet-500/60 bg-violet-500/10" />
             Variation order
           </span>
+          <span className="flex items-center gap-1.5 text-[11px] text-amber-500/80">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-amber-500/10 border border-amber-500/30" />
+            New value column (Changed section)
+          </span>
           <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <span className="tabular-nums line-through text-[10px]">orig</span>
-            &nbsp;Original value (struck through)
+            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-muted/40 border border-border" />
+            Click cell to edit · Double-click text to expand
           </span>
         </div>
       </div>
 
       {/* Project NCR panel */}
-      <div className="mx-4 mb-3 rounded-lg border overflow-hidden shrink-0">
+      <div className="mx-3 rounded-lg border overflow-hidden sm:mx-4 shrink-0">
         <button
           type="button"
           onClick={() => setShowProjectNcrs((prev) => !prev)}
@@ -1166,16 +1493,12 @@ export function BoqTrackerShell({ projectId }: Props) {
                     <button
                       key={ncrItem.id}
                       type="button"
-                      onClick={() => {
-                        window.location.href = `/dashboard/procurement/ncr/${ncrItem.id}`;
-                      }}
+                      onClick={() => { window.location.href = `/dashboard/procurement/ncr/${ncrItem.id}`; }}
                       className="w-full text-left px-3 py-2.5 hover:bg-muted/30 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold truncate">
-                            {ncrItem.ncrNumber} - {ncrItem.title}
-                          </p>
+                          <p className="text-sm font-semibold truncate">{ncrItem.ncrNumber} - {ncrItem.title}</p>
                           <p className="text-xs text-muted-foreground truncate">
                             {ncrItem.affectedBoqItem
                               ? `#${ncrItem.affectedBoqItem.itemNumber} - ${ncrItem.affectedBoqItem.description}`
@@ -1204,12 +1527,20 @@ export function BoqTrackerShell({ projectId }: Props) {
         )}
       </div>
 
-      {/* Items table — viewport-height contained */}
-      <div className="mx-4 mb-4 rounded-lg border bg-white text-foreground dark:bg-background overflow-hidden flex flex-col h-[calc(100dvh-340px)] min-h-60">
-        <div className="overflow-x-auto shrink-0 border-b">
+      {/* Items table — single scroll container */}
+      <div className="mx-3 mb-4 flex min-h-[420px] flex-col overflow-hidden rounded-lg border bg-white text-foreground sm:mx-4 dark:bg-background h-[60dvh] lg:h-[calc(100dvh-370px)]">
+        <div
+          ref={tableScrollRef}
+          className="flex-1 overflow-auto cursor-grab active:cursor-grabbing"
+          onMouseDown={handleTableMouseDown}
+          onMouseMove={handleTableMouseMove}
+          onMouseUp={handleTableMouseUp}
+          onMouseLeave={handleTableMouseUp}
+        >
           <Table>
-            <TableHeader>
-              <TableRow className="bg-white hover:bg-white dark:bg-muted/40 dark:hover:bg-muted/40">
+            {/* Sticky header */}
+            <TableHeader className="sticky top-0 z-10">
+              <TableRow className="bg-white hover:bg-white dark:bg-muted/40 dark:hover:bg-muted/40 shadow-[0_1px_0_0_hsl(var(--border))]">
                 {visibleCols.map((colKey) => {
                   const def = ALL_COLUMN_DEFS[colKey];
                   if (!def) return null;
@@ -1226,11 +1557,9 @@ export function BoqTrackerShell({ projectId }: Props) {
                       }}
                       className={[
                         def.width ?? "",
-                        "cursor-grab active:cursor-grabbing select-none",
+                        "cursor-grab active:cursor-grabbing select-none bg-white dark:bg-muted/40",
                         dragCol === colKey ? "opacity-40 bg-muted/60" : "",
-                        dragOverCol === colKey && dragCol !== colKey
-                          ? "bg-primary/15 border-l-2 border-l-primary"
-                          : "",
+                        dragOverCol === colKey && dragCol !== colKey ? "bg-primary/15 border-l-2 border-l-primary" : "",
                       ].join(" ")}
                     >
                       <span className="flex items-center gap-1">
@@ -1240,498 +1569,375 @@ export function BoqTrackerShell({ projectId }: Props) {
                     </TableHead>
                   );
                 })}
+                {/* Actions column header */}
+                <TableHead className="w-10 bg-white dark:bg-muted/40" />
+                <TableHead className="w-24 bg-white dark:bg-muted/40" />
               </TableRow>
             </TableHeader>
+
+            <TableBody>
+              {liveItems.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={visibleCols.length + 2} className="py-16 text-center text-muted-foreground">
+                    {loading ? "Loading items…" : "No items match your filters."}
+                  </TableCell>
+                </TableRow>
+              )}
+
+              {liveItems.length > 0 && (
+                <>
+                  {/* ── ORIGINAL section (editable) ── */}
+                  <TableRow
+                    className="cursor-pointer bg-muted/20 hover:bg-muted/30"
+                    onClick={() => setSectionExpanded((prev) => ({ ...prev, original: !prev.original }))}
+                  >
+                    <TableCell colSpan={originalSectionCols.length + 2} className="py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${sectionExpanded.original ? "" : "-rotate-90"}`} />
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Original</span>
+                        </div>
+                        <span className="text-xs tabular-nums text-muted-foreground">{originalItems.length.toLocaleString()} item(s)</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+
+                  {/* Sub-header for original section */}
+                  {sectionExpanded.original && (
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
+                      {originalSectionCols.map((colKey) => {
+                        const def = ALL_COLUMN_DEFS[colKey];
+                        if (!def) return null;
+                        const isNewCol = colKey === "newQuantity" || colKey === "newUnitPrice" || colKey === "newTotalValue";
+                        const isEditableCol = colKey in EDITABLE_COLS;
+                        return (
+                          <TableHead
+                            key={`orig-hdr-${colKey}`}
+                            className={[
+                              def.width ?? "",
+                              "text-[10px] font-bold uppercase tracking-wider py-1.5",
+                              isNewCol
+                                ? "text-amber-500 bg-amber-500/5"
+                                : isEditableCol
+                                  ? "text-emerald-600 dark:text-emerald-400 bg-white dark:bg-background"
+                                  : "text-muted-foreground bg-muted/40",
+                            ].join(" ")}
+                          >
+                            {def.label}
+                            {isEditableCol && <span className="ml-0.5 text-[8px] opacity-70">✎</span>}
+                          </TableHead>
+                        );
+                      })}
+                      <TableHead className="w-10 text-[10px] text-muted-foreground uppercase tracking-wider py-1.5 bg-muted/40">
+                        Batches
+                      </TableHead>
+                      <TableHead className="w-24 bg-muted/40" />
+                    </TableRow>
+                  )}
+
+                  {sectionExpanded.original && originalItems.map((item) => {
+                    const row = liveRow(item, edits.get(item.id));
+                    const isSaving = savingRows.has(item.id);
+                    return (
+                      <TableRow
+                        key={item.id}
+                        className="hover:bg-muted/10 transition-colors"
+                      >
+                        {originalSectionCols.map((colKey) => {
+                          const def = ALL_COLUMN_DEFS[colKey];
+                          if (!def) return null;
+                          const isNewCol = colKey === "newQuantity" || colKey === "newUnitPrice" || colKey === "newTotalValue";
+                          const isEditableCol = colKey in EDITABLE_COLS;
+                          const isActivated = activeCell?.id === item.id && activeCell?.col === colKey;
+                          return (
+                            <TableCell
+                              key={colKey}
+                              className={[
+                                def.width ?? "",
+                                "p-1.5",
+                                isEditableCol
+                                  ? "bg-white dark:bg-background cursor-cell"
+                                  : isNewCol
+                                    ? "bg-amber-500/5"
+                                    : "bg-muted/40 cursor-default",
+                                isActivated ? "ring-2 ring-inset ring-primary/60" : "",
+                              ].join(" ")}
+                              onClick={() => {
+                                if (isEditableCol) setActiveCell({ id: item.id, col: colKey });
+                              }}
+                            >
+                              {isEditableCol ? (
+                                <EditableCell
+                                  item={row}
+                                  colKey={colKey}
+                                  draft={edits.get(item.id)}
+                                  isActive={isActivated}
+                                  isSaving={isSaving}
+                                  onActivate={() => setActiveCell({ id: item.id, col: colKey })}
+                                  onChange={(field, value) => {
+                                    setEdits((prev) => {
+                                      const next = new Map(prev);
+                                      next.set(item.id, { ...(prev.get(item.id) ?? {}), [field]: value });
+                                      return next;
+                                    });
+                                  }}
+                                  onCommit={() => saveRowField(item.id)}
+                                  onDiscard={() => discardRowEdit(item.id)}
+                                  onKeyNav={(e) => handleCellKeyNav(e, item.id, colKey)}
+                                />
+                              ) : (
+                                def.cell(row)
+                              )}
+                            </TableCell>
+                          );
+                        })}
+                        {/* Actions for original rows */}
+                        <TableCell className="w-10 text-center bg-muted/40">
+                          {(batchMap.get(item.id)?.length ?? 0) > 0 && (
+                            <span className="text-[10px] tabular-nums text-muted-foreground">
+                              {batchMap.get(item.id)!.length}b
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="w-24 bg-muted/40" />
+                      </TableRow>
+                    );
+                  })}
+
+                  {sectionExpanded.original && originalItems.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={originalSectionCols.length + 2} className="py-4 text-center text-sm text-muted-foreground">
+                        No original-only items in this view.
+                      </TableCell>
+                    </TableRow>
+                  )}
+
+                  {/* ── CHANGED / UPDATED section (editable) ── */}
+                  <TableRow
+                    className="cursor-pointer bg-violet-500/5 hover:bg-violet-500/10"
+                    onClick={() => setSectionExpanded((prev) => ({ ...prev, changed: !prev.changed }))}
+                  >
+                    <TableCell colSpan={changedSectionCols.length + 2} className="py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${sectionExpanded.changed ? "" : "-rotate-90"}`} />
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Changed / Updated</span>
+                          <span className="text-[10px] text-emerald-500/80 font-normal normal-case tracking-normal">click any cell to edit</span>
+                        </div>
+                        <span className="text-xs tabular-nums text-muted-foreground">{changedItems.length.toLocaleString()} item(s)</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+
+                  {/* Sub-header for changed section columns */}
+                  {sectionExpanded.changed && (
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
+                      {changedSectionCols.map((colKey) => {
+                        const def = ALL_COLUMN_DEFS[colKey];
+                        if (!def) return null;
+                        const isNewCol = colKey === "newQuantity" || colKey === "newUnitPrice" || colKey === "newTotalValue";
+                        const isEditableCol = colKey in EDITABLE_COLS;
+                        return (
+                          <TableHead
+                            key={`changed-hdr-${colKey}`}
+                            className={[
+                              def.width ?? "",
+                              "text-[10px] font-bold uppercase tracking-wider py-1.5",
+                              isNewCol
+                                ? "text-amber-500 bg-amber-500/5"
+                                : isEditableCol
+                                  ? "text-emerald-600 dark:text-emerald-400 bg-white dark:bg-background"
+                                  : "text-muted-foreground bg-muted/40",
+                            ].join(" ")}
+                          >
+                            {def.label}
+                            {isEditableCol && <span className="ml-0.5 text-[8px] opacity-70">✎</span>}
+                          </TableHead>
+                        );
+                      })}
+                      <TableHead className="w-10 text-[10px] text-muted-foreground uppercase tracking-wider py-1.5">
+                        Batches
+                      </TableHead>
+                      <TableHead className="w-24 bg-muted/40" />
+                    </TableRow>
+                  )}
+
+                  {sectionExpanded.changed && changedItems.map((item) => {
+                    const isVariationRow = item.isVariation;
+                    const isAmended = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
+                                      (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
+                    const isSaving = savingRows.has(item.id);
+                    const itemBatches = batchMap.get(item.id) ?? [];
+
+                    return (
+                      <TableRow
+                        key={item.id}
+                        className={[
+                          "transition-colors",
+                          isVariationRow
+                            ? "bg-violet-500/5 hover:bg-violet-500/10 border-l-2 border-l-violet-500/40"
+                            : isAmended
+                              ? "bg-amber-500/5 hover:bg-amber-500/10 border-l-2 border-l-amber-500/40"
+                              : "hover:bg-slate-50 dark:hover:bg-muted/30",
+                        ].join(" ")}
+                      >
+                        {changedSectionCols.map((colKey) => {
+                          const def = ALL_COLUMN_DEFS[colKey];
+                          if (!def) return null;
+                          const isNewCol = colKey === "newQuantity" || colKey === "newUnitPrice" || colKey === "newTotalValue";
+                          const isEditableCol = colKey in EDITABLE_COLS;
+                          const isActiveCellHere = activeCell?.id === item.id && activeCell?.col === colKey;
+
+                          return (
+                            <TableCell
+                              key={colKey}
+                              className={[
+                                def.width ?? "",
+                                "p-1.5",
+                                isEditableCol
+                                  ? "bg-white dark:bg-background cursor-cell"
+                                  : isNewCol
+                                    ? "bg-amber-500/5"
+                                    : "bg-muted/40 cursor-default",
+                              ].join(" ")}
+                            >
+                              {isEditableCol ? (
+                                <EditableCell
+                                  item={item}
+                                  colKey={colKey}
+                                  draft={edits.get(item.id)}
+                                  isActive={isActiveCellHere}
+                                  isSaving={isSaving}
+                                  onActivate={() => setActiveCell({ id: item.id, col: colKey })}
+                                  onChange={(field, value) => handleCellChange(item.id, field, value)}
+                                  onCommit={() => saveRowField(item.id)}
+                                  onDiscard={() => discardRowEdit(item.id)}
+                                  onKeyNav={(e) => handleCellKeyNav(e, item.id, colKey)}
+                                />
+                              ) : (
+                                def.cell(item)
+                              )}
+                            </TableCell>
+                          );
+                        })}
+
+                        {/* Actions cell — batches button */}
+                        <TableCell className="w-10 p-1 text-center">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 opacity-50 hover:opacity-100"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuItem onClick={() => openCreateBatchModal(item)}>
+                                + Add delivery batch
+                              </DropdownMenuItem>
+                              {itemBatches.length > 0 && <DropdownMenuSeparator />}
+                              {itemBatches.map((batch) => (
+                                <DropdownMenuItem key={batch.id} onClick={() => openUpdateBatchStatusModal(item.id, batch)}>
+                                  Update: {batch.batchLabel}
+                                </DropdownMenuItem>
+                              ))}
+                              {itemBatches.length > 0 && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  {itemBatches.map((batch) => (
+                                    <DropdownMenuItem key={`dup-${batch.id}`} onClick={() => openDuplicateBatchModal(item.id, batch)}>
+                                      Duplicate: {batch.batchLabel}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          {itemBatches.length > 0 && (
+                            <div className="text-[9px] tabular-nums text-muted-foreground leading-none mt-0.5">
+                              {itemBatches.length}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="w-24 bg-muted/40" />
+                      </TableRow>
+                    );
+                  })}
+
+                  {sectionExpanded.changed && changedItems.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={changedSectionCols.length + 2} className="py-4 text-center text-sm text-muted-foreground">
+                        No changed or updated items in this view.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </>
+              )}
+            </TableBody>
+
+            {/* Sticky totals footer */}
+            <tfoot className="sticky bottom-0 z-10">
+              <tr className="bg-white dark:bg-background border-t border-border shadow-[0_-1px_0_0_hsl(var(--border))]">
+                {visibleCols.map((colKey, idx) => {
+                  const def = ALL_COLUMN_DEFS[colKey];
+                  if (!def) return null;
+                  let content: ReactNode = null;
+                  if (idx === 0) {
+                    content = <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Totals ({liveItems.length})</span>;
+                  } else if (colKey === "totalPrice") {
+                    content = <span className="tabular-nums text-sm font-semibold">{fmt(totals.totalPrice)}</span>;
+                  } else if (colKey === "delivery") {
+                    content = <span className="tabular-nums text-sm font-semibold">{totals.deliveryPct.toFixed(1)}%</span>;
+                  } else if (colKey === "lateDays") {
+                    content = <span className="tabular-nums text-sm font-semibold">{totals.lateDays.toLocaleString()}</span>;
+                  }
+                  return (
+                    <td key={`totals-${colKey}`} className={`px-4 py-3 ${def.width ?? ""}`}>
+                      <div className="text-right">{content}</div>
+                    </td>
+                  );
+                })}
+                <td className="w-10" />
+                <td className="w-24" />
+              </tr>
+            </tfoot>
           </Table>
         </div>
 
-        <div className="flex-1 overflow-auto">
-          <div className="overflow-x-auto min-h-full">
-            <Table>
-              <TableBody>
-                {items.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={visibleCols.length || 1} className="py-16 text-center text-muted-foreground">
-                      {loading ? "Loading items…" : "No items match your filters."}
-                    </TableCell>
-                  </TableRow>
-                )}
-                {items.length > 0 && (
-                  <>
-                    <TableRow
-                      className="cursor-pointer bg-muted/20 hover:bg-muted/30"
-                      onClick={() =>
-                        setSectionExpanded((prev) => ({ ...prev, original: !prev.original }))
-                      }
-                    >
-                      <TableCell colSpan={visibleCols.length || 1} className="py-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <ChevronDown
-                              className={`h-4 w-4 text-muted-foreground transition-transform ${
-                                sectionExpanded.original ? "" : "-rotate-90"
-                              }`}
-                            />
-                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                              Original
-                            </span>
-                          </div>
-                          <span className="text-xs tabular-nums text-muted-foreground">
-                            {originalItems.length.toLocaleString()} item(s)
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    {sectionExpanded.original && originalItems.map((item) => {
-                      const isSelected = selectedItem?.id === item.id;
-                      const isAmended = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
-                                        (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
-                      const isVariationRow = item.isVariation;
-                      return (
-                        <TableRow
-                          key={item.id}
-                          onClick={() => openItem(item)}
-                          className={[
-                            "cursor-pointer transition-colors",
-                            isSelected
-                              ? "bg-primary/10 hover:bg-primary/10"
-                              : isVariationRow
-                                ? "bg-violet-500/5 hover:bg-violet-500/10 border-l-2 border-l-violet-500/40"
-                                : isAmended
-                                  ? "bg-amber-500/5 hover:bg-amber-500/10 border-l-2 border-l-amber-500/40"
-                                  : "hover:bg-slate-50 dark:hover:bg-muted/30",
-                          ].join(" ")}
-                        >
-                          {visibleCols.map((colKey) => {
-                            const def = ALL_COLUMN_DEFS[colKey];
-                            if (!def) return null;
-                            return (
-                              <TableCell key={colKey} className={def.width ?? ""}>
-                                {def.cell(item)}
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      );
-                    })}
-                    {sectionExpanded.original && originalItems.length === 0 && (
-                      <TableRow>
-                        <TableCell
-                          colSpan={visibleCols.length || 1}
-                          className="py-4 text-center text-sm text-muted-foreground"
-                        >
-                          No original-only items in this view.
-                        </TableCell>
-                      </TableRow>
-                    )}
-
-                    <TableRow
-                      className="cursor-pointer bg-violet-500/5 hover:bg-violet-500/10"
-                      onClick={() =>
-                        setSectionExpanded((prev) => ({ ...prev, changed: !prev.changed }))
-                      }
-                    >
-                      <TableCell colSpan={visibleCols.length || 1} className="py-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <ChevronDown
-                              className={`h-4 w-4 text-muted-foreground transition-transform ${
-                                sectionExpanded.changed ? "" : "-rotate-90"
-                              }`}
-                            />
-                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                              Changed / Updated
-                            </span>
-                          </div>
-                          <span className="text-xs tabular-nums text-muted-foreground">
-                            {changedItems.length.toLocaleString()} item(s)
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    {sectionExpanded.changed && changedItems.map((item) => {
-                      const isSelected = selectedItem?.id === item.id;
-                      const isAmended = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
-                                        (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
-                      const isVariationRow = item.isVariation;
-                      return (
-                        <TableRow
-                          key={item.id}
-                          onClick={() => openItem(item)}
-                          className={[
-                            "cursor-pointer transition-colors",
-                            isSelected
-                              ? "bg-primary/10 hover:bg-primary/10"
-                              : isVariationRow
-                                ? "bg-violet-500/5 hover:bg-violet-500/10 border-l-2 border-l-violet-500/40"
-                                : isAmended
-                                  ? "bg-amber-500/5 hover:bg-amber-500/10 border-l-2 border-l-amber-500/40"
-                                  : "hover:bg-slate-50 dark:hover:bg-muted/30",
-                          ].join(" ")}
-                        >
-                          {visibleCols.map((colKey) => {
-                            const def = ALL_COLUMN_DEFS[colKey];
-                            if (!def) return null;
-                            return (
-                              <TableCell key={colKey} className={def.width ?? ""}>
-                                {def.cell(item)}
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      );
-                    })}
-                    {sectionExpanded.changed && changedItems.length === 0 && (
-                      <TableRow>
-                        <TableCell
-                          colSpan={visibleCols.length || 1}
-                          className="py-4 text-center text-sm text-muted-foreground"
-                        >
-                          No changed or updated items in this view.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </>
-                )}
-              </TableBody>
-            </Table>
+        {/* Bottom scroll navigation */}
+        <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-t bg-muted/10 shrink-0">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="Scroll left"
+              className="inline-flex items-center justify-center h-6 w-6 rounded border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
+              onClick={() => {
+                const el = tableScrollRef.current;
+                if (el) el.scrollBy({ left: -240, behavior: "smooth" });
+              }}
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              aria-label="Scroll right"
+              className="inline-flex items-center justify-center h-6 w-6 rounded border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
+              onClick={() => {
+                const el = tableScrollRef.current;
+                if (el) el.scrollBy({ left: 240, behavior: "smooth" });
+              }}
+            >
+              ›
+            </button>
           </div>
-        </div>
-
-        {/* Sticky totals row */}
-        <div className="shrink-0 border-t bg-white dark:bg-background/95 backdrop-blur supports-backdrop-filter:bg-white/80 dark:supports-backdrop-filter:bg-background/80">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableBody>
-                <TableRow className="bg-white hover:bg-white dark:bg-muted/30 dark:hover:bg-muted/30">
-                  {visibleCols.map((colKey, idx) => {
-                    const def = ALL_COLUMN_DEFS[colKey];
-                    if (!def) return null;
-
-                    let content: ReactNode = null;
-
-                    if (idx === 0) {
-                      content = (
-                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Totals ({items.length})
-                        </span>
-                      );
-                    } else if (colKey === "totalPrice") {
-                      content = (
-                        <span className="tabular-nums text-sm font-semibold">
-                          {fmt(totals.totalPrice)}
-                        </span>
-                      );
-                    } else if (colKey === "delivery") {
-                      content = (
-                        <span className="tabular-nums text-sm font-semibold">
-                          {totals.deliveryPct.toFixed(1)}%
-                        </span>
-                      );
-                    } else if (colKey === "lateDays") {
-                      content = (
-                        <span className="tabular-nums text-sm font-semibold">
-                          {totals.lateDays.toLocaleString()}
-                        </span>
-                      );
-                    }
-
-                    return (
-                      <TableCell key={`totals-${colKey}`} className={def.width ?? ""}>
-                        <div className="text-right">{content}</div>
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              </TableBody>
-            </Table>
-          </div>
+          <span className="text-[11px] text-muted-foreground select-none">
+            {liveItems.length.toLocaleString()} item{liveItems.length !== 1 ? "s" : ""} · drag table or use arrows to scroll
+          </span>
         </div>
       </div>
-
-      {/* Edit side panel */}
-      <Sheet open={!!selectedItem} onOpenChange={(open) => { if (!open) closeSheet(); }}>
-        <SheetContent
-          className="h-dvh max-h-dvh w-screen sm:w-[92vw] sm:max-w-[560px] lg:max-w-[640px] flex flex-col gap-0 p-0"
-          side="right"
-        >
-          <SheetHeader className="px-4 sm:px-6 pt-5 pb-4 shrink-0 border-b">
-            <div className="flex items-start gap-2">
-              <div className="flex-1 min-w-0">
-                <SheetTitle className="text-sm font-semibold leading-tight line-clamp-2">
-                  {selectedItem?.description ?? "Edit item"}
-                </SheetTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {selectedItem?.poNumber} &middot; #{selectedItem?.itemNumber}
-                </p>
-              </div>
-              {selectedItem?.isVariation && (
-                <Badge variant="secondary" className="shrink-0 text-[10px] bg-violet-500/10 text-violet-400 border-violet-500/20">
-                  {selectedItem.variationOrderNumber ?? "Variation"}
-                </Badge>
-              )}
-            </div>
-          </SheetHeader>
-
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="px-4 sm:px-6 py-4 space-y-5">
-
-              {/* ── ORIGINAL CONTRACT BASELINE (frozen / read-only) ── */}
-              {selectedItem && (selectedItem.originalQuantity != null || selectedItem.originalUnitPrice != null) && (
-                <section className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                      Original Contract (Baseline)
-                    </p>
-                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-muted-foreground">
-                      Locked
-                    </Badge>
-                  </div>
-                  <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <p className="text-[10px] text-muted-foreground mb-0.5">Qty</p>
-                      <p className="text-sm font-semibold tabular-nums">
-                        {(selectedItem.originalQuantity ?? selectedItem.quantity).toLocaleString()}
-                        <span className="text-muted-foreground font-normal ml-1 text-xs">{selectedItem.unit}</span>
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground mb-0.5">Unit Cost</p>
-                      <p className="text-sm font-semibold tabular-nums">
-                        {fmt(selectedItem.originalUnitPrice ?? selectedItem.unitPrice)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground mb-0.5">Total</p>
-                      <p className="text-sm font-semibold tabular-nums">
-                        {fmt(
-                          (selectedItem.originalQuantity ?? selectedItem.quantity) *
-                          (selectedItem.originalUnitPrice ?? selectedItem.unitPrice)
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              {/* ── AMENDMENT DELTA (when baseline exists and current differs) ── */}
-              {draft && selectedItem && (selectedItem.originalQuantity != null || selectedItem.originalUnitPrice != null) && (() => {
-                const origQty = selectedItem.originalQuantity ?? selectedItem.quantity;
-                const origPrice = selectedItem.originalUnitPrice ?? selectedItem.unitPrice;
-                const origTotal = origQty * origPrice;
-                const currTotal = draft.quantity * draft.unitPrice;
-                const qtyDelta = draft.quantity - origQty;
-                const totalDelta = currTotal - origTotal;
-                const hasChange = Math.abs(qtyDelta) > 0.001 || Math.abs(draft.unitPrice - origPrice) > 0.001;
-                if (!hasChange) return null;
-                const isIncrease = totalDelta > 0;
-                return (
-                  <div className={`rounded-lg border px-4 py-3 flex items-center gap-4 ${isIncrease ? "border-amber-500/30 bg-amber-500/5" : "border-blue-500/30 bg-blue-500/5"}`}>
-                    <div className="flex-1">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Amendment</p>
-                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
-                        {Math.abs(qtyDelta) > 0.001 && (
-                          <span className={qtyDelta > 0 ? "text-amber-400" : "text-blue-400"}>
-                            Qty {qtyDelta > 0 ? "+" : ""}{qtyDelta.toLocaleString()} {selectedItem.unit}
-                          </span>
-                        )}
-                        {Math.abs(draft.unitPrice - origPrice) > 0.001 && (
-                          <span className={draft.unitPrice > origPrice ? "text-amber-400" : "text-blue-400"}>
-                            Rate {draft.unitPrice > origPrice ? "+" : ""}{fmt(draft.unitPrice - origPrice)}/unit
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-[10px] text-muted-foreground">Net change</p>
-                      <p className={`text-sm font-bold tabular-nums ${isIncrease ? "text-amber-400" : "text-blue-400"}`}>
-                        {isIncrease ? "+" : ""}{fmt(totalDelta)}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* ── LIVE SUMMARY CARD ── */}
-              {draft && (
-                <div className="rounded-lg border bg-muted/30 px-4 py-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Current Total</p>
-                    <p className="text-base font-bold tabular-nums">{fmt(liveDraftTotal)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Delivered</p>
-                    <p className={`text-base font-bold tabular-nums ${(draft.deliveryPercent ?? 0) >= 100 ? "text-emerald-400" : ""}`}>
-                      {(draft.deliveryPercent ?? 0).toFixed(1)}%
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Certified</p>
-                    <p className="text-base font-bold tabular-nums text-emerald-400">
-                      {selectedItem && draft.quantity > 0
-                        ? (((selectedItem.quantityCertified ?? 0) / draft.quantity) * 100).toFixed(0)
-                        : "0"}%
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* ── CURRENT / EDITABLE VALUES ── */}
-              <section className="space-y-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  {selectedItem?.originalQuantity != null || selectedItem?.originalUnitPrice != null
-                    ? "Current (Amended) Values"
-                    : "Financials & Quantities"}
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Item number</Label>
-                    <Input value={draft?.itemNumber ?? ""} onChange={(e) => setDraftField("itemNumber", e.target.value)} className="h-8 text-sm" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Unit</Label>
-                    <Input value={draft?.unit ?? ""} onChange={(e) => setDraftField("unit", e.target.value)} className="h-8 text-sm" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">
-                      Quantity
-                      {selectedItem?.originalQuantity != null && (
-                        <span className="ml-1.5 text-muted-foreground font-normal">
-                          (orig: {selectedItem.originalQuantity.toLocaleString()})
-                        </span>
-                      )}
-                    </Label>
-                    <Input
-                      type="number" min={0}
-                      value={draft?.quantity ?? 0}
-                      onChange={(e) => setDraftField("quantity", Number(e.target.value) || 0)}
-                      className={`h-8 text-sm tabular-nums ${selectedItem?.originalQuantity != null && draft && draft.quantity !== selectedItem.originalQuantity ? "border-amber-500/60 focus-visible:ring-amber-500/30" : ""}`}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">
-                      Unit cost (USD)
-                      {selectedItem?.originalUnitPrice != null && (
-                        <span className="ml-1.5 text-muted-foreground font-normal">
-                          (orig: {fmt(selectedItem.originalUnitPrice)})
-                        </span>
-                      )}
-                    </Label>
-                    <Input
-                      type="number" min={0}
-                      value={draft?.unitPrice ?? 0}
-                      onChange={(e) => setDraftField("unitPrice", Number(e.target.value) || 0)}
-                      className={`h-8 text-sm tabular-nums ${selectedItem?.originalUnitPrice != null && draft && draft.unitPrice !== selectedItem.originalUnitPrice ? "border-amber-500/60 focus-visible:ring-amber-500/30" : ""}`}
-                    />
-                  </div>
-                  <div className="col-span-1 sm:col-span-2 space-y-1">
-                    <Label className="text-xs">Delivery %</Label>
-                    <div className="flex items-center gap-2">
-                      <Input type="number" min={0} max={100} value={draft?.deliveryPercent ?? 0} onChange={(e) => setDraftField("deliveryPercent", Number(e.target.value) || 0)} className="h-8 text-sm tabular-nums flex-1" />
-                      <span className="text-xs text-muted-foreground w-4">%</span>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <Separator />
-
-              {/* ── SCHEDULE ── */}
-              <section className="space-y-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Schedule</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div className="col-span-1 sm:col-span-2 space-y-1">
-                    <Label className="text-xs">Required by date</Label>
-                    <DatePicker
-                      value={parseIsoDate(draft?.requiredByDate ?? "")}
-                      onChange={(date) => setDraftField("requiredByDate", date ? formatDateValue(date, "yyyy-MM-dd") : "")}
-                      placeholder="yyyy/mm/dd"
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Criticality</Label>
-                    <Select value={draft?.criticality ?? "BUFFERED"} onValueChange={(v) => setDraftField("criticality", v)}>
-                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="BUFFERED">Buffered</SelectItem>
-                        <SelectItem value="JUST_IN_TIME">Just-in-time</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Days at risk</Label>
-                    <Input type="number" min={0} value={draft?.scheduleDaysAtRisk ?? 0} onChange={(e) => setDraftField("scheduleDaysAtRisk", Number(e.target.value) || 0)} className="h-8 text-sm tabular-nums" />
-                  </div>
-                  <div className="col-span-1 sm:col-span-2 space-y-1">
-                    <Label className="text-xs">Activity ref</Label>
-                    <Input value={draft?.scheduleActivityRef ?? ""} onChange={(e) => setDraftField("scheduleActivityRef", e.target.value)} className="h-8 text-sm" />
-                  </div>
-                </div>
-              </section>
-
-              <Separator />
-
-              {/* ── DELIVERY BATCHES ── */}
-              <section className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Delivery batches ({selectedItemBatches.length})
-                  </p>
-                  {selectedItem && (
-                    <Button size="sm" variant="outline" className="h-6 text-xs px-2.5" onClick={() => openCreateBatchModal(selectedItem)}>
-                      + Add
-                    </Button>
-                  )}
-                </div>
-                {selectedItemBatches.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No delivery batches yet.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {selectedItemBatches.map((batch) => (
-                      <div key={batch.id} className="rounded-lg border p-3 space-y-1.5">
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-sm font-medium leading-snug">{batch.batchLabel}</span>
-                          <Badge variant="outline" className="text-[10px] shrink-0 mt-0.5">
-                            {BATCH_STATUS_LABELS[batch.status] ?? batch.status}
-                          </Badge>
-                        </div>
-                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                          <span>Expected: {formatDate(batch.expectedDate)}</span>
-                          {batch.actualDate && <span>Actual: {formatDate(batch.actualDate)}</span>}
-                          <span>{batch.quantityDelivered} / {batch.quantityExpected} units</span>
-                        </div>
-                        <div className="flex gap-1.5 pt-0.5">
-                          <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => selectedItem && openUpdateBatchStatusModal(selectedItem.id, batch)}>
-                            Update
-                          </Button>
-                          <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => selectedItem && openDuplicateBatchModal(selectedItem.id, batch)}>
-                            Duplicate
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              <div className="h-4" />
-            </div>
-          </ScrollArea>
-
-          {/* Save bar */}
-          <div className="shrink-0 border-t bg-background px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <Button onClick={saveItem} disabled={saving} className="w-full sm:flex-1">
-              {saving ? "Saving…" : "Save changes"}
-            </Button>
-            {selectedItem && (
-              <Button variant="outline" onClick={() => markDelivered(selectedItem)} disabled={saving} className="w-full sm:w-auto text-xs">
-                Mark delivered
-              </Button>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
 
       <BoqBatchModal
         key={batchModalSeed}

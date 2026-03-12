@@ -6,7 +6,6 @@ type PptxSource = "executive" | "pm" | "supplier";
 type PptxInstance = InstanceType<typeof PptxGenJS>;
 type PptxSlide = ReturnType<PptxInstance["addSlide"]>;
 type PptxChartData = Parameters<PptxSlide["addChart"]>[1];
-type PptxChartOpts = Parameters<PptxSlide["addChart"]>[2];
 type PptxTableData = Parameters<PptxSlide["addTable"]>[0];
 type PptxTableOpts = Parameters<PptxSlide["addTable"]>[1];
 type PptxShapeType = Parameters<PptxSlide["addShape"]>[0];
@@ -377,102 +376,6 @@ function safeIso(date: Date): string {
     }
 }
 
-function hasAnyNonZero(values: number[]): boolean {
-    return values.some((v) => Number.isFinite(v) && Math.abs(v) > 1e-9);
-}
-
-function looksLikePercent01(maxValue: number): boolean {
-    // If series values are 0..1-ish, treat as normalized percent and scale.
-    return Number.isFinite(maxValue) && maxValue > 0 && maxValue <= 1.5;
-}
-
-function formatCategoryLabel(raw: string): string {
-    // Common formats we emit: YYYY-MM, YYYY-MM-DD
-    const m1 = raw.match(/^(\d{4})-(\d{2})$/);
-    if (m1) {
-        const year = m1[1].slice(2);
-        const monthNum = Number(m1[2]);
-        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        const mon = monthNames[Math.min(12, Math.max(1, monthNum)) - 1] ?? m1[2];
-        return `${mon} '${year}`;
-    }
-
-    const m2 = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (m2) {
-        return `${m2[2]}/${m2[3]}`;
-    }
-
-    return raw.length > 12 ? `${raw.slice(0, 10)}…` : raw;
-}
-
-function addEmptyChartState(slide: PptxSlide, message: string, coverage?: string[]) {
-    // Matches chart area in our templates.
-    slide.addShape("roundRect" as PptxShapeType, {
-        x: 0.6,
-        y: 1.35,
-        w: 12.1,
-        h: 5.7,
-        fill: { color: THEME.surface },
-        line: { color: THEME.border, pt: 1 },
-    });
-
-    slide.addText(message, {
-        x: 0.6,
-        y: 3.7,
-        w: 12.1,
-        h: 0.6,
-        fontFace: "Calibri",
-        fontSize: 16,
-        bold: true,
-        align: "center",
-        color: THEME.muted,
-    });
-
-    slide.addText("Try a wider timeframe or confirm data exists for this scope.", {
-        x: 0.6,
-        y: 4.15,
-        w: 12.1,
-        h: 0.4,
-        fontFace: "Calibri",
-        fontSize: 12,
-        align: "center",
-        color: THEME.muted2,
-    });
-
-    if (coverage && coverage.length > 0) {
-        slide.addShape("roundRect" as PptxShapeType, {
-            x: 0.9,
-            y: 5.25,
-            w: 11.5,
-            h: 1.45,
-            fill: { color: THEME.bg },
-            line: { color: THEME.border, pt: 1 },
-        });
-
-        slide.addText("Data Coverage", {
-            x: 1.15,
-            y: 5.35,
-            w: 11.0,
-            h: 0.3,
-            fontFace: "Calibri",
-            fontSize: 11,
-            bold: true,
-            color: THEME.text,
-        });
-
-        slide.addText(coverage.map((line) => `• ${line}`).join("\n"), {
-            x: 1.15,
-            y: 5.62,
-            w: 11.0,
-            h: 1.05,
-            fontFace: "Calibri",
-            fontSize: 10,
-            color: THEME.muted,
-            valign: "top",
-            lineSpacingMultiple: 1.1,
-        });
-    }
-}
 
 function buildWeeklyConclusion(kpis: DashboardExportData["kpis"]): string[] {
     const onTime = Number(kpis.logistics.onTimeRate) || 0;
@@ -830,415 +733,371 @@ export async function generatePptxReport(
 
     // ── Charts slide(s) ───────────────────────────────────────────────────
     if (includeCharts && sections.includes("charts")) {
-        // S-curve
-        {
-            const slide = nextSlide(options.timeframeLabel);
-            addHeader(slide, "S-Curve", options.timeframeLabel);
-
-            const labels = exportData.sCurve.map((p) => formatCategoryLabel(p.month));
-            const plannedRaw = exportData.sCurve.map((p) => Number(p.plannedCumulative ?? 0));
-            const actualRaw = exportData.sCurve.map((p) => Number(p.actualCumulative ?? 0));
-
-            const maxVal = Math.max(0, ...plannedRaw, ...actualRaw);
-            const scaleToPct = looksLikePercent01(maxVal);
-            const planned = scaleToPct ? plannedRaw.map((v) => v * 100) : plannedRaw;
-            const actual = scaleToPct ? actualRaw.map((v) => v * 100) : actualRaw;
-
-            if (!hasAnyNonZero(planned) && !hasAnyNonZero(actual)) {
-                addEmptyChartState(slide, "No S-curve data for this timeframe", [
-                    `S-curve points: ${exportData.sCurve.length}`,
-                    `Milestones: ${(exportData.milestones || []).length}`,
-                    `Shipments: ${fmtNumber(exportData.kpis.logistics.totalShipments)}`,
-                ]);
-            } else {
-                const chartData = [
-                    { name: "Planned", labels, values: planned },
-                    { name: "Actual", labels, values: actual },
-                ] satisfies PptxChartData;
-
-                const chartOpts: PptxChartOpts = {
-                    x: 0.6,
-                    y: 1.35,
-                    w: 12.1,
-                    h: 5.7,
-                    showLegend: true,
-                    legendPos: "t",
-                };
-
-                slide.addChart(pptx.ChartType.line, chartData, chartOpts);
-            }
-        }
-
-        // Change order breakdown
-        {
-            const slide = nextSlide(options.timeframeLabel);
-            addHeader(slide, "Change Order Breakdown", options.timeframeLabel);
-
-            const co = exportData.coBreakdown;
-            const labels = ["Scope", "Rate", "Quantity", "Schedule"];
-            const values = [co.scope, co.rate, co.quantity, co.schedule];
-
-            const total = Number(co.total ?? 0);
-            const hasData = total > 0 || hasAnyNonZero(values.map((v) => Number(v ?? 0)));
-            if (!hasData) {
-                addEmptyChartState(slide, "No approved change orders in this timeframe", [
-                    `Approved CO total: ${fmtNumber(total)}`,
-                    `Committed: ${fmtCurrency(exportData.kpis.financial.totalCommitted)}`,
-                    `Unpaid: ${fmtCurrency(exportData.kpis.financial.totalUnpaid)}`,
-                ]);
-
-                // Keep the explanatory text on the right so the slide isn't empty.
-                slide.addText("Total: 0", {
-                    x: 7.0,
-                    y: 2.2,
-                    w: 5.7,
-                    h: 0.5,
-                    fontFace: "Calibri",
-                    fontSize: 18,
-                    bold: true,
-                    color: THEME.text,
-                });
-
-                slide.addText(
-                    "Breakdown of approved change order value by category.",
-                    {
-                        x: 7.0,
-                        y: 2.75,
-                        w: 5.7,
-                        h: 1.0,
-                        fontFace: "Calibri",
-                        fontSize: 12,
-                        color: THEME.muted,
-                    },
-                );
-            } else {
-                const chartData = [{ name: "CO", labels, values }] satisfies PptxChartData;
-
-                const chartOpts: PptxChartOpts = {
-                    x: 0.6,
-                    y: 1.35,
-                    w: 6.1,
-                    h: 5.7,
-                    showLegend: true,
-                    legendPos: "r",
-                    dataLabelPosition: "bestFit",
-                };
-
-                slide.addChart(pptx.ChartType.pie, chartData, chartOpts);
-
-                slide.addText(`Total: ${fmtNumber(co.total)}`, {
-                    x: 7.0,
-                    y: 2.2,
-                    w: 5.7,
-                    h: 0.5,
-                    fontFace: "Calibri",
-                    fontSize: 18,
-                    bold: true,
-                    color: THEME.text,
-                });
-
-                slide.addText(
-                    "Breakdown of approved change order value by category.",
-                    {
-                        x: 7.0,
-                        y: 2.75,
-                        w: 5.7,
-                        h: 1.0,
-                        fontFace: "Calibri",
-                        fontSize: 12,
-                        color: THEME.muted,
-                    },
-                );
-            }
-        }
-
-        // Program Snapshot — visual-first executive layout
+        // Program Snapshot
         {
             const slide = nextSlide(options.timeframeLabel);
             addHeader(slide, "Program Snapshot", options.timeframeLabel);
 
             const k = exportData.kpis;
+            const pendingExposure = Number(k.financial.totalPending || 0) + Number(k.financial.totalUnpaid || 0);
 
-            // ── Colour helpers ────────────────────────────────────────────
-            const GREEN  = "16A34A";
-            const AMBER  = "D97706";
-            const RED    = "DC2626";
-            const GREY   = "94A3B8";
-            const TEAL   = THEME.accent; // "0E7490"
+            addKpiTile(slide, 0.6, 1.25, "Financial Exposure", fmtCurrency(pendingExposure));
+            addKpiTile(slide, 6.85, 1.25, "On-Time Delivery", fmtPercent(k.logistics.onTimeRate));
+            addKpiTile(slide, 0.6, 2.45, "Open NCRs", fmtNumber(k.quality.openNCRs));
+            addKpiTile(slide, 6.85, 2.45, "Milestones Complete", `${fmtNumber(k.progress.milestonesCompleted)} / ${fmtNumber(k.progress.milestonesTotal)}`);
 
-            function statusColor(value: number, goodThreshold: number, warnThreshold: number): string {
-                if (value >= goodThreshold) return GREEN;
-                if (value >= warnThreshold) return AMBER;
-                return RED;
-            }
-
-            // ── Layout constants ──────────────────────────────────────────
-            // 4 equal KPI columns across the full width
-            const colW    = 2.95;
-            const colGap  = 0.12;
-            const colY    = 1.2;
-            const colH    = 3.1;
-            const cols    = [0.6, 0.6 + colW + colGap, 0.6 + (colW + colGap) * 2, 0.6 + (colW + colGap) * 3];
-
-            // ── Derived values ─────────────────────────────────────────────
-            const totalCommitted  = Math.max(Number(k.financial.totalCommitted || 0), 1);
-            const totalPaid       = Number(k.financial.totalPaid || 0);
-            const totalPending    = Number(k.financial.totalPending || 0);
-            const paidPct         = Math.min(100, (totalPaid / totalCommitted) * 100);
-            const pendingPct      = Math.min(100 - paidPct, (totalPending / totalCommitted) * 100);
-            const remainingPct    = Math.max(0, 100 - paidPct - pendingPct);
-
-            const onTimeRate      = Number(k.logistics.onTimeRate || 0);
-            const delayedRate     = Math.max(0, 100 - onTimeRate);
-
-            const totalNCRs       = Number(k.quality.totalNCRs || 0);
-            const openNCRs        = Number(k.quality.openNCRs || 0);
-            const criticalNCRs    = Number(k.quality.criticalNCRs || 0);
-            const resolvedNCRs    = Math.max(0, totalNCRs - openNCRs);
-
-            const milestonesTotal     = Math.max(Number(k.progress.milestonesTotal || 0), 1);
-            const milestonesCompleted = Number(k.progress.milestonesCompleted || 0);
-            const milestonesPct       = Math.min(100, (milestonesCompleted / milestonesTotal) * 100);
-
-            // ── Helper: draw one visual KPI card ──────────────────────────
-            function addVisualKpiCard(
-                cx: number,
-                cy: number,
-                cw: number,
-                ch: number,
-                title: string,
-                bigLabel: string,
-                subLabel: string,
-                accentColor: string,
-                chartSegments: { value: number; color: string }[],
-            ) {
-                // Card background
-                slide.addShape("roundRect" as PptxShapeType, {
-                    x: cx, y: cy, w: cw, h: ch,
-                    fill: { color: THEME.bg },
-                    line: { color: THEME.border, pt: 1 },
-                });
-
-                // Top colour bar
-                slide.addShape("rect" as PptxShapeType, {
-                    x: cx, y: cy, w: cw, h: 0.07,
-                    fill: { color: accentColor },
-                    line: { color: accentColor },
-                });
-
-                // Title
-                slide.addText(title.toUpperCase(), {
-                    x: cx + 0.18, y: cy + 0.15, w: cw - 0.36, h: 0.3,
-                    fontFace: "Calibri", fontSize: 9, bold: true,
-                    color: THEME.muted2, charSpacing: 1,
-                });
-
-                // Donut chart — centred in card
-                const chartSize = 1.55;
-                const chartX = cx + (cw - chartSize) / 2;
-                const chartY = cy + 0.5;
-                const chartData: PptxChartData = [{
-                    name: title,
-                    labels: chartSegments.map((_, i) => String(i)),
-                    values: chartSegments.map((s) => s.value),
-                }];
-                slide.addChart("doughnut" as Parameters<PptxSlide["addChart"]>[0], chartData, {
-                    x: chartX, y: chartY, w: chartSize, h: chartSize,
-                    dataLabelFontSize: 0,
-                    showLegend: false,
-                    showLabel: false,
-                    showValue: false,
-                    showPercent: false,
-                    chartColors: chartSegments.map((s) => s.color),
-                    holeSize: 65,
-                } as PptxChartOpts);
-
-                // Big value label centred inside donut hole
-                slide.addText(bigLabel, {
-                    x: chartX, y: chartY + chartSize * 0.3, w: chartSize, h: chartSize * 0.4,
-                    fontFace: "Calibri", fontSize: bigLabel.length > 6 ? 13 : 16,
-                    bold: true, align: "center", color: accentColor,
-                });
-
-                // Sub-label below the chart
-                slide.addText(subLabel, {
-                    x: cx + 0.1, y: cy + ch - 0.42, w: cw - 0.2, h: 0.35,
-                    fontFace: "Calibri", fontSize: 10,
-                    align: "center", color: THEME.muted,
-                });
-            }
-
-            // ── KPI 1: Financial Exposure ─────────────────────────────────
-            const finColor = statusColor(paidPct, 60, 30);
-            addVisualKpiCard(
-                cols[0], colY, colW, colH,
-                "Financial",
-                fmtCurrency(totalPaid),
-                `${paidPct.toFixed(0)}% paid of ${fmtCurrency(totalCommitted)}`,
-                finColor,
-                [
-                    { value: Math.max(paidPct, 0.1),    color: GREEN },
-                    { value: Math.max(pendingPct, 0.1), color: AMBER },
-                    { value: Math.max(remainingPct, 0.1), color: THEME.border },
-                ],
-            );
-
-            // ── KPI 2: On-Time Delivery ───────────────────────────────────
-            const otdColor = statusColor(onTimeRate, 80, 50);
-            addVisualKpiCard(
-                cols[1], colY, colW, colH,
-                "On-Time Delivery",
-                `${onTimeRate.toFixed(0)}%`,
-                `${fmtNumber(k.logistics.totalShipments)} shipments · ${fmtNumber(k.logistics.delayedShipments)} delayed`,
-                otdColor,
-                [
-                    { value: Math.max(onTimeRate, 0.1),  color: otdColor },
-                    { value: Math.max(delayedRate, 0.1), color: THEME.border },
-                ],
-            );
-
-            // ── KPI 3: Quality / NCRs ─────────────────────────────────────
-            const ncrColor = openNCRs === 0 ? GREEN : criticalNCRs > 0 ? RED : AMBER;
-            const ncrResolved = Math.max(resolvedNCRs, 0.1);
-            addVisualKpiCard(
-                cols[2], colY, colW, colH,
-                "Quality",
-                `${fmtNumber(openNCRs)} NCRs`,
-                `${fmtNumber(criticalNCRs)} critical · ${fmtNumber(resolvedNCRs)} resolved`,
-                ncrColor,
-                totalNCRs === 0
-                    ? [{ value: 1, color: GREEN }]
-                    : [
-                        { value: ncrResolved,                            color: GREEN },
-                        { value: Math.max(openNCRs - criticalNCRs, 0.1), color: AMBER },
-                        { value: Math.max(criticalNCRs, 0.1),            color: RED },
-                      ],
-            );
-
-            // ── KPI 4: Milestone Progress ─────────────────────────────────
-            const msColor = statusColor(milestonesPct, 70, 30);
-            addVisualKpiCard(
-                cols[3], colY, colW, colH,
-                "Milestones",
-                `${fmtNumber(milestonesCompleted)}/${fmtNumber(milestonesTotal)}`,
-                `${milestonesPct.toFixed(0)}% complete`,
-                msColor,
-                [
-                    { value: Math.max(milestonesPct, 0.1),       color: msColor },
-                    { value: Math.max(100 - milestonesPct, 0.1), color: THEME.border },
-                ],
-            );
-
-            // ── Milestone swim-lane tracker ───────────────────────────────
-            const swimY       = colY + colH + 0.18;
-            const swimH       = SLIDE.h - swimY - SLIDE.footerH - 0.15;
-            const swimX       = 0.6;
-            const swimW       = SLIDE.w - swimX - 0.6;
-
-            // Section label
-            slide.addText("MILESTONE TRACKER", {
-                x: swimX, y: swimY, w: swimW, h: 0.22,
-                fontFace: "Calibri", fontSize: 8, bold: true,
-                color: THEME.muted2, charSpacing: 1,
+            addPanel(slide, 0.6, 3.75, 6.1, 1.45, "Finance & Deliverables");
+            const leftSummary = [
+                `• Committed: ${fmtCurrency(k.financial.totalCommitted)}`,
+                `• Paid: ${fmtCurrency(k.financial.totalPaid)} | Pending: ${fmtCurrency(k.financial.totalPending)}`,
+                `• Shipments: ${fmtNumber(k.logistics.totalShipments)} total, ${fmtNumber(k.logistics.delayedShipments)} delayed`,
+            ];
+            slide.addText(leftSummary.join("\n"), {
+                x: 0.82,
+                y: 4.15,
+                w: 5.7,
+                h: 0.9,
+                fontFace: "Calibri",
+                fontSize: 11,
+                color: THEME.text,
+                valign: "top",
+                lineSpacingMultiple: 1.1,
             });
 
-            const upcomingMilestones = [...(exportData.milestones || [])]
-                .sort((a, b) => {
-                    const da = a.expectedDate ? new Date(a.expectedDate).getTime() : Infinity;
-                    const db = b.expectedDate ? new Date(b.expectedDate).getTime() : Infinity;
-                    return da - db;
-                })
-                .slice(0, 5);
+            addPanel(slide, 6.85, 3.75, 6.1, 1.45, "Quality & Milestones");
+            const rightSummary = [
+                `• NCRs: ${fmtNumber(k.quality.totalNCRs)} total, ${fmtNumber(k.quality.criticalNCRs)} critical`,
+                `• NCR Rate: ${fmtPercent(k.quality.ncrRate)} | Financial impact: ${fmtCurrency(k.quality.ncrFinancialImpact)}`,
+                `• Progress: ${fmtPercent(k.progress.physicalProgress)} physical, ${fmtPercent(k.progress.financialProgress)} financial`,
+            ];
+            slide.addText(rightSummary.join("\n"), {
+                x: 7.07,
+                y: 4.15,
+                w: 5.7,
+                h: 0.9,
+                fontFace: "Calibri",
+                fontSize: 11,
+                color: THEME.text,
+                valign: "top",
+                lineSpacingMultiple: 1.1,
+            });
 
-            const laneH        = upcomingMilestones.length > 0 ? Math.min((swimH - 0.25) / upcomingMilestones.length, 0.55) : 0.55;
-            const barTrackX    = swimX + 3.2;
-            const barTrackW    = swimW - 3.2 - 1.6;
-            const statusColX   = barTrackX + barTrackW + 0.15;
+            addPanel(slide, 0.6, 5.35, 12.35, 1.7, "Upcoming Milestones");
+            const milestoneRows = [...(exportData.milestones || [])]
+                .filter((m) => m.expectedDate)
+                .sort((a, b) => new Date(a.expectedDate!).getTime() - new Date(b.expectedDate!).getTime())
+                .slice(0, 4)
+                .map((m) => [
+                    String(m.milestoneName ?? "—").slice(0, 36),
+                    String(m.expectedDate ?? "—"),
+                    `${Number(m.progressPercent ?? 0).toFixed(0)}%`,
+                    String(m.status ?? "—"),
+                ]);
 
-            if (upcomingMilestones.length === 0) {
-                slide.addText("No milestones in current scope", {
-                    x: swimX, y: swimY + 0.3, w: swimW, h: 0.4,
-                    fontFace: "Calibri", fontSize: 12,
-                    align: "center", color: THEME.muted,
-                });
-            } else {
-                upcomingMilestones.forEach((m, i) => {
-                    const rowY   = swimY + 0.28 + i * laneH;
-                    const pct    = Math.min(100, Math.max(0, Number(m.progressPercent ?? 0)));
-                    const status = String(m.status ?? "PENDING").toUpperCase();
+            const tableData = buildStyledTable(
+                ["Milestone", "Due", "Progress", "Status"],
+                milestoneRows.length ? milestoneRows : [["No upcoming milestones in current scope", "—", "—", "—"]],
+            );
+            slide.addTable(tableData, {
+                x: 0.82,
+                y: 5.78,
+                w: 11.9,
+                h: 1.15,
+                fontFace: "Calibri",
+                fontSize: 8,
+                border: { type: "solid", color: THEME.border, pt: 1 },
+                fill: { color: THEME.bg },
+                color: THEME.text,
+                rowH: 0.2,
+                colW: [6.2, 1.8, 1.2, 2.2],
+            });
+        }
+    }
 
-                    const barColor =
-                        status === "COMPLETE"     ? GREEN :
-                        status === "IN_PROGRESS"  ? TEAL  :
-                        status === "OVERDUE"      ? RED   :
-                        status === "AT_RISK"      ? AMBER :
-                        GREY;
+    // ── Financial Gantt — Payment & Milestone Timeline ────────────────────
+    if (sections.includes("financial") || sections.includes("milestones") || sections.includes("charts")) {
+        const slide = nextSlide(options.timeframeLabel);
+        addHeader(slide, "Payment & Milestone Timeline", options.timeframeLabel);
 
-                    // Row background (alternating)
+        const k = exportData.kpis;
+        const f = k.financial;
+
+        // ── Colour palette ────────────────────────────────────────────────
+        const C_GREEN  = "16A34A";
+        const C_TEAL   = THEME.accent;
+        const C_AMBER  = "D97706";
+        const C_RED    = "DC2626";
+        const C_GREY   = "94A3B8";
+        const C_SLATE  = "334155";
+
+        // ── Layout ────────────────────────────────────────────────────────
+        const GANTT_X     = 3.0;   // where bars start (left edge of time axis)
+        const GANTT_W     = 9.5;   // total width of time axis area
+        const GANTT_TOP   = 1.2;   // y where first row starts
+        const ROW_H       = 0.42;  // height of each Gantt row
+        const ROW_GAP     = 0.07;  // gap between rows
+        const BAR_H       = 0.22;  // actual bar height within a row
+        const LABEL_W     = 2.8;   // width of the row label column
+        const FOOTER_Y    = SLIDE.h - SLIDE.footerH - 1.05; // where summary boxes start
+
+        // ── Collect & sort milestones ─────────────────────────────────────
+        const milestones = [...(exportData.milestones || [])]
+            .filter((m) => m.expectedDate)
+            .sort((a, b) => new Date(a.expectedDate!).getTime() - new Date(b.expectedDate!).getTime())
+            .slice(0, 9); // max 9 rows to fit the slide
+
+        const now = new Date();
+
+        // Determine time axis range
+        const allDates = milestones
+            .map((m) => new Date(m.expectedDate!).getTime())
+            .filter(Number.isFinite);
+
+        const axisStart = allDates.length
+            ? new Date(Math.min(...allDates, now.getTime()))
+            : now;
+        const axisEnd = allDates.length
+            ? new Date(Math.max(...allDates))
+            : new Date(now.getFullYear(), now.getMonth() + 6, 1);
+
+        // Pad axis slightly
+        axisStart.setMonth(axisStart.getMonth() - 1);
+        axisEnd.setMonth(axisEnd.getMonth() + 1);
+
+        const axisMs   = axisEnd.getTime() - axisStart.getTime();
+        const dateToX  = (d: Date) => GANTT_X + Math.max(0, Math.min(1, (d.getTime() - axisStart.getTime()) / axisMs)) * GANTT_W;
+        const nowX     = dateToX(now);
+
+        // ── Month grid lines & labels ─────────────────────────────────────
+        const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const gridStart = new Date(axisStart.getFullYear(), axisStart.getMonth(), 1);
+        const gridEnd   = new Date(axisEnd.getFullYear(), axisEnd.getMonth() + 1, 1);
+        const gridRows  = milestones.length;
+        const barsBottom = GANTT_TOP + gridRows * (ROW_H + ROW_GAP) + 0.06;
+
+        for (let d = new Date(gridStart); d <= gridEnd; d.setMonth(d.getMonth() + 1)) {
+            const gx = dateToX(new Date(d));
+            if (gx < GANTT_X || gx > GANTT_X + GANTT_W + 0.01) continue;
+
+            // Vertical grid line
+            slide.addShape("line" as PptxShapeType, {
+                x: gx, y: GANTT_TOP - 0.18,
+                w: 0, h: barsBottom - GANTT_TOP + 0.18,
+                line: { color: THEME.border, pt: 0.5, dashType: "dash" },
+            });
+
+            // Month label
+            const label = d.getMonth() === 0
+                ? `${MONTH_NAMES[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`
+                : MONTH_NAMES[d.getMonth()];
+            slide.addText(label, {
+                x: gx + 0.04, y: GANTT_TOP - 0.22, w: 0.7, h: 0.2,
+                fontFace: "Calibri", fontSize: 7.5,
+                color: THEME.muted2,
+            });
+        }
+
+        // ── TODAY marker ─────────────────────────────────────────────────
+        if (nowX >= GANTT_X && nowX <= GANTT_X + GANTT_W) {
+            slide.addShape("line" as PptxShapeType, {
+                x: nowX, y: GANTT_TOP - 0.18,
+                w: 0, h: barsBottom - GANTT_TOP + 0.18,
+                line: { color: C_RED, pt: 1.5, dashType: "sysDot" },
+            });
+            slide.addText("TODAY", {
+                x: nowX - 0.25, y: GANTT_TOP - 0.38, w: 0.6, h: 0.18,
+                fontFace: "Calibri", fontSize: 7, bold: true,
+                align: "center", color: C_RED,
+            });
+        }
+
+        // ── Gantt rows ────────────────────────────────────────────────────
+        if (milestones.length === 0) {
+            slide.addText("No milestone data available for this timeframe.", {
+                x: GANTT_X, y: GANTT_TOP + 0.5, w: GANTT_W, h: 0.4,
+                fontFace: "Calibri", fontSize: 13,
+                align: "center", color: THEME.muted,
+            });
+        } else {
+            milestones.forEach((m, i) => {
+                const rowY   = GANTT_TOP + i * (ROW_H + ROW_GAP);
+                const barY   = rowY + (ROW_H - BAR_H) / 2;
+                const dueDate = new Date(m.expectedDate!);
+                const status  = String(m.status ?? "PENDING").toUpperCase();
+                const pct     = Math.min(100, Math.max(0, Number(m.progressPercent ?? 0)));
+                const amount  = Number(m.amount ?? 0);
+
+                // Bar colour by status
+                const barColor =
+                    status === "COMPLETE" || status === "PAID"  ? C_GREEN :
+                    status === "IN_PROGRESS"                    ? C_TEAL  :
+                    dueDate < now && status !== "COMPLETE"      ? C_RED   :
+                    status === "AT_RISK"                        ? C_AMBER :
+                    C_GREY;
+
+                // Row zebra background
+                if (i % 2 === 1) {
                     slide.addShape("rect" as PptxShapeType, {
-                        x: swimX - 0.05, y: rowY - 0.04, w: swimW + 0.1, h: laneH - 0.06,
-                        fill: { color: i % 2 === 0 ? THEME.bg : THEME.surface },
-                        line: { color: THEME.border, pt: 0.5 },
+                        x: 0.3, y: rowY - 0.02,
+                        w: SLIDE.w - 0.6, h: ROW_H + 0.04,
+                        fill: { color: THEME.surface },
+                        line: { color: THEME.surface },
                     });
+                }
 
-                    // Milestone name
-                    slide.addText(String(m.milestoneName ?? "—").slice(0, 30), {
-                        x: swimX, y: rowY, w: 3.0, h: laneH - 0.12,
-                        fontFace: "Calibri", fontSize: 10,
-                        color: THEME.text, valign: "middle",
+                // Row label (milestone name, truncated)
+                const labelText = String(m.milestoneName ?? "—").slice(0, 28);
+                slide.addText(labelText, {
+                    x: 0.35, y: rowY + (ROW_H - 0.22) / 2,
+                    w: LABEL_W - 0.4, h: 0.22,
+                    fontFace: "Calibri", fontSize: 9.5,
+                    color: THEME.text, valign: "middle",
+                });
+
+                // Supplier name sub-label
+                if (m.supplierName) {
+                    slide.addText(String(m.supplierName).slice(0, 22), {
+                        x: 0.35, y: rowY + ROW_H * 0.52,
+                        w: LABEL_W - 0.4, h: 0.16,
+                        fontFace: "Calibri", fontSize: 7.5,
+                        color: THEME.muted2,
                     });
+                }
 
-                    // Progress bar track (background)
+                // Bar track (full width background)
+                slide.addShape("roundRect" as PptxShapeType, {
+                    x: GANTT_X, y: barY,
+                    w: GANTT_W, h: BAR_H,
+                    fill: { color: THEME.surface2 },
+                    line: { color: THEME.border, pt: 0.5 },
+                });
+
+                // Bar fill up to due date
+                const barEndX = dateToX(dueDate);
+                const barFillW = Math.max(0.08, barEndX - GANTT_X);
+                slide.addShape("roundRect" as PptxShapeType, {
+                    x: GANTT_X, y: barY,
+                    w: Math.min(barFillW, GANTT_W), h: BAR_H,
+                    fill: { color: barColor },
+                    line: { color: barColor },
+                });
+
+                // Progress overlay (darker fill showing actual % done)
+                if (pct > 0 && pct < 100) {
                     slide.addShape("roundRect" as PptxShapeType, {
-                        x: barTrackX, y: rowY + (laneH - 0.12) / 2 - 0.04,
-                        w: barTrackW, h: 0.18,
-                        fill: { color: THEME.surface2 },
-                        line: { color: THEME.border, pt: 0.5 },
+                        x: GANTT_X, y: barY,
+                        w: Math.min(barFillW * (pct / 100), GANTT_W), h: BAR_H,
+                        fill: { color: C_SLATE },
+                        line: { color: C_SLATE },
                     });
+                }
 
-                    // Progress bar fill
-                    if (pct > 0) {
-                        slide.addShape("roundRect" as PptxShapeType, {
-                            x: barTrackX, y: rowY + (laneH - 0.12) / 2 - 0.04,
-                            w: Math.max(barTrackW * (pct / 100), 0.08), h: 0.18,
-                            fill: { color: barColor },
-                            line: { color: barColor },
-                        });
-                    }
+                // Due date marker diamond
+                if (barEndX >= GANTT_X && barEndX <= GANTT_X + GANTT_W) {
+                    slide.addShape("diamond" as PptxShapeType, {
+                        x: barEndX - 0.06, y: barY - 0.04,
+                        w: 0.12, h: BAR_H + 0.08,
+                        fill: { color: barColor },
+                        line: { color: "FFFFFF", pt: 1 },
+                    });
+                }
 
-                    // Pct label on bar
-                    slide.addText(`${pct.toFixed(0)}%`, {
-                        x: barTrackX + barTrackW + 0.07, y: rowY, w: 0.45, h: laneH - 0.12,
+                // Amount label (right of bar area)
+                const amtStr = amount > 0
+                    ? fmtCurrency(amount)
+                    : "";
+                if (amtStr) {
+                    slide.addText(amtStr, {
+                        x: GANTT_X + GANTT_W + 0.1, y: rowY + (ROW_H - 0.2) / 2,
+                        w: 1.4, h: 0.2,
                         fontFace: "Calibri", fontSize: 9, bold: true,
                         color: barColor, valign: "middle",
                     });
+                }
 
-                    // Status pill
-                    slide.addShape("roundRect" as PptxShapeType, {
-                        x: statusColX + 0.5, y: rowY + (laneH - 0.12) / 2 - 0.04,
-                        w: 1.0, h: 0.18,
-                        fill: { color: barColor + "22" }, // semi-transparent tint
-                        line: { color: barColor, pt: 0.75 },
-                    });
-                    slide.addText(status.replace("_", " "), {
-                        x: statusColX + 0.5, y: rowY + (laneH - 0.12) / 2 - 0.04,
-                        w: 1.0, h: 0.18,
-                        fontFace: "Calibri", fontSize: 7.5, bold: true,
-                        align: "center", valign: "middle",
-                        color: barColor,
-                    });
-
-                    // Due date
-                    const dueStr = m.expectedDate
-                        ? new Date(m.expectedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-                        : "—";
-                    slide.addText(dueStr, {
-                        x: statusColX + 0.5, y: rowY + laneH * 0.55, w: 1.0, h: 0.22,
-                        fontFace: "Calibri", fontSize: 7.5,
-                        align: "center", color: THEME.muted,
-                    });
+                // Status pill
+                slide.addShape("roundRect" as PptxShapeType, {
+                    x: GANTT_X + GANTT_W + 0.1, y: rowY + ROW_H * 0.52,
+                    w: 1.0, h: 0.16,
+                    fill: { color: barColor + "22" },
+                    line: { color: barColor, pt: 0.5 },
                 });
-            }
+                slide.addText(status.replace(/_/g, " "), {
+                    x: GANTT_X + GANTT_W + 0.1, y: rowY + ROW_H * 0.52,
+                    w: 1.0, h: 0.16,
+                    fontFace: "Calibri", fontSize: 6.5, bold: true,
+                    align: "center", valign: "middle",
+                    color: barColor,
+                });
+            });
+        }
+
+        // ── Divider line above summary ────────────────────────────────────
+        slide.addShape("line" as PptxShapeType, {
+            x: 0.3, y: FOOTER_Y - 0.1,
+            w: SLIDE.w - 0.6, h: 0,
+            line: { color: THEME.border, pt: 1 },
+        });
+
+        // ── Summary boxes (3 KPIs at the bottom) ─────────────────────────
+        const boxW = 3.6;
+        const boxH = 0.75;
+        const boxY = FOOTER_Y + 0.05;
+        const boxes = [
+            { label: "Total Committed",  value: fmtCurrency(f.totalCommitted),   color: C_TEAL  },
+            { label: "Total Paid",        value: fmtCurrency(f.totalPaid),         color: C_GREEN },
+            { label: "Outstanding",       value: fmtCurrency(f.totalUnpaid + f.totalPending), color: C_AMBER },
+        ];
+
+        boxes.forEach((box, i) => {
+            const bx = 0.6 + i * (boxW + 0.3);
+
+            slide.addShape("roundRect" as PptxShapeType, {
+                x: bx, y: boxY, w: boxW, h: boxH,
+                fill: { color: THEME.surface },
+                line: { color: THEME.border, pt: 1 },
+            });
+            // Left accent bar
+            slide.addShape("rect" as PptxShapeType, {
+                x: bx, y: boxY, w: 0.06, h: boxH,
+                fill: { color: box.color },
+                line: { color: box.color },
+            });
+            slide.addText(box.label, {
+                x: bx + 0.16, y: boxY + 0.1, w: boxW - 0.22, h: 0.2,
+                fontFace: "Calibri", fontSize: 9,
+                color: THEME.muted2,
+            });
+            slide.addText(box.value, {
+                x: bx + 0.16, y: boxY + 0.3, w: boxW - 0.22, h: 0.35,
+                fontFace: "Calibri", fontSize: 16, bold: true,
+                color: THEME.text,
+            });
+        });
+
+        // Additional box: CO Impact (far right if space)
+        if (f.changeOrderImpact !== 0) {
+            const bx = 0.6 + 3 * (boxW + 0.3);
+            slide.addShape("roundRect" as PptxShapeType, {
+                x: bx, y: boxY, w: boxW, h: boxH,
+                fill: { color: THEME.surface },
+                line: { color: THEME.border, pt: 1 },
+            });
+            slide.addShape("rect" as PptxShapeType, {
+                x: bx, y: boxY, w: 0.06, h: boxH,
+                fill: { color: f.changeOrderImpact > 0 ? C_RED : C_GREEN },
+                line: { color: f.changeOrderImpact > 0 ? C_RED : C_GREEN },
+            });
+            slide.addText("CO Impact", {
+                x: bx + 0.16, y: boxY + 0.1, w: boxW - 0.22, h: 0.2,
+                fontFace: "Calibri", fontSize: 9,
+                color: THEME.muted2,
+            });
+            slide.addText(`${f.changeOrderImpact > 0 ? "+" : ""}${fmtCurrency(f.changeOrderImpact)}`, {
+                x: bx + 0.16, y: boxY + 0.3, w: boxW - 0.22, h: 0.35,
+                fontFace: "Calibri", fontSize: 16, bold: true,
+                color: f.changeOrderImpact > 0 ? C_RED : C_GREEN,
+            });
         }
     }
 
