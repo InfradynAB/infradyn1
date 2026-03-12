@@ -109,22 +109,26 @@ export function TrafficLightChart({ data, onLightClick }: Props) {
                 )}
             </div>
 
-            {/* Insight rows (fills card space with actionable context) */}
+            {/* Insight rows */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 dark:border-emerald-800/50 dark:bg-emerald-500/10 p-3">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">On-Time Rate</p>
-                    <p className="text-xl font-sans tabular-nums font-bold text-emerald-600 dark:text-emerald-400">{onTimePct}%</p>
-                    <p className="text-[11px] text-muted-foreground">{data.green.count} deliveries on schedule</p>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Target Gap</p>
+                    <p className="text-xl font-sans tabular-nums font-bold text-emerald-600 dark:text-emerald-400">
+                        {onTimeGap > 0 ? `−${onTimeGap}%` : "✓ Met"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                        {onTimeGap > 0 ? `${onTimeGap}% below ${targetOnTime}% target` : `${targetOnTime}% target achieved`}
+                    </p>
                 </div>
                 <div className="rounded-xl border border-amber-200/70 bg-amber-50/40 dark:border-amber-800/50 dark:bg-amber-500/10 p-3">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Watchlist</p>
-                    <p className="text-xl font-sans tabular-nums font-bold text-amber-600 dark:text-amber-400">{atRiskPct}%</p>
-                    <p className="text-[11px] text-muted-foreground">{data.amber.count} deliveries may slip</p>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">At Risk + Delayed</p>
+                    <p className="text-xl font-sans tabular-nums font-bold text-amber-600 dark:text-amber-400">{riskCount}</p>
+                    <p className="text-[11px] text-muted-foreground">{riskPct}% of total deliveries</p>
                 </div>
                 <div className="rounded-xl border border-red-200/70 bg-red-50/40 dark:border-red-800/50 dark:bg-red-500/10 p-3">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Critical Delay</p>
-                    <p className="text-xl font-sans tabular-nums font-bold text-red-600 dark:text-red-400">{delayedPct}%</p>
-                    <p className="text-[11px] text-muted-foreground">{data.red.count} deliveries behind plan</p>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Needs Action</p>
+                    <p className="text-xl font-sans tabular-nums font-bold text-red-600 dark:text-red-400">{data.red.count}</p>
+                    <p className="text-[11px] text-muted-foreground">confirmed delays to resolve</p>
                 </div>
             </div>
 
