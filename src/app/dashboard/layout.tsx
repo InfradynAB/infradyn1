@@ -258,7 +258,7 @@ export default async function DashboardLayout({
                     </header>
                 )}
 
-                <div className={`flex flex-1 flex-col gap-4 ${isSupplierOnboarding ? "p-0" : "p-4"}`}>
+                <div className={`flex flex-1 flex-col min-h-0 overflow-hidden ${isSupplierOnboarding ? "p-0" : "p-0"}`}>
                     {children}
                 </div>
             </SidebarInset>

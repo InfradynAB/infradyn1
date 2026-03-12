@@ -170,17 +170,17 @@ interface BatchModalState {
 const ALL_COLUMN_DEFS: Record<string, { label: string; width?: string; cell: (item: ItemRow) => ReactNode; exportValue: (item: ItemRow) => string }> = {
   itemNumber: {
     label: "Item #",
-    width: "w-[110px]",
+    width: "w-[80px] max-w-[80px]",
     cell: (item) => (
-      <TruncatedCell value={`#${item.itemNumber}`} className="font-semibold text-sm tabular-nums" />
+      <TruncatedCell value={`#${item.itemNumber}`} className="font-semibold text-xs tabular-nums" />
     ),
     exportValue: (item) => `#${item.itemNumber}`,
   },
   poNumber: {
     label: "PO",
-    width: "w-[140px]",
+    width: "w-[110px] max-w-[110px]",
     cell: (item) => (
-      <TruncatedCell value={item.poNumber} className="font-mono text-[11px] text-muted-foreground" />
+      <TruncatedCell value={item.poNumber} className="font-mono text-[10px] text-muted-foreground" />
     ),
     exportValue: (item) => item.poNumber,
   },
@@ -198,14 +198,14 @@ const ALL_COLUMN_DEFS: Record<string, { label: string; width?: string; cell: (it
   },
   description: {
     label: "Description",
-    width: "w-[260px]",
+    width: "w-[180px] max-w-[180px]",
     cell: (item) => {
       const isAmended = (item.originalQuantity != null && item.originalQuantity !== item.quantity) ||
                         (item.originalUnitPrice != null && item.originalUnitPrice !== item.unitPrice);
       return (
-        <div className="space-y-0.5 w-[260px]">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <TruncatedCell value={item.description} className="font-medium text-sm flex-1 min-w-0" />
+        <div className="space-y-0.5 w-[180px] max-w-[180px]">
+          <div className="flex items-center gap-1 min-w-0">
+            <TruncatedCell value={item.description} className="font-medium text-xs flex-1 min-w-0" />
             {item.isVariation && (
               <span className="inline-flex items-center rounded px-1 py-0 text-[10px] font-semibold bg-violet-500/10 text-violet-400 border border-violet-500/20 shrink-0">
                 {item.variationOrderNumber ?? "VO"}
@@ -595,7 +595,7 @@ function TruncatedCell({ value, className = "" }: { value: string; className?: s
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <span
-          className={`block truncate cursor-default select-text ${className}`}
+          className={`block truncate overflow-hidden cursor-default select-text w-full max-w-full ${className}`}
           onDoubleClick={(e) => { e.stopPropagation(); setOpen(true); }}
           title="Double-click to expand"
         >
@@ -1528,7 +1528,7 @@ export function BoqTrackerShell({ projectId }: Props) {
       </div>
 
       {/* Items table — single scroll container */}
-      <div className="mx-3 mb-4 flex min-h-[420px] flex-col overflow-hidden rounded-lg border bg-white text-foreground sm:mx-4 dark:bg-background h-[60dvh] lg:h-[calc(100dvh-370px)]">
+      <div className="mx-3 mb-4 flex min-h-[420px] flex-col rounded-lg border bg-white text-foreground sm:mx-4 dark:bg-background h-[60dvh] lg:h-[calc(100dvh-370px)]">
         <div
           ref={tableScrollRef}
           className="flex-1 overflow-auto cursor-grab active:cursor-grabbing"
