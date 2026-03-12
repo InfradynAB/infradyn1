@@ -293,6 +293,10 @@ function sectionLabel(id: string): string {
         logistics: "Logistics",
         milestones: "Milestones",
         compliance: "Compliance",
+        activities: "Activities and Progress",
+        cost_commitments: "Cost & Commitments Status",
+        progress_analysis: "Project Progress Analysis",
+        exec_summary: "Executive Summary Cost & Schedule",
         charts: "Charts",
     };
 
@@ -376,6 +380,79 @@ function safeIso(date: Date): string {
     }
 }
 
+function addSectionDivider(slide: PptxSlide, y: number, label: string) {
+    const lineW = 4.5;
+    const midX = SLIDE.w / 2;
+    const dotX = midX - lineW / 2 - 0.18;
+    const dotX2 = midX + lineW / 2 + 0.05;
+
+    slide.addShape("line" as PptxShapeType, {
+        x: midX - lineW / 2,
+        y: y + 0.08,
+        w: lineW,
+        h: 0,
+        line: { color: THEME.border, pt: 1 },
+    });
+    slide.addShape("ellipse" as PptxShapeType, {
+        x: dotX,
+        y: y + 0.03,
+        w: 0.12,
+        h: 0.12,
+        fill: { color: THEME.accent },
+        line: { color: THEME.accent },
+    });
+    slide.addShape("ellipse" as PptxShapeType, {
+        x: dotX2,
+        y: y + 0.03,
+        w: 0.12,
+        h: 0.12,
+        fill: { color: THEME.accent },
+        line: { color: THEME.accent },
+    });
+    slide.addText(label, {
+        x: midX - 2.5,
+        y: y - 0.06,
+        w: 5.0,
+        h: 0.28,
+        fontFace: "Calibri",
+        fontSize: 11,
+        italic: true,
+        align: "center",
+        color: THEME.text,
+    });
+}
+
+function buildExecutiveSummaryBullets(kpis: DashboardExportData["kpis"]): string[] {
+    const f = kpis.financial;
+    const p = kpis.progress;
+    const q = kpis.quality;
+    const l = kpis.logistics;
+
+    const bullets: string[] = [];
+
+    const physPct = Number(p.physicalProgress || 0).toFixed(1);
+    const finPct = Number(p.financialProgress || 0).toFixed(1);
+    bullets.push(`Physical progress is at ${physPct}% vs financial progress at ${finPct}%.`);
+
+    const committed = Number(f.totalCommitted || 0);
+    const paid = Number(f.totalPaid || 0);
+    const coImpact = Number(f.changeOrderImpact || 0);
+    const paidPct = committed > 0 ? ((paid / committed) * 100).toFixed(1) : "0.0";
+    bullets.push(`${fmtCurrency(paid)} paid of ${fmtCurrency(committed)} committed (${paidPct}%).${coImpact !== 0 ? ` CO impact: ${coImpact > 0 ? "+" : ""}${fmtCurrency(coImpact)}.` : ""}`);
+
+    const delayed = Number(p.delayedCount || 0);
+    const atRisk = Number(p.atRiskCount || 0);
+    const onTrack = Number(p.onTrackCount || 0);
+    bullets.push(`Milestones: ${onTrack} on track, ${atRisk} at risk, ${delayed} delayed.`);
+
+    if (Number(q.openNCRs || 0) > 0) {
+        bullets.push(`${q.openNCRs} open NCR(s) — ${q.criticalNCRs} critical. On-time delivery: ${Number(l.onTimeRate || 0).toFixed(1)}%.`);
+    } else {
+        bullets.push(`No open NCRs. On-time delivery: ${Number(l.onTimeRate || 0).toFixed(1)}%.`);
+    }
+
+    return bullets;
+}
 
 function buildWeeklyConclusion(kpis: DashboardExportData["kpis"]): string[] {
     const onTime = Number(kpis.logistics.onTimeRate) || 0;
@@ -396,14 +473,14 @@ function normalizeSections(sections: string[] | undefined, source: PptxSource): 
     if (sections && sections.length > 0) return sections;
 
     if (source === "executive") {
-        return ["financial", "portfolio", "quality", "suppliers", "logistics", "milestones", "charts"];
+        return ["financial", "cost_commitments", "exec_summary", "portfolio", "quality", "suppliers", "logistics", "milestones", "activities", "charts"];
     }
 
     if (source === "pm") {
-        return ["financial", "deliveries", "materials", "quality", "suppliers", "milestones", "charts"];
+        return ["financial", "cost_commitments", "progress_analysis", "deliveries", "materials", "quality", "suppliers", "milestones", "activities", "charts"];
     }
 
-    return ["financial", "performance", "deliveries", "quality", "milestones", "compliance", "charts"];
+    return ["financial", "performance", "progress_analysis", "deliveries", "quality", "milestones", "activities", "compliance", "charts"];
 }
 
 export async function generatePptxReport(
@@ -729,6 +806,584 @@ export async function generatePptxReport(
 
         // Add conclusion as speaker-notes style (keeps slide clean but available)
         slide.addNotes(buildWeeklyConclusion(k).join("\n"));
+    }
+
+    // ── Activities and Progress slide ──────────────────────────────────────
+    if (sections.includes("activities")) {
+        const slide = nextSlide(options.timeframeLabel);
+        const k = exportData.kpis;
+        const delayedCount = Number(k.progress.delayedCount ?? 0);
+        const atRiskCount = Number(k.progress.atRiskCount ?? 0);
+        const statusColor = delayedCount > 0 ? "DC2626" : atRiskCount > 0 ? "D97706" : "16A34A";
+        const statusLabel = delayedCount > 0 ? "Behind" : atRiskCount > 0 ? "Risk" : "On track";
+
+        addHeader(slide, "Activities and Progress", options.timeframeLabel);
+
+        // Status indicator (top right)
+        slide.addText("Status:", {
+            x: 11.2,
+            y: 0.24,
+            w: 0.6,
+            h: 0.35,
+            fontFace: "Calibri",
+            fontSize: 11,
+            color: THEME.muted2,
+        });
+        slide.addShape("rect" as PptxShapeType, {
+            x: 11.9,
+            y: 0.22,
+            w: 1.2,
+            h: 0.4,
+            fill: { color: statusColor },
+            line: { color: statusColor },
+        });
+        slide.addText(statusLabel, {
+            x: 11.95,
+            y: 0.28,
+            w: 1.1,
+            h: 0.3,
+            fontFace: "Calibri",
+            fontSize: 10,
+            bold: true,
+            align: "center",
+            color: "FFFFFF",
+        });
+
+        const leftX = SLIDE.padX;
+        const rightX = SLIDE.padX + 6.5;
+        const colW = 6.0;
+        const panelH = 2.4;
+
+        // Left: Progress/Achievements
+        addPanel(slide, leftX, 1.35, colW, panelH, "Progress / Achievements");
+        const completedMilestones = (exportData.milestones || [])
+            .filter((m) => m.status === "COMPLETE" || Number(m.progressPercent ?? 0) >= 100)
+            .slice(0, 5);
+        const progressRows = completedMilestones.length > 0
+            ? completedMilestones.map((m) => [
+                String(m.poNumber ?? "—").slice(0, 10),
+                String(m.supplierName ?? "—").slice(0, 14),
+                String(m.milestoneName ?? "—").slice(0, 20),
+                fmtCurrency(m.amount ?? 0),
+                String(m.status ?? "—"),
+            ])
+            : [["No completed milestones in scope", "—", "—", "—", "—"]];
+        const progressTable = buildStyledTable(
+            ["Project", "Vendor", "Items", "Unit", "Status"],
+            progressRows
+        );
+        slide.addTable(progressTable, {
+            x: leftX + 0.15,
+            y: 1.88,
+            w: colW - 0.3,
+            h: panelH - 0.6,
+            fontFace: "Calibri",
+            fontSize: 8,
+            border: { type: "solid", color: THEME.border, pt: 1 },
+            fill: { color: THEME.bg },
+            color: THEME.text,
+            rowH: 0.24,
+            colW: [1.0, 1.4, 2.0, 1.0, 0.9],
+        });
+
+        // Left: Key issues/risks
+        const issuesY = 3.95;
+        addPanel(slide, leftX, issuesY, colW, panelH, "Key issues / potential risks and mitigation actions");
+        const conflicts = exportData.conflicts ?? [];
+        const openNCRs = exportData.openNCRs ?? [];
+        const issuesRows = [...conflicts.slice(0, 3), ...openNCRs.slice(0, 2)].map((item) => {
+            const isConflict = "type" in item;
+            const issue = isConflict
+                ? `${(item as { type: string }).type.replace(/_/g, " ")}: ${((item as { description: string | null }).description ?? "").slice(0, 50)}`
+                : (item as { title: string }).title.slice(0, 50);
+            const mitigation = isConflict ? "Under review" : "Pending resolution";
+            const owner = isConflict ? (item as { assignedTo: string | null }).assignedTo ?? "—" : "—";
+            const due = isConflict
+                ? (item as { slaDeadline: string | null }).slaDeadline ?? "—"
+                : (item as { slaDueAt: string | null }).slaDueAt ?? "—";
+            const status = isConflict ? (item as { state: string }).state : (item as { status: string }).status;
+            return [issue, mitigation, owner, due, status];
+        });
+        const issuesTableData = issuesRows.length > 0
+            ? buildStyledTable(["Key issue / potential risk", "Mitigation action", "Owner", "Due date", "Status"], issuesRows)
+            : buildStyledTable(
+                ["Key issue / potential risk", "Mitigation action", "Owner", "Due date", "Status"],
+                [["No open issues or risks", "—", "—", "—", "—"]]
+            );
+        slide.addTable(issuesTableData, {
+            x: leftX + 0.15,
+            y: issuesY + 0.48,
+            w: colW - 0.3,
+            h: panelH - 0.6,
+            fontFace: "Calibri",
+            fontSize: 7,
+            border: { type: "solid", color: THEME.border, pt: 1 },
+            fill: { color: THEME.bg },
+            color: THEME.text,
+            rowH: 0.22,
+            colW: [2.2, 1.5, 0.8, 0.9, 0.8],
+        });
+
+        // Right: Plan deviations
+        addPanel(slide, rightX, 1.35, colW, panelH, "Plan deviations - Activities behind the plan/schedule");
+        const now = new Date();
+        const fourWeeksFromNow = new Date(now.getTime() + 28 * 24 * 60 * 60 * 1000);
+        const delayedMilestones = (exportData.milestones || [])
+            .filter((m) => {
+                const status = String(m.status ?? "").toUpperCase();
+                return (status === "DELAYED" || status === "AT_RISK") && m.expectedDate;
+            })
+            .slice(0, 3);
+        const deviationRows = delayedMilestones.length > 0
+            ? delayedMilestones.map((m) => [
+                String(m.milestoneName ?? "—").slice(0, 45),
+                m.expectedDate ?? "—",
+                m.expectedDate ?? "—",
+                "Yes",
+                "Coordinate with supplier",
+                String(m.supplierName ?? "—").slice(0, 10),
+                m.expectedDate ?? "—",
+            ])
+            : [["No activities behind schedule", "—", "—", "—", "—", "—", "—"]];
+        const deviationTable = buildStyledTable(
+            ["Activity behind schedule", "Plan date", "Forecast date", "Impact?", "Mitigating action", "Who", "When"],
+            deviationRows
+        );
+        slide.addTable(deviationTable, {
+            x: rightX + 0.15,
+            y: 1.88,
+            w: colW - 0.3,
+            h: panelH - 0.6,
+            fontFace: "Calibri",
+            fontSize: 7,
+            border: { type: "solid", color: THEME.border, pt: 1 },
+            fill: { color: THEME.bg },
+            color: THEME.text,
+            rowH: 0.22,
+            colW: [2.2, 0.9, 0.9, 0.5, 1.2, 0.8, 0.7],
+        });
+
+        // Right: 4 weeks look ahead
+        addPanel(slide, rightX, issuesY, colW, panelH, "4 weeks look ahead - main activities");
+        const lookAheadMilestones = (exportData.milestones || [])
+            .filter((m) => {
+                if (!m.expectedDate) return false;
+                const d = new Date(m.expectedDate);
+                return d >= now && d <= fourWeeksFromNow;
+            })
+            .sort((a, b) => new Date(a.expectedDate!).getTime() - new Date(b.expectedDate!).getTime())
+            .slice(0, 5);
+        const lookAheadRows = lookAheadMilestones.length > 0
+            ? lookAheadMilestones.map((m) => [
+                String(m.milestoneName ?? "—").slice(0, 28),
+                fmtCurrency(m.amount ?? 0),
+                fmtCurrency(m.amount ?? 0),
+                m.expectedDate ?? "—",
+                String(m.status ?? "—"),
+            ])
+            : [["No activities in next 4 weeks", "—", "—", "—", "—"]];
+        const lookAheadTable = buildStyledTable(
+            ["Area | Activity", "Unit", "Total", "Date", "Status"],
+            lookAheadRows
+        );
+        slide.addTable(lookAheadTable, {
+            x: rightX + 0.15,
+            y: issuesY + 0.48,
+            w: colW - 0.3,
+            h: panelH - 0.6,
+            fontFace: "Calibri",
+            fontSize: 8,
+            border: { type: "solid", color: THEME.border, pt: 1 },
+            fill: { color: THEME.bg },
+            color: THEME.text,
+            rowH: 0.24,
+            colW: [2.6, 1.0, 1.0, 0.9, 0.8],
+        });
+
+        // Legend (bottom)
+        const legendY = SLIDE.h - SLIDE.footerH - 0.55;
+        slide.addShape("rect" as PptxShapeType, {
+            x: 9.2,
+            y: legendY,
+            w: 0.25,
+            h: 0.2,
+            fill: { color: "16A34A" },
+            line: { color: "16A34A" },
+        });
+        slide.addText("On track / no issue", {
+            x: 9.5,
+            y: legendY,
+            w: 1.5,
+            h: 0.2,
+            fontFace: "Calibri",
+            fontSize: 8,
+            color: THEME.text,
+        });
+        slide.addShape("rect" as PptxShapeType, {
+            x: 11.1,
+            y: legendY,
+            w: 0.25,
+            h: 0.2,
+            fill: { color: "D97706" },
+            line: { color: "D97706" },
+        });
+        slide.addText("Risk / Concern", {
+            x: 11.4,
+            y: legendY,
+            w: 1.2,
+            h: 0.2,
+            fontFace: "Calibri",
+            fontSize: 8,
+            color: THEME.text,
+        });
+        slide.addShape("rect" as PptxShapeType, {
+            x: 12.7,
+            y: legendY,
+            w: 0.25,
+            h: 0.2,
+            fill: { color: "DC2626" },
+            line: { color: "DC2626" },
+        });
+        slide.addText("Behind / Major concern", {
+            x: 13.0,
+            y: legendY,
+            w: 1.2,
+            h: 0.2,
+            fontFace: "Calibri",
+            fontSize: 8,
+            color: THEME.text,
+        });
+    }
+
+    // ── Slide A: Cost & Commitments Status ───────────────────────────────
+    if (sections.includes("cost_commitments")) {
+        const slide = nextSlide(options.timeframeLabel);
+        addHeader(slide, "Cost & Commitments Status", options.timeframeLabel);
+
+        const f = exportData.kpis.financial;
+        const totalCommitted = Number(f.totalCommitted || 0);
+        const coImpact = Number(f.changeOrderImpact || 0);
+        const prevCommitted = totalCommitted - coImpact;
+        const ftc = Number(f.forecastToComplete || 0);
+        const totalPending = Number(f.totalPending || 0);
+
+        const coBreakdown = exportData.coBreakdown ?? { scope: 0, rate: 0, quantity: 0, schedule: 0 };
+
+        const contentY = SLIDE.headerH + 0.15;
+        const contentH = SLIDE.h - SLIDE.headerH - SLIDE.footerH - 0.2;
+        const colW = (SLIDE.w - SLIDE.padX * 2 - 0.3) / 2;
+        const leftX = SLIDE.padX;
+        const rightX = SLIDE.padX + colW + 0.3;
+        const chartH = contentH * 0.55;
+        const panelH = contentH - chartH - 0.2;
+        const panelY = contentY + chartH + 0.2;
+
+        // Left: Commitment Summary bar chart
+        addPanel(slide, leftX, contentY, colW, chartH, "Commitment Summary");
+        const commitmentChartData: PptxChartData = [
+            {
+                name: "Value",
+                labels: ["Prev Committed", "CO Impact", "Committed", "FTC", "Pending"],
+                values: [prevCommitted, coImpact, totalCommitted, ftc, totalPending],
+            },
+        ];
+        slide.addChart("bar" as Parameters<PptxSlide["addChart"]>[0], commitmentChartData, {
+            x: leftX + 0.1,
+            y: contentY + 0.38,
+            w: colW - 0.2,
+            h: chartH - 0.48,
+            barDir: "col",
+            chartColors: ["0E7490", "0E7490", "0E7490", "64748B", "94A3B8"],
+            showLegend: false,
+            showValue: true,
+            dataLabelFontSize: 7,
+            valAxisLabelFormatCode: "$#,##0",
+            catAxisLabelFontSize: 8,
+        });
+
+        // Right: CO Categorization grouped bar
+        addPanel(slide, rightX, contentY, colW, chartH, "CO Categorization (Control Budget vs Overrun)");
+        const catLabels = ["Scope", "Rate", "Quantity", "Schedule"];
+        const catValues = [
+            Number(coBreakdown.scope || 0),
+            Number(coBreakdown.rate || 0),
+            Number(coBreakdown.quantity || 0),
+            Number(coBreakdown.schedule || 0),
+        ];
+        const catOverrun = catValues.map((v) => (v < 0 ? Math.abs(v) : 0));
+        const catBudget = catValues.map((v) => (v >= 0 ? v : 0));
+        const catChartData: PptxChartData = [
+            { name: "Control Budget", labels: catLabels, values: catBudget },
+            { name: "Overrun", labels: catLabels, values: catOverrun },
+        ];
+        slide.addChart("bar" as Parameters<PptxSlide["addChart"]>[0], catChartData, {
+            x: rightX + 0.1,
+            y: contentY + 0.38,
+            w: colW - 0.2,
+            h: chartH - 0.48,
+            barDir: "col",
+            barGrouping: "clustered",
+            chartColors: ["0E7490", "DC2626"],
+            showLegend: true,
+            legendPos: "b",
+            legendFontSize: 8,
+            showValue: true,
+            dataLabelFontSize: 7,
+            valAxisLabelFormatCode: "$#,##0",
+            catAxisLabelFontSize: 8,
+        });
+
+        // Bottom-left: Main New Commitments text panel
+        addPanel(slide, leftX, panelY, colW, panelH, "Main New Commitments");
+        const commitBullets = [
+            `• Total committed: ${fmtCurrency(totalCommitted)}`,
+            `• Change order impact: ${coImpact >= 0 ? "+" : ""}${fmtCurrency(coImpact)}`,
+            `• Forecast to complete: ${fmtCurrency(ftc)}`,
+            `• Pending (unpaid approved): ${fmtCurrency(totalPending)}`,
+        ];
+        slide.addText(commitBullets.join("\n"), {
+            x: leftX + 0.18,
+            y: panelY + 0.38,
+            w: colW - 0.36,
+            h: panelH - 0.5,
+            fontFace: "Calibri",
+            fontSize: 9,
+            color: THEME.text,
+            valign: "top",
+        });
+
+        // Bottom-right: Deviations & Mitigations text panel
+        addPanel(slide, rightX, panelY, colW, panelH, "Deviations & Mitigations");
+        const deviationItems = [
+            ...(exportData.conflicts ?? []).slice(0, 2).map(
+                (c) => `• [Conflict] ${c.description ?? c.type}${c.supplierName ? ` — ${c.supplierName}` : ""}`,
+            ),
+            ...(exportData.openNCRs ?? []).slice(0, 2).map(
+                (n) => `• [NCR-${n.ncrNumber}] ${n.title} (${n.severity})${n.supplierName ? ` — ${n.supplierName}` : ""}`,
+            ),
+        ].slice(0, 4);
+        const deviationText = deviationItems.length > 0 ? deviationItems.join("\n") : "No active conflicts or open NCRs.";
+        slide.addText(deviationText, {
+            x: rightX + 0.18,
+            y: panelY + 0.38,
+            w: colW - 0.36,
+            h: panelH - 0.5,
+            fontFace: "Calibri",
+            fontSize: 9,
+            color: THEME.text,
+            valign: "top",
+        });
+    }
+
+    // ── Slide B: Project Progress Analysis Summary ────────────────────────
+    if (sections.includes("progress_analysis") || sections.includes("portfolio")) {
+        const slide = nextSlide(options.timeframeLabel);
+        addHeader(slide, "Project Progress Analysis Summary", options.timeframeLabel);
+
+        const contentY = SLIDE.headerH + 0.15;
+        const contentH = SLIDE.h - SLIDE.headerH - SLIDE.footerH - 0.2;
+        const colW = (SLIDE.w - SLIDE.padX * 2 - 0.3) / 2;
+        const leftX = SLIDE.padX;
+        const rightX = SLIDE.padX + colW + 0.3;
+        const topH = contentH * 0.52;
+        const botH = contentH - topH - 0.2;
+        const botY = contentY + topH + 0.2;
+
+        // Top-left: Cumulative Progress monthly bar chart
+        addPanel(slide, leftX, contentY, colW, topH, "Cumulative Progress (%)");
+        const sCurve = exportData.sCurve ?? [];
+        const maxPlan = sCurve.reduce((m, p) => Math.max(m, Number(p.plannedCumulative || 0)), 1);
+        const planPct = sCurve.map((p) => Math.min(100, (Number(p.plannedCumulative || 0) / maxPlan) * 100));
+        const actualPct = sCurve.map((p) => Math.min(100, (Number(p.actualCumulative || 0) / maxPlan) * 100));
+        const monthLabels = sCurve.map((p) => p.month);
+        const progressChartData: PptxChartData = [
+            { name: "Plan (%)", labels: monthLabels.length > 0 ? monthLabels : ["No data"], values: planPct.length > 0 ? planPct : [0] },
+            { name: "Actuals (%)", labels: monthLabels.length > 0 ? monthLabels : ["No data"], values: actualPct.length > 0 ? actualPct : [0] },
+        ];
+        slide.addChart("bar" as Parameters<PptxSlide["addChart"]>[0], progressChartData, {
+            x: leftX + 0.1,
+            y: contentY + 0.38,
+            w: colW - 0.2,
+            h: topH - 0.48,
+            barDir: "col",
+            barGrouping: "clustered",
+            chartColors: ["64748B", "0E7490"],
+            showLegend: true,
+            legendPos: "b",
+            legendFontSize: 8,
+            showValue: false,
+            valAxisLabelFormatCode: "0%",
+            catAxisLabelFontSize: 7,
+        });
+
+        // Top-right: Milestones achieved text panel
+        addPanel(slide, rightX, contentY, colW, topH, "Milestones Achieved");
+        const completedMilestones = (exportData.milestones ?? []).filter(
+            (m) => m.status === "COMPLETE" || Number(m.progressPercent) >= 100,
+        );
+        const milestoneAchievedText = completedMilestones.length > 0
+            ? completedMilestones.slice(0, 8).map((m) => `• ${m.milestoneName}${m.supplierName ? ` (${m.supplierName})` : ""}`).join("\n")
+            : "No completed milestones in this period.";
+        slide.addText(milestoneAchievedText, {
+            x: rightX + 0.18,
+            y: contentY + 0.38,
+            w: colW - 0.36,
+            h: topH - 0.5,
+            fontFace: "Calibri",
+            fontSize: 9,
+            color: THEME.text,
+            valign: "top",
+        });
+
+        addSectionDivider(slide, botY - 0.15, "Discipline Breakdown");
+
+        // Bottom-left: Progress by Discipline (supplier) grouped bar
+        addPanel(slide, leftX, botY, colW, botH, "Cumulative Project Progress by Discipline (%)");
+        const supplierProgress = (exportData.supplierProgress ?? []).slice(0, 5);
+        const discLabels = supplierProgress.map((s) => s.supplierName ?? "Unknown");
+        const discPlan = supplierProgress.map(() => 100);
+        const discActual = supplierProgress.map((s) => Math.min(100, Number(s.physicalProgress || 0)));
+        const discChartData: PptxChartData = [
+            { name: "Plan (%)", labels: discLabels.length > 0 ? discLabels : ["No data"], values: discPlan.length > 0 ? discPlan : [0] },
+            { name: "Actuals (%)", labels: discLabels.length > 0 ? discLabels : ["No data"], values: discActual.length > 0 ? discActual : [0] },
+        ];
+        slide.addChart("bar" as Parameters<PptxSlide["addChart"]>[0], discChartData, {
+            x: leftX + 0.1,
+            y: botY + 0.38,
+            w: colW - 0.2,
+            h: botH - 0.48,
+            barDir: "col",
+            barGrouping: "clustered",
+            chartColors: ["64748B", "0E7490"],
+            showLegend: true,
+            legendPos: "b",
+            legendFontSize: 8,
+            showValue: true,
+            dataLabelFontSize: 7,
+            valAxisLabelFormatCode: "0%",
+            catAxisLabelFontSize: 8,
+        });
+
+        // Bottom-right: Deviations and Mitigations text panel
+        addPanel(slide, rightX, botY, colW, botH, "Deviations and Mitigations");
+        const delayedMilestones = (exportData.milestones ?? []).filter(
+            (m) => m.status === "DELAYED" || m.status === "AT_RISK",
+        );
+        const deviationMilestoneText = delayedMilestones.length > 0
+            ? delayedMilestones.slice(0, 6).map(
+                (m) => `• ${m.milestoneName}: ${m.status}${m.supplierName ? ` — Coordinate with ${m.supplierName}` : ""}`,
+            ).join("\n")
+            : "No delayed or at-risk milestones.";
+        slide.addText(deviationMilestoneText, {
+            x: rightX + 0.18,
+            y: botY + 0.38,
+            w: colW - 0.36,
+            h: botH - 0.5,
+            fontFace: "Calibri",
+            fontSize: 9,
+            color: THEME.text,
+            valign: "top",
+        });
+    }
+
+    // ── Slide C: Executive Summary Cost & Schedule ────────────────────────
+    if (sections.includes("exec_summary") || (sections.includes("financial") && (options.source === "executive" || options.audience === "executives" || options.audience === "clients"))) {
+        const slide = nextSlide(options.timeframeLabel);
+        addHeader(slide, "Executive Summary — Cost & Schedule", options.timeframeLabel);
+
+        const f = exportData.kpis.financial;
+        const p = exportData.kpis.progress;
+        const totalCommitted = Number(f.totalCommitted || 0);
+        const coImpact = Number(f.changeOrderImpact || 0);
+        const ftc = Number(f.forecastToComplete || 0);
+        const totalPending = Number(f.totalPending || 0);
+        const totalPaid = Number(f.totalPaid || 0);
+        const physPct = Number(p.physicalProgress || 0);
+        const finPct = Number(p.financialProgress || 0);
+
+        const contentY = SLIDE.headerH + 0.15;
+        const contentH = SLIDE.h - SLIDE.headerH - SLIDE.footerH - 0.2;
+        const leftW = (SLIDE.w - SLIDE.padX * 2) * 0.45;
+        const rightW = (SLIDE.w - SLIDE.padX * 2) * 0.52;
+        const leftX = SLIDE.padX;
+        const rightX = SLIDE.padX + leftW + 0.15;
+        const topH = contentH * 0.52;
+        const botH = contentH - topH - 0.2;
+        const botY = contentY + topH + 0.2;
+
+        // Left: Cost Summary stacked bar (waterfall-style)
+        addPanel(slide, leftX, contentY, leftW, contentH, "Cost Summary");
+        const currentForecast = totalCommitted + coImpact;
+        const potentialForecast = ftc + totalPending;
+        const costLabels = ["Control Budget", "Prev Forecast", "Curr Forecast", "FTC", "Potential"];
+        const vowd = [totalPaid, totalPaid, totalPaid, totalPaid, totalPaid];
+        const etc = [
+            Math.max(0, totalCommitted - totalPaid),
+            Math.max(0, totalCommitted - totalPaid),
+            Math.max(0, currentForecast - totalPaid),
+            Math.max(0, ftc - totalPaid),
+            Math.max(0, potentialForecast - totalPaid),
+        ];
+        const costChartData: PptxChartData = [
+            { name: "VOWD (Paid)", labels: costLabels, values: vowd },
+            { name: "ETC (Remaining)", labels: costLabels, values: etc },
+        ];
+        slide.addChart("bar" as Parameters<PptxSlide["addChart"]>[0], costChartData, {
+            x: leftX + 0.1,
+            y: contentY + 0.38,
+            w: leftW - 0.2,
+            h: contentH - 0.48,
+            barDir: "col",
+            barGrouping: "stacked",
+            chartColors: ["0E7490", "94A3B8"],
+            showLegend: true,
+            legendPos: "b",
+            legendFontSize: 8,
+            showValue: false,
+            valAxisLabelFormatCode: "$#,##0",
+            catAxisLabelFontSize: 8,
+        });
+
+        // Top-right: Executive Summary narrative bullets
+        addPanel(slide, rightX, contentY, rightW, topH, "Executive Summary");
+        const execBullets = buildExecutiveSummaryBullets(exportData.kpis);
+        slide.addText(execBullets.map((b) => `• ${b}`).join("\n"), {
+            x: rightX + 0.18,
+            y: contentY + 0.38,
+            w: rightW - 0.36,
+            h: topH - 0.5,
+            fontFace: "Calibri",
+            fontSize: 9.5,
+            color: THEME.text,
+            valign: "top",
+        });
+
+        // Bottom-right: Main KPIs table
+        addPanel(slide, rightX, botY, rightW, botH, "Main KPIs");
+        const spi = finPct > 0 ? Math.min(9.99, physPct / finPct) : 0;
+        const earnedValue = physPct > 0 ? (physPct / 100) * totalCommitted : 0;
+        const cpi = earnedValue > 0 ? Math.min(9.99, totalPaid / earnedValue) : 0;
+        const kpiTableData = buildStyledTable(
+            ["KPI", "Value", "Index"],
+            [
+                ["Plan Value (Committed)", fmtCurrency(totalCommitted), "—"],
+                ["EV (Earned Value)", fmtCurrency(earnedValue), `SPI: ${spi.toFixed(2)}`],
+                ["VOWD (Paid)", fmtCurrency(totalPaid), `CPI: ${cpi.toFixed(2)}`],
+                ["FTC (Forecast to Complete)", fmtCurrency(ftc), "—"],
+            ],
+        );
+        slide.addTable(kpiTableData, {
+            x: rightX + 0.1,
+            y: botY + 0.38,
+            w: rightW - 0.2,
+            h: botH - 0.48,
+            fontFace: "Calibri",
+            fontSize: 9,
+            border: { type: "solid", color: THEME.border, pt: 1 },
+            fill: { color: THEME.bg },
+            color: THEME.text,
+            rowH: 0.28,
+        });
     }
 
     // ── Charts slide(s) ───────────────────────────────────────────────────

@@ -43,6 +43,9 @@ const MODULES_BY_SOURCE: Record<DashboardSource, ExportModule[]> = {
         { id: "suppliers", label: "Suppliers", description: "Supplier health and exposure", defaultSelected: true },
         { id: "logistics", label: "Logistics", description: "Shipment and on-time delivery", defaultSelected: true },
         { id: "milestones", label: "Milestones", description: "Milestone table and status", defaultSelected: true },
+        { id: "activities", label: "Activities and Progress", description: "Progress, issues, risks, look ahead", defaultSelected: true },
+        { id: "cost_commitments", label: "Cost & Commitments", description: "Commitment summary and CO categorization", defaultSelected: true },
+        { id: "exec_summary", label: "Executive Summary", description: "Cost & schedule exec summary with KPI table", defaultSelected: true },
         { id: "charts", label: "Charts", description: "S-curve and CO chart data", defaultSelected: true },
     ],
     pm: [
@@ -52,6 +55,9 @@ const MODULES_BY_SOURCE: Record<DashboardSource, ExportModule[]> = {
         { id: "quality", label: "Quality", description: "NCR and quality risk", defaultSelected: true },
         { id: "suppliers", label: "Suppliers", description: "Supplier execution stats", defaultSelected: true },
         { id: "milestones", label: "Milestones", description: "Milestone completion and forecast", defaultSelected: true },
+        { id: "activities", label: "Activities and Progress", description: "Progress, issues, risks, look ahead", defaultSelected: true },
+        { id: "cost_commitments", label: "Cost & Commitments", description: "Commitment summary and CO categorization", defaultSelected: true },
+        { id: "progress_analysis", label: "Progress Analysis", description: "Monthly progress chart and discipline breakdown", defaultSelected: true },
         { id: "charts", label: "Charts", description: "S-curve and trend visuals", defaultSelected: true },
     ],
     supplier: [
@@ -60,6 +66,8 @@ const MODULES_BY_SOURCE: Record<DashboardSource, ExportModule[]> = {
         { id: "deliveries", label: "Deliveries", description: "Shipment and on-time performance", defaultSelected: true },
         { id: "quality", label: "Quality & NCR", description: "NCR and quality indicators", defaultSelected: true },
         { id: "milestones", label: "Milestones", description: "Milestone statuses and dates", defaultSelected: true },
+        { id: "activities", label: "Activities and Progress", description: "Progress, issues, risks, look ahead", defaultSelected: true },
+        { id: "progress_analysis", label: "Progress Analysis", description: "Monthly progress chart and discipline breakdown", defaultSelected: true },
         { id: "compliance", label: "Compliance", description: "Compliance and quality score", defaultSelected: true },
         { id: "charts", label: "Charts", description: "S-curve and chart-ready points", defaultSelected: true },
     ],

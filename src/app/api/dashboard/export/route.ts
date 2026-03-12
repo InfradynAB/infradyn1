@@ -13,7 +13,12 @@ import {
     getSCurveData,
     getCOBreakdown,
 } from "@/lib/services/kpi-engine";
-import { getMilestoneTrackerData, getSupplierProgressData } from "@/lib/services/report-engine";
+import {
+    getMilestoneTrackerData,
+    getSupplierProgressData,
+    getConflictsForExport,
+    getOpenNCRsForExport,
+} from "@/lib/services/report-engine";
 import { generateExcelReport, generateCSVReport, type DashboardExportData } from "@/lib/utils/excel-export";
 import { generatePptxReport } from "@/lib/utils/pptx-export";
 import db from "@/db/drizzle";
@@ -120,12 +125,15 @@ export async function GET(request: NextRequest) {
 
         const cached = await getOrSetTrafficCache(cacheKey, 30, async () => {
             const filters = { organizationId: orgId, projectId, supplierId, dateFrom, dateTo };
-            const [kpis, sCurve, coBreakdown, milestones, supplierProgress] = await Promise.all([
+            const reportFilters = { organizationId: orgId, projectId, supplierId };
+            const [kpis, sCurve, coBreakdown, milestones, supplierProgress, conflicts, openNCRs] = await Promise.all([
                 getDashboardKPIs(filters),
                 getSCurveData(filters),
                 getCOBreakdown(filters),
                 getMilestoneTrackerData(filters),
                 getSupplierProgressData(filters),
+                getConflictsForExport(reportFilters),
+                getOpenNCRsForExport(reportFilters),
             ]);
 
             const normalizedSupplierProgress = supplierId
@@ -138,6 +146,8 @@ export async function GET(request: NextRequest) {
                 coBreakdown,
                 milestones,
                 supplierProgress: normalizedSupplierProgress,
+                conflicts,
+                openNCRs,
             };
 
             return exportData;
@@ -228,7 +238,7 @@ export async function GET(request: NextRequest) {
                 includeCharts,
                 includeTables,
                 logoImage: path.join(process.cwd(), "public/logos/logo.png"),
-                coverImage: path.join(process.cwd(), "public/images/mate.jpg"),
+                coverImage: path.join(process.cwd(), "public/images/image3.png"),
             });
 
             return new NextResponse(new Uint8Array(buffer), {

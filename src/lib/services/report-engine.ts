@@ -13,6 +13,7 @@ import {
     shipment,
     ncr,
     changeOrder,
+    conflictRecord,
 } from "@/db/schema";
 import { eq, and, sql, desc, not, inArray } from "drizzle-orm";
 
@@ -554,4 +555,107 @@ export async function getCashflowForecast(filters: ReportFilters): Promise<Cashf
     }
 
     return results;
+}
+
+export interface ConflictForExport {
+    type: string;
+    description: string | null;
+    state: string;
+    slaDeadline: string | null;
+    assignedTo: string | null;
+    poNumber: string;
+    supplierName: string;
+}
+
+export interface OpenNCRForExport {
+    ncrNumber: string;
+    title: string;
+    severity: string;
+    status: string;
+    slaDueAt: string | null;
+    supplierName: string;
+    poNumber: string;
+}
+
+/**
+ * Get open conflicts for export (Activities and Progress slide)
+ */
+export async function getConflictsForExport(filters: ReportFilters): Promise<ConflictForExport[]> {
+    const { organizationId, projectId, supplierId } = filters;
+
+    const poConditions = [
+        eq(purchaseOrder.organizationId, organizationId),
+        eq(purchaseOrder.isDeleted, false),
+        not(eq(purchaseOrder.status, "CANCELLED")),
+    ];
+    if (projectId) poConditions.push(eq(purchaseOrder.projectId, projectId));
+    if (supplierId) poConditions.push(eq(purchaseOrder.supplierId, supplierId));
+
+    const orgPOs = await db.query.purchaseOrder.findMany({
+        where: and(...poConditions),
+        columns: { id: true },
+    });
+    const poIds = orgPOs.map((p) => p.id);
+    if (poIds.length === 0) return [];
+
+    const conflicts = await db.query.conflictRecord.findMany({
+        where: and(
+            eq(conflictRecord.isDeleted, false),
+            inArray(conflictRecord.state, ["OPEN", "REVIEW", "ESCALATED"]),
+            inArray(conflictRecord.purchaseOrderId, poIds)
+        ),
+        with: {
+            purchaseOrder: {
+                columns: { poNumber: true },
+                with: { supplier: { columns: { name: true } } },
+            },
+        },
+        orderBy: [desc(conflictRecord.createdAt)],
+        limit: 20,
+    });
+
+    return conflicts.map((c) => ({
+        type: c.type,
+        description: c.description,
+        state: c.state,
+        slaDeadline: c.slaDeadline?.toISOString().slice(0, 10) ?? null,
+        assignedTo: c.assignedTo,
+        poNumber: c.purchaseOrder?.poNumber ?? "—",
+        supplierName: c.purchaseOrder?.supplier?.name ?? "—",
+    }));
+}
+
+/**
+ * Get open NCRs for export (Activities and Progress slide)
+ */
+export async function getOpenNCRsForExport(filters: ReportFilters): Promise<OpenNCRForExport[]> {
+    const { organizationId, projectId, supplierId } = filters;
+
+    const ncrConditions = [
+        eq(ncr.organizationId, organizationId),
+        eq(ncr.isDeleted, false),
+        not(eq(ncr.status, "CLOSED")),
+    ];
+    if (projectId) ncrConditions.push(eq(ncr.projectId, projectId));
+    if (supplierId) ncrConditions.push(eq(ncr.supplierId, supplierId));
+
+    const ncrs = await db.query.ncr.findMany({
+        where: and(...ncrConditions),
+        with: {
+            purchaseOrder: { columns: { poNumber: true } },
+            supplier: { columns: { name: true } },
+        },
+        orderBy: [desc(ncr.createdAt)],
+        limit: 20,
+    });
+
+    return ncrs.map((n) => ({
+        ncrNumber: n.ncrNumber,
+        title: n.title,
+        severity: n.severity,
+        status: n.status,
+        slaDueAt: n.slaDueAt?.toISOString().slice(0, 10) ?? null,
+        supplierName: n.supplier?.name ?? "—",
+        poNumber: n.purchaseOrder?.poNumber ?? "—",
+    }));
 }

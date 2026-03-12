@@ -110,6 +110,24 @@ export interface DashboardExportData {
         paidAmount: number;
         unpaidAmount: number;
     }>;
+    conflicts?: Array<{
+        type: string;
+        description: string | null;
+        state: string;
+        slaDeadline: string | null;
+        assignedTo: string | null;
+        poNumber?: string;
+        supplierName?: string;
+    }>;
+    openNCRs?: Array<{
+        ncrNumber: string;
+        title: string;
+        severity: string;
+        status: string;
+        slaDueAt: string | null;
+        supplierName?: string;
+        poNumber?: string;
+    }>;
 }
 
 // ============================================
