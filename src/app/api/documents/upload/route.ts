@@ -5,6 +5,9 @@ import db from "@/db/drizzle";
 import { document, purchaseOrder, project } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { uploadFile, generateS3Key } from "@/lib/services/s3";
+import { logAuditEvent } from "@/lib/audit/log-audit-event";
+
+type UploadDocumentType = typeof document.$inferInsert.documentType;
 
 /**
  * POST /api/documents/upload
@@ -25,7 +28,7 @@ export async function POST(request: NextRequest) {
         const file = formData.get("file") as File;
         const purchaseOrderId = formData.get("purchaseOrderId") as string | null;
         const projectId = formData.get("projectId") as string | null;
-        const documentType = (formData.get("documentType") as any) || "INVOICE";
+        const documentType = ((formData.get("documentType") as string | null) || "INVOICE") as UploadDocumentType;
 
         if (!file) {
             return NextResponse.json({ error: "Missing file" }, { status: 400 });
@@ -83,7 +86,7 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(bytes);
 
         // Convert documentType to lowercase for S3 key convention (po, boq, invoice, etc.)
-        const s3DocType = documentType.toLowerCase().replace("_report", "") as any;
+        const s3DocType = documentType.toLowerCase().replace("_report", "");
         const key = generateS3Key(
             organizationId,
             targetProjectId,
@@ -94,17 +97,51 @@ export async function POST(request: NextRequest) {
         const fileUrl = await uploadFile(key, buffer, file.type);
 
         // 3. Create document record
-        const [newDoc] = await db.insert(document).values({
-            organizationId: organizationId,
-            projectId: targetProjectId,
-            parentId: parentId,
-            parentType: parentType,
-            fileName: file.name,
-            fileUrl: fileUrl,
-            mimeType: file.type,
-            documentType: documentType,
-            uploadedBy: session.user.id,
-        }).returning();
+        const [newDoc] = await db.transaction(async (tx) => {
+            const [createdDocument] = await tx.insert(document).values({
+                organizationId: organizationId,
+                projectId: targetProjectId,
+                parentId: parentId,
+                parentType: parentType,
+                fileName: file.name,
+                fileUrl: fileUrl,
+                mimeType: file.type,
+                documentType: documentType,
+                uploadedBy: session.user.id,
+            }).returning();
+
+            await logAuditEvent({
+                executor: tx,
+                action: "document.uploaded",
+                entityType: "document",
+                entityId: createdDocument.id,
+                organizationId,
+                actor: {
+                    id: session.user.id,
+                    name: session.user.name,
+                    email: session.user.email,
+                    role: session.user.role,
+                },
+                target: {
+                    entityType: "document",
+                    entityId: createdDocument.id,
+                    label: createdDocument.fileName,
+                    userId: session.user.id,
+                },
+                sourceModule: "api/documents/upload",
+                metadata: {
+                    projectId: targetProjectId,
+                    parentId,
+                    parentType,
+                    documentType,
+                    fileName: file.name,
+                    mimeType: file.type,
+                    fileUrl,
+                },
+            });
+
+            return [createdDocument];
+        });
 
         return NextResponse.json({
             success: true,

@@ -1,16 +1,15 @@
 "use server";
 
-import { z } from "zod";
 import { eq } from "drizzle-orm";
 import db from "../../../db/drizzle";
 import { organization, member, user } from "../../../db/schema";
 import { auth } from "../../../auth"; // We need to get the session on the server
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createOrgSchema } from "../schemas/organisation";
 import { setActiveOrganizationId, getActiveOrganizationId, verifyOrgAccess } from "@/lib/utils/org-context";
 import { setActiveProjectId } from "@/lib/utils/project-context";
+import { logAuditEvent } from "@/lib/audit/log-audit-event";
 
 
 
@@ -43,34 +42,67 @@ export async function createOrganization(formData: FormData) {
     const { name, slug, logo } = validatedFields.data;
 
     try {
-        // 3. Create Organization
-        const [newOrg] = await db.insert(organization).values({
-            name,
-            slug,
-            logo: logo || null,
-            metadata: {}, // initialize empty map
-        }).returning();
+        await db.transaction(async (tx) => {
+            const [createdOrg] = await tx.insert(organization).values({
+                name,
+                slug,
+                logo: logo || null,
+                metadata: {}, // initialize empty map
+            }).returning();
 
-        // 4. Add Creator as Member (Admin Role)
-        await db.insert(member).values({
-            organizationId: newOrg.id,
-            userId: session.user.id,
-            role: "admin", // Assuming 'admin' is a valid role in your MemberRole enum
+            const [createdMembership] = await tx.insert(member).values({
+                organizationId: createdOrg.id,
+                userId: session.user.id,
+                role: "admin", // Assuming 'admin' is a valid role in your MemberRole enum
+            }).returning();
+
+            await logAuditEvent({
+                executor: tx,
+                action: "organization.created",
+                entityType: "organization",
+                entityId: createdOrg.id,
+                organizationId: createdOrg.id,
+                actor: {
+                    id: session.user.id,
+                    name: session.user.name,
+                    email: session.user.email,
+                    role: session.user.role,
+                },
+                target: {
+                    entityType: "organization",
+                    entityId: createdOrg.id,
+                    label: createdOrg.name,
+                    userId: session.user.id,
+                },
+                sourceModule: "organization",
+                metadata: {
+                    slug: createdOrg.slug,
+                    logo: createdOrg.logo ?? null,
+                    createdMembershipId: createdMembership.id,
+                },
+            });
+
         });
 
         // 5. Revalidate & Redirect
         revalidatePath("/dashboard/org");
-    } catch (error: any) {
+    } catch (error: unknown) {
         // Log for internal debugging
         console.error("Error creating organization:", error);
+
+        const dbError = error as {
+            code?: string;
+            cause?: { code?: string; message?: string };
+            message?: string;
+        };
 
         // Check for unique constraint violation (PostgreSQL code 23505)
         // Neon/Drizzle errors can be wrapped or have the code on a 'cause' property
         const isDuplicate =
-            error.code === "23505" ||
-            error.cause?.code === "23505" ||
-            error.message?.toLowerCase().includes("unique constraint") ||
-            error.cause?.message?.toLowerCase().includes("unique constraint");
+            dbError.code === "23505" ||
+            dbError.cause?.code === "23505" ||
+            dbError.message?.toLowerCase().includes("unique constraint") ||
+            dbError.cause?.message?.toLowerCase().includes("unique constraint");
 
         if (isDuplicate) {
             return { error: "An organization with this slug already exists. Please try a different slug." };
@@ -139,18 +171,59 @@ export async function updateOrganization(formData: FormData) {
     }
 
     try {
-        await db.update(organization)
-            .set({
-                retentionPolicyDays: retentionPolicyDays ? parseInt(retentionPolicyDays) : 365,
-                contactEmail: contactEmail || null,
-                updatedAt: new Date(),
-            })
-            .where(eq(organization.id, orgId));
+        const nextRetentionPolicyDays = retentionPolicyDays ? parseInt(retentionPolicyDays) : 365;
+        const currentOrganization = await db.query.organization.findFirst({
+            where: eq(organization.id, orgId),
+            columns: {
+                id: true,
+                retentionPolicyDays: true,
+                contactEmail: true,
+            },
+        });
+
+        await db.transaction(async (tx) => {
+            await tx.update(organization)
+                .set({
+                    retentionPolicyDays: nextRetentionPolicyDays,
+                    contactEmail: contactEmail || null,
+                    updatedAt: new Date(),
+                })
+                .where(eq(organization.id, orgId));
+
+            await logAuditEvent({
+                executor: tx,
+                action: "organization.settings_updated",
+                entityType: "organization",
+                entityId: orgId,
+                organizationId: orgId,
+                actor: {
+                    id: session.user.id,
+                    name: session.user.name,
+                    email: session.user.email,
+                    role: session.user.role,
+                },
+                target: {
+                    entityType: "organization",
+                    entityId: orgId,
+                },
+                sourceModule: "organization",
+                metadata: {
+                    previousValues: {
+                        retentionPolicyDays: currentOrganization?.retentionPolicyDays ?? null,
+                        contactEmail: currentOrganization?.contactEmail ?? null,
+                    },
+                    nextValues: {
+                        retentionPolicyDays: nextRetentionPolicyDays,
+                        contactEmail: contactEmail || null,
+                    },
+                },
+            });
+        });
 
         revalidatePath("/dashboard/settings/organization");
         revalidatePath("/dashboard");
         return { success: true };
-    } catch (error: any) {
+    } catch {
         return { error: "Failed to update organization." };
     }
 }
@@ -178,6 +251,29 @@ export async function switchOrganization(orgId: string) {
     if (!success) {
         return { error: "Failed to switch organization." };
     }
+
+    await logAuditEvent({
+        action: "organization.switched",
+        entityType: "organization",
+        entityId: orgId,
+        organizationId: orgId,
+        actor: {
+            id: session.user.id,
+            name: session.user.name,
+            email: session.user.email,
+            role: session.user.role,
+        },
+        target: {
+            entityType: "organization",
+            entityId: orgId,
+            userId: session.user.id,
+        },
+        sourceModule: "organization",
+        metadata: {
+            action: "active_organization_changed",
+        },
+    });
+
     // Reset project scope when organization changes to avoid stale cross-org project context.
     await setActiveProjectId(null);
 
@@ -214,6 +310,28 @@ export async function setDefaultOrganization(orgId: string) {
         await db.update(user)
             .set({ organizationId: orgId })
             .where(eq(user.id, session.user.id));
+
+        await logAuditEvent({
+            action: "organization.default_set",
+            entityType: "organization",
+            entityId: orgId,
+            organizationId: orgId,
+            actor: {
+                id: session.user.id,
+                name: session.user.name,
+                email: session.user.email,
+                role: session.user.role,
+            },
+            target: {
+                entityType: "organization",
+                entityId: orgId,
+                userId: session.user.id,
+            },
+            sourceModule: "organization",
+            metadata: {
+                targetUserId: session.user.id,
+            },
+        });
 
         revalidatePath("/dashboard");
         return { success: true };

@@ -23,6 +23,7 @@ import {
 } from "@/components/dashboard/command-center";
 import { toast } from "sonner";
 import { HomeOnboardingTour } from "./onboarding-tour";
+import { FirstTimeChecklist } from "@/components/dashboard/shared/first-time-checklist";
 
 interface ProjectData {
     id: string;
@@ -134,9 +135,23 @@ export function CommandCenterClient({ userName, userRole }: CommandCenterClientP
         return "Good evening";
     };
 
+    const showPMChecklist =
+        (userRole === "PM" || userRole === "ADMIN" || userRole === "QA" || userRole === "PROJECT_MANAGER") &&
+        data;
+
     return (
         <div className="space-y-6 pb-8">
             <HomeOnboardingTour />
+            {showPMChecklist && (
+                <FirstTimeChecklist
+                    role="PM"
+                    pmData={{
+                        poCount: data.quickStats?.activePOs ?? 0,
+                        hasViewedDashboard: true,
+                    }}
+                    storageKey="infradyn-pm-checklist-dismissed"
+                />
+            )}
             {/* Header Section */}
             <div id="tour-home-header" className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>

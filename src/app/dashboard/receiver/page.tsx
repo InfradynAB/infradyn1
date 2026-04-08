@@ -19,6 +19,7 @@ import {
 import { getReceiverDashboardSummary } from "@/lib/actions/receiver-actions";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ReceiverChecklistWrapper } from "@/components/dashboard/receiver/receiver-checklist-wrapper";
 
 export const metadata = { title: "Site Receiver — Dashboard | InfraDyn" };
 
@@ -106,6 +107,12 @@ export default async function ReceiverDashboardPage() {
 
     return (
         <div className="w-full space-y-8 pb-16">
+            {/* First-time checklist */}
+            <ReceiverChecklistWrapper
+                confirmedCount={counts.totalConfirmed}
+                pendingCount={counts.pending}
+            />
+
             {/* ── HEADER ─────────────────────────────────────────────────────── */}
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div className="space-y-1">

@@ -9,8 +9,9 @@ import { Resend } from "resend";
 import { revalidatePath } from "next/cache";
 import { render } from "@react-email/render";
 import InvitationEmail from "@/emails/invitation-email";
-import { setActiveOrganizationId, getActiveOrganizationId, forceSetActiveOrganizationId } from "@/lib/utils/org-context";
+import { getActiveOrganizationId, forceSetActiveOrganizationId } from "@/lib/utils/org-context";
 import { canInviteRole, isOrgAdmin, type Role } from "@/lib/rbac";
+import { logAuditEvent } from "@/lib/audit/log-audit-event";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -102,13 +103,20 @@ export async function performInvitation({
     email,
     role,
     supplierId,
-    inviterName
+    inviterName,
+    actor,
 }: {
     orgId: string;
     email: string;
     role: string;
     supplierId?: string;
     inviterName: string;
+    actor?: {
+        id?: string | null;
+        name?: string | null;
+        email?: string | null;
+        role?: string | null;
+    };
 }) {
     // Check if already invited
     const existingInvite = await db.query.invitation.findFirst({
@@ -135,14 +143,40 @@ export async function performInvitation({
     const orgName = org?.name || "Infradyn Organization";
 
     try {
-        await db.insert(invitation).values({
-            organizationId: orgId,
-            email,
-            role,
-            token,
-            expiresAt,
-            status: "PENDING",
-            supplierId: supplierId || null
+        const [createdInvitation] = await db.transaction(async (tx) => {
+            const [newInvitation] = await tx.insert(invitation).values({
+                organizationId: orgId,
+                email,
+                role,
+                token,
+                expiresAt,
+                status: "PENDING",
+                supplierId: supplierId || null
+            }).returning();
+
+            await logAuditEvent({
+                executor: tx,
+                action: "invitation.created",
+                entityType: "invitation",
+                entityId: newInvitation.id,
+                organizationId: orgId,
+                actor: actor ?? null,
+                target: {
+                    entityType: "invitation",
+                    entityId: newInvitation.id,
+                    label: email,
+                },
+                sourceModule: "invitation",
+                metadata: {
+                    invitationEmail: email,
+                    invitedRole: role,
+                    supplierId: supplierId || null,
+                    status: "PENDING",
+                    expiresAt: expiresAt.toISOString(),
+                },
+            });
+
+            return [newInvitation];
         });
 
         const inviteUrl = `${process.env.BETTER_AUTH_URL}/invite/${token}`;
@@ -171,7 +205,7 @@ export async function performInvitation({
             };
         }
 
-        return { success: true };
+        return { success: true, invitationId: createdInvitation.id };
 
     } catch (error) {
         console.error("[INVITE] Error:", error);
@@ -237,7 +271,13 @@ export async function inviteMember(formData: FormData) {
         email,
         role,
         supplierId,
-        inviterName: session.user.name || "A team member"
+        inviterName: session.user.name || "A team member",
+        actor: {
+            id: session.user.id,
+            name: session.user.name,
+            email: session.user.email,
+            role: currentUser.role,
+        },
     });
 
     if (result.success) {
@@ -248,7 +288,48 @@ export async function inviteMember(formData: FormData) {
 }
 
 export async function revokeInvitation(invitationId: string) {
-    await db.delete(invitation).where(eq(invitation.id, invitationId));
+    const session = await auth.api.getSession({
+        headers: await headers()
+    });
+
+    const existingInvitation = await db.query.invitation.findFirst({
+        where: eq(invitation.id, invitationId),
+    });
+
+    if (!existingInvitation) {
+        return { success: false, error: "Invitation not found." };
+    }
+
+    await db.transaction(async (tx) => {
+        await tx.delete(invitation).where(eq(invitation.id, invitationId));
+        await logAuditEvent({
+            executor: tx,
+            action: "invitation.revoked",
+            entityType: "invitation",
+            entityId: invitationId,
+            organizationId: existingInvitation.organizationId,
+            actor: session?.user
+                ? {
+                    id: session.user.id,
+                    name: session.user.name,
+                    email: session.user.email,
+                    role: session.user.role,
+                }
+                : null,
+            target: {
+                entityType: "invitation",
+                entityId: invitationId,
+                label: existingInvitation.email,
+            },
+            sourceModule: "invitation",
+            metadata: {
+                invitationEmail: existingInvitation.email,
+                invitedRole: existingInvitation.role,
+                previousStatus: existingInvitation.status,
+            },
+        });
+    });
+
     revalidatePath("/dashboard/settings/team");
     return { success: true };
 }
@@ -288,6 +369,7 @@ export async function acceptInvitation(token: string) {
         columns: { organizationId: true }
     });
     const isFirstOrg = !existingUser?.organizationId;
+    const invitedRole = invite.role as Role;
 
     // 4. Link user to organization and add to members
     try {
@@ -300,10 +382,37 @@ export async function acceptInvitation(token: string) {
         });
 
         if (existingMembership) {
-            // Already a member, just update invitation status
-            await db.update(invitation)
-                .set({ status: "ACCEPTED" })
-                .where(eq(invitation.id, invite.id));
+            await db.transaction(async (tx) => {
+                await tx.update(invitation)
+                    .set({ status: "ACCEPTED" })
+                    .where(eq(invitation.id, invite.id));
+
+                await logAuditEvent({
+                    executor: tx,
+                    action: "invitation.accepted_existing_member",
+                    entityType: "invitation",
+                    entityId: invite.id,
+                    organizationId: invite.organizationId,
+                    actor: {
+                        id: session.user.id,
+                        name: session.user.name,
+                        email: session.user.email,
+                        role: session.user.role,
+                    },
+                    target: {
+                        entityType: "invitation",
+                        entityId: invite.id,
+                        label: invite.email,
+                        userId: session.user.id,
+                    },
+                    sourceModule: "invitation",
+                    metadata: {
+                        invitedRole: invite.role,
+                        supplierId: invite.supplierId ?? null,
+                        membershipAlreadyExisted: true,
+                    },
+                });
+            });
 
             // Set this org as active so they land on the right dashboard
             const cookieSet = await forceSetActiveOrganizationId(invite.organizationId);
@@ -312,49 +421,122 @@ export async function acceptInvitation(token: string) {
             return { success: true, role: invite.role, organizationId: invite.organizationId };
         }
 
-        // If this is user's first organization, set it as default
-        if (isFirstOrg) {
-            await db.update(user)
-                .set({
+        await db.transaction(async (tx) => {
+            if (isFirstOrg) {
+                await tx.update(user)
+                    .set({
+                        organizationId: invite.organizationId,
+                        role: invitedRole
+                    })
+                    .where(eq(user.id, session.user.id));
+
+                await logAuditEvent({
+                    executor: tx,
+                    action: "user.default_organization_set_from_invitation",
+                    entityType: "organization",
+                    entityId: invite.organizationId,
                     organizationId: invite.organizationId,
-                    role: invite.role as any
-                })
-                .where(eq(user.id, session.user.id));
-        }
-        // Note: If user already has an org, we DON'T overwrite their default organizationId
-        // They can switch orgs via the org switcher
+                    actor: {
+                        id: session.user.id,
+                        name: session.user.name,
+                        email: session.user.email,
+                        role: session.user.role,
+                    },
+                    target: {
+                        entityType: "organization",
+                        entityId: invite.organizationId,
+                        label: invite.email,
+                        userId: session.user.id,
+                    },
+                    sourceModule: "invitation",
+                    metadata: {
+                        invitedRole: invite.role,
+                        appliedAsDefaultOrganization: true,
+                    },
+                });
+            }
 
-        // 5. Add to Members table
-        await db.insert(member).values({
-            organizationId: invite.organizationId,
-            userId: session.user.id,
-            role: invite.role as any,
+            const [newMembership] = await tx.insert(member).values({
+                organizationId: invite.organizationId,
+                userId: session.user.id,
+                role: invitedRole,
+            }).returning();
+
+            await tx.update(invitation)
+                .set({ status: "ACCEPTED" })
+                .where(eq(invitation.id, invite.id));
+
+            await logAuditEvent({
+                executor: tx,
+                action: "invitation.accepted",
+                entityType: "invitation",
+                entityId: invite.id,
+                organizationId: invite.organizationId,
+                actor: {
+                    id: session.user.id,
+                    name: session.user.name,
+                    email: session.user.email,
+                    role: session.user.role,
+                },
+                target: {
+                    entityType: "member",
+                    entityId: newMembership.id,
+                    label: invite.email,
+                    userId: session.user.id,
+                },
+                sourceModule: "invitation",
+                metadata: {
+                    invitationEmail: invite.email,
+                    invitedRole: invite.role,
+                    supplierId: invite.supplierId ?? null,
+                    membershipId: newMembership.id,
+                    isFirstOrganization: isFirstOrg,
+                },
+            });
+
+            if (invite.role === "SUPPLIER" && invite.supplierId) {
+                await tx.update(supplier)
+                    .set({
+                        userId: session.user.id,
+                        status: 'ONBOARDING'
+                    })
+                    .where(eq(supplier.id, invite.supplierId));
+
+                await tx.update(user)
+                    .set({ supplierId: invite.supplierId })
+                    .where(eq(user.id, session.user.id));
+
+                await logAuditEvent({
+                    executor: tx,
+                    action: "supplier.user_linked_from_invitation",
+                    entityType: "supplier",
+                    entityId: invite.supplierId,
+                    organizationId: invite.organizationId,
+                    actor: {
+                        id: session.user.id,
+                        name: session.user.name,
+                        email: session.user.email,
+                        role: session.user.role,
+                    },
+                    target: {
+                        entityType: "supplier",
+                        entityId: invite.supplierId,
+                        label: invite.email,
+                        userId: session.user.id,
+                    },
+                    sourceModule: "invitation",
+                    metadata: {
+                        invitationId: invite.id,
+                        invitedRole: invite.role,
+                    },
+                });
+            }
         });
-
-        // 6. Update Invitation Status
-        await db.update(invitation)
-            .set({ status: "ACCEPTED" })
-            .where(eq(invitation.id, invite.id));
 
         // 7. Set the invited org as active so user lands on correct dashboard
         // Use forceSet since we just added them - skip the access check
         const cookieSet = await forceSetActiveOrganizationId(invite.organizationId);
         console.log("[acceptInvitation] Cookie set result:", cookieSet, "for org:", invite.organizationId);
-
-        // 8. Handle Supplier Linking if applicable
-        if (invite.role === "SUPPLIER" && invite.supplierId) {
-            await db.update(supplier)
-                .set({
-                    userId: session.user.id,
-                    status: 'ONBOARDING'
-                })
-                .where(eq(supplier.id, invite.supplierId))
-
-            // Update user.supplierId for direct access
-            await db.update(user)
-                .set({ supplierId: invite.supplierId })
-                .where(eq(user.id, session.user.id));
-        }
 
         return { success: true, role: invite.role, organizationId: invite.organizationId };
 

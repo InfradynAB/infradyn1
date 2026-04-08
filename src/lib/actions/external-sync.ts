@@ -11,6 +11,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { logAuditEvent } from "@/lib/audit/log-audit-event";
 
 // Helper to get session and organizationId
 async function getAuthContext() {
@@ -37,26 +38,66 @@ interface CreateSyncConfig {
     columnMappings?: Record<string, string>;
 }
 
+interface StoredSyncConfig {
+    apiKey?: string;
+    sheetId?: string;
+    columnMappings?: Record<string, string>;
+}
+
 export async function createExternalSync(config: CreateSyncConfig) {
-    const { organizationId } = await getAuthContext();
+    const { organizationId, session } = await getAuthContext();
     if (!organizationId) {
         return { success: false, error: "Unauthorized" };
     }
 
     try {
-        const [sync] = await db.insert(externalSync).values({
-            organizationId,
-            provider: config.provider,
-            name: config.name,
-            config: {
-                apiKey: config.apiKey,
-                sheetId: config.sheetId,
-                columnMappings: config.columnMappings,
-            },
-            targetProjectId: config.targetProjectId,
-            syncFrequency: config.syncFrequency,
-            isActive: true,
-        }).returning();
+        const [sync] = await db.transaction(async (tx) => {
+            const [createdSync] = await tx.insert(externalSync).values({
+                organizationId,
+                provider: config.provider,
+                name: config.name,
+                config: {
+                    apiKey: config.apiKey,
+                    sheetId: config.sheetId,
+                    columnMappings: config.columnMappings,
+                },
+                targetProjectId: config.targetProjectId,
+                syncFrequency: config.syncFrequency,
+                isActive: true,
+            }).returning();
+
+            await logAuditEvent({
+                executor: tx,
+                action: "external_sync.created",
+                entityType: "external_sync",
+                entityId: createdSync.id,
+                organizationId,
+                actor: session?.user
+                    ? {
+                        id: session.user.id,
+                        name: session.user.name,
+                        email: session.user.email,
+                        role: session.user.role,
+                    }
+                    : null,
+                target: {
+                    entityType: "external_sync",
+                    entityId: createdSync.id,
+                    label: createdSync.name,
+                },
+                sourceModule: "external-sync",
+                metadata: {
+                    provider: config.provider,
+                    targetProjectId: config.targetProjectId ?? null,
+                    syncFrequency: config.syncFrequency,
+                    hasColumnMappings: Boolean(config.columnMappings),
+                    sheetId: config.sheetId,
+                    isActive: true,
+                },
+            });
+
+            return [createdSync];
+        });
 
         revalidatePath("/dashboard/settings");
         return { success: true, data: { id: sync.id } };
@@ -70,7 +111,7 @@ export async function updateExternalSync(
     syncId: string,
     updates: Partial<CreateSyncConfig> & { isActive?: boolean }
 ) {
-    const { organizationId } = await getAuthContext();
+    const { organizationId, session } = await getAuthContext();
     if (!organizationId) {
         return { success: false, error: "Unauthorized" };
     }
@@ -88,7 +129,7 @@ export async function updateExternalSync(
             return { success: false, error: "Sync configuration not found" };
         }
 
-        const updateData: any = { updatedAt: new Date() };
+        const updateData: Partial<typeof externalSync.$inferInsert> = { updatedAt: new Date() };
 
         if (updates.name) updateData.name = updates.name;
         if (updates.syncFrequency) updateData.syncFrequency = updates.syncFrequency;
@@ -104,9 +145,54 @@ export async function updateExternalSync(
             };
         }
 
-        await db.update(externalSync)
-            .set(updateData)
-            .where(eq(externalSync.id, syncId));
+        await db.transaction(async (tx) => {
+            await tx.update(externalSync)
+                .set(updateData)
+                .where(eq(externalSync.id, syncId));
+
+            await logAuditEvent({
+                executor: tx,
+                action: typeof updates.isActive === "boolean"
+                    ? (updates.isActive ? "external_sync.enabled" : "external_sync.disabled")
+                    : "external_sync.updated",
+                entityType: "external_sync",
+                entityId: syncId,
+                organizationId,
+                actor: session?.user
+                    ? {
+                        id: session.user.id,
+                        name: session.user.name,
+                        email: session.user.email,
+                        role: session.user.role,
+                    }
+                    : null,
+                target: {
+                    entityType: "external_sync",
+                    entityId: syncId,
+                    label: existing.name,
+                },
+                sourceModule: "external-sync",
+                metadata: {
+                    previousValues: {
+                        name: existing.name,
+                        syncFrequency: existing.syncFrequency,
+                        targetProjectId: existing.targetProjectId,
+                        isActive: existing.isActive,
+                    },
+                    nextValues: {
+                        name: updates.name ?? existing.name,
+                        syncFrequency: updates.syncFrequency ?? existing.syncFrequency,
+                        targetProjectId: updates.targetProjectId ?? existing.targetProjectId,
+                        isActive: typeof updates.isActive === "boolean" ? updates.isActive : existing.isActive,
+                    },
+                    configFieldsUpdated: {
+                        apiKey: Boolean(updates.apiKey),
+                        sheetId: Boolean(updates.sheetId),
+                        columnMappings: Boolean(updates.columnMappings),
+                    },
+                },
+            });
+        });
 
         revalidatePath("/dashboard/settings");
         return { success: true };
@@ -117,7 +203,7 @@ export async function updateExternalSync(
 }
 
 export async function deleteExternalSync(syncId: string) {
-    const { organizationId } = await getAuthContext();
+    const { organizationId, session } = await getAuthContext();
     if (!organizationId) {
         return { success: false, error: "Unauthorized" };
     }
@@ -136,9 +222,37 @@ export async function deleteExternalSync(syncId: string) {
         }
 
         // Soft delete
-        await db.update(externalSync)
-            .set({ isDeleted: true, isActive: false, updatedAt: new Date() })
-            .where(eq(externalSync.id, syncId));
+        await db.transaction(async (tx) => {
+            await tx.update(externalSync)
+                .set({ isDeleted: true, isActive: false, updatedAt: new Date() })
+                .where(eq(externalSync.id, syncId));
+
+            await logAuditEvent({
+                executor: tx,
+                action: "external_sync.deleted",
+                entityType: "external_sync",
+                entityId: syncId,
+                organizationId,
+                actor: session?.user
+                    ? {
+                        id: session.user.id,
+                        name: session.user.name,
+                        email: session.user.email,
+                        role: session.user.role,
+                    }
+                    : null,
+                target: {
+                    entityType: "external_sync",
+                    entityId: syncId,
+                    label: existing.name,
+                },
+                sourceModule: "external-sync",
+                metadata: {
+                    provider: existing.provider,
+                    targetProjectId: existing.targetProjectId ?? null,
+                },
+            });
+        });
 
         revalidatePath("/dashboard/settings");
         return { success: true };
@@ -172,7 +286,7 @@ export async function listExternalSyncs() {
                 id: s.id,
                 provider: s.provider,
                 name: s.name,
-                sheetId: (s.config as any)?.sheetId,
+                sheetId: (s.config as StoredSyncConfig | null)?.sheetId,
                 syncFrequency: s.syncFrequency,
                 isActive: s.isActive,
                 lastSyncAt: s.lastSyncAt?.toISOString(),

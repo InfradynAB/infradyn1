@@ -7,6 +7,7 @@ import { headers } from "next/headers";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getActiveOrganizationId } from "@/lib/utils/org-context";
+import { logAuditEvent } from "@/lib/audit/log-audit-event";
 
 async function requireAdminOrgAccess() {
     const session = await auth.api.getSession({ headers: await headers() });
@@ -59,12 +60,41 @@ export async function updateOrganizationMemberEmail(memberId: string, email: str
     }
 
     try {
-        await db.update(user)
-            .set({
-                email: normalizedEmail,
-                updatedAt: new Date(),
-            })
-            .where(eq(user.id, targetMember.userId));
+        const existingUser = await db.query.user.findFirst({
+            where: eq(user.id, targetMember.userId),
+            columns: { email: true, name: true },
+        });
+
+        await db.transaction(async (tx) => {
+            await tx.update(user)
+                .set({
+                    email: normalizedEmail,
+                    updatedAt: new Date(),
+                })
+                .where(eq(user.id, targetMember.userId));
+
+            await logAuditEvent({
+                executor: tx,
+                action: "member.email_updated",
+                entityType: "member",
+                entityId: memberId,
+                organizationId: access.orgId,
+                actor: {
+                    id: access.actorUserId,
+                },
+                target: {
+                    entityType: "member",
+                    entityId: memberId,
+                    label: existingUser?.name ?? normalizedEmail,
+                    userId: targetMember.userId,
+                },
+                sourceModule: "admin-members",
+                metadata: {
+                    previousEmail: existingUser?.email ?? null,
+                    newEmail: normalizedEmail,
+                },
+            });
+        });
 
         revalidatePath("/dashboard/admin");
         return { success: true };
@@ -108,7 +138,28 @@ export async function removeOrganizationMember(memberId: string) {
         }
     }
 
-    await db.delete(member).where(and(eq(member.id, memberId), eq(member.organizationId, access.orgId)));
+    await db.transaction(async (tx) => {
+        await tx.delete(member).where(and(eq(member.id, memberId), eq(member.organizationId, access.orgId)));
+        await logAuditEvent({
+            executor: tx,
+            action: "member.removed",
+            entityType: "member",
+            entityId: memberId,
+            organizationId: access.orgId,
+            actor: {
+                id: access.actorUserId,
+            },
+            target: {
+                entityType: "member",
+                entityId: memberId,
+                userId: targetMember.userId,
+            },
+            sourceModule: "admin-members",
+            metadata: {
+                removedRole: targetMember.role,
+            },
+        });
+    });
 
     revalidatePath("/dashboard/admin");
     return { success: true };
@@ -132,17 +183,58 @@ export async function updateAdminOrganizationDetails(formData: FormData) {
     const size = formData.get("size")?.toString().trim() || null;
     const description = formData.get("description")?.toString().trim() || null;
 
-    await db.update(organization)
-        .set({
-            contactEmail,
-            phone,
-            website,
-            industry,
-            size,
-            description,
-            updatedAt: new Date(),
-        })
-        .where(eq(organization.id, access.orgId));
+    const existingOrganization = await db.query.organization.findFirst({
+        where: eq(organization.id, access.orgId),
+        columns: {
+            contactEmail: true,
+            phone: true,
+            website: true,
+            industry: true,
+            size: true,
+            description: true,
+        },
+    });
+
+    await db.transaction(async (tx) => {
+        await tx.update(organization)
+            .set({
+                contactEmail,
+                phone,
+                website,
+                industry,
+                size,
+                description,
+                updatedAt: new Date(),
+            })
+            .where(eq(organization.id, access.orgId));
+
+        await logAuditEvent({
+            executor: tx,
+            action: "organization.admin_details_updated",
+            entityType: "organization",
+            entityId: access.orgId,
+            organizationId: access.orgId,
+            actor: {
+                id: access.actorUserId,
+            },
+            target: {
+                entityType: "organization",
+                entityId: access.orgId,
+            },
+            sourceModule: "admin-members",
+            metadata: {
+                previousValues: existingOrganization ?? null,
+                nextValues: {
+                    contactEmail,
+                    phone,
+                    website,
+                    industry,
+                    size,
+                    description,
+                },
+            },
+        });
+    });
 
     revalidatePath("/dashboard/admin");
     return { success: true };

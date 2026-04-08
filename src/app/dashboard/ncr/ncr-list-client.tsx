@@ -35,9 +35,13 @@ import {
     Clock,
     ArrowRight,
     DotsSixVertical,
+    Plus,
+    FileText,
+    ArrowSquareOut,
 } from "@phosphor-icons/react";
 import { AlertTriangle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 
 interface NCR {
     id: string;
@@ -347,16 +351,60 @@ export function NCRListPageClient({ organizationId, initialFilter }: NCRListPage
                             ))}
                         </div>
                     ) : filteredNCRs.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16">
-                            <div className="rounded-full bg-muted p-4 mb-4">
-                                <CheckCircle className="h-8 w-8 text-green-500" weight="fill" />
-                            </div>
-                            <h3 className="text-lg font-semibold text-green-600">No NCRs Found</h3>
-                            <p className="text-muted-foreground text-sm mt-1">
-                                {search || statusFilter !== "all" || severityFilter !== "all"
-                                    ? "No NCRs match your filters"
-                                    : "No non-conformance reports to display"}
-                            </p>
+                        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                            {search || statusFilter !== "all" || severityFilter !== "all" ? (
+                                <>
+                                    <div className="rounded-full bg-muted p-4 mb-4">
+                                        <Funnel className="h-8 w-8 text-muted-foreground" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold mb-2">No NCRs match your filters</h3>
+                                    <p className="text-sm text-muted-foreground mb-6 max-w-md">
+                                        Try adjusting your search or filter criteria to see more results.
+                                    </p>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => {
+                                            setSearch("");
+                                            setStatusFilter("all");
+                                            setSeverityFilter("all");
+                                        }}
+                                    >
+                                        Clear filters
+                                    </Button>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="rounded-full bg-primary/10 p-6 mb-4">
+                                        <ShieldCheck className="h-12 w-12 text-primary" weight="duotone" />
+                                    </div>
+                                    <h3 className="text-xl font-semibold mb-2">No NCRs Yet</h3>
+                                    <p className="text-sm text-muted-foreground mb-6 max-w-md">
+                                        Non-Conformance Reports track quality issues on materials or work. They&apos;re created from purchase orders when issues are found, or raised by site receivers at delivery.
+                                    </p>
+                                    <div className="flex flex-col sm:flex-row gap-3">
+                                        <Button asChild size="lg">
+                                            <Link href="/dashboard/procurement">
+                                                <FileText className="mr-2 h-5 w-5" />
+                                                View Purchase Orders
+                                            </Link>
+                                        </Button>
+                                        <Button asChild variant="outline" size="lg">
+                                            <Link href="/dashboard/procurement/new">
+                                                <Plus className="mr-2 h-5 w-5" />
+                                                Create First PO
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                    <div className="mt-8 p-4 bg-muted/50 rounded-lg max-w-md">
+                                        <p className="text-xs text-muted-foreground">
+                                            💡 <strong>Tip:</strong> NCRs are raised from within a PO&apos;s Quality tab, or by site receivers when confirming deliveries.{" "}
+                                            <Link href="/docs" className="text-primary hover:underline inline-flex items-center gap-0.5">
+                                                Learn more <ArrowSquareOut className="h-3 w-3" />
+                                            </Link>
+                                        </p>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     ) : (
                         <Table>

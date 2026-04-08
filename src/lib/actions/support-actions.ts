@@ -16,11 +16,12 @@ import {
     supportTicketMessage,
     user,
 } from "@/db/schema";
-import { eq, desc, and, asc, ne } from "drizzle-orm";
+import { eq, desc, and, asc } from "drizzle-orm";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { getActiveOrganizationId } from "@/lib/utils/org-context";
+import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import {
     sendTicketCreatedToUser,
     sendTicketAdminNotify,
@@ -82,34 +83,66 @@ export async function createSupportTicket(formData: FormData): Promise<{ success
 
         const ticketNumber = await generateTicketNumber();
 
-        const [ticket] = await db
-            .insert(supportTicket)
-            .values({
-                ticketNumber,
-                raisedBy: currentUser.id,
-                organizationId: orgId ?? undefined,
-                category,
-                priority,
-                status: "OPEN",
-                subject,
-                description,
-                lastActivityAt: new Date(),
-            })
-            .returning();
+        const ticket = await db.transaction(async (tx) => {
+            const [createdTicket] = await tx
+                .insert(supportTicket)
+                .values({
+                    ticketNumber,
+                    raisedBy: currentUser.id,
+                    organizationId: orgId ?? undefined,
+                    category,
+                    priority,
+                    status: "OPEN",
+                    subject,
+                    description,
+                    lastActivityAt: new Date(),
+                })
+                .returning();
 
-        // If there is an attachment, save it as the first message
-        if (attachmentUrl && attachmentName) {
-            await db.insert(supportTicketMessage).values({
-                ticketId: ticket.id,
-                senderId: currentUser.id,
-                content: description,
-                isFromSupport: false,
-                isInternal: false,
-                attachmentUrl,
-                attachmentName,
-                attachmentType: formData.get("attachmentType") as string | null ?? undefined,
+            if (attachmentUrl && attachmentName) {
+                await tx.insert(supportTicketMessage).values({
+                    ticketId: createdTicket.id,
+                    senderId: currentUser.id,
+                    content: description,
+                    isFromSupport: false,
+                    isInternal: false,
+                    attachmentUrl,
+                    attachmentName,
+                    attachmentType: formData.get("attachmentType") as string | null ?? undefined,
+                });
+            }
+
+            await logAuditEvent({
+                executor: tx,
+                action: "support_ticket.created",
+                entityType: "support_ticket",
+                entityId: createdTicket.id,
+                organizationId: createdTicket.organizationId ?? orgId ?? null,
+                actor: {
+                    id: currentUser.id,
+                    name: currentUser.name,
+                    email: currentUser.email,
+                    role: currentUser.role,
+                },
+                target: {
+                    entityType: "support_ticket",
+                    entityId: createdTicket.id,
+                    label: createdTicket.ticketNumber,
+                    userId: createdTicket.raisedBy,
+                },
+                sourceModule: "support-actions",
+                metadata: {
+                    ticketNumber: createdTicket.ticketNumber,
+                    category,
+                    priority,
+                    status: "OPEN",
+                    subject,
+                    hasAttachment: Boolean(attachmentUrl && attachmentName),
+                },
             });
-        }
+
+            return createdTicket;
+        });
 
         // ── Emails ────────────────────────────────────────────────────────────
         const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -147,9 +180,9 @@ export async function createSupportTicket(formData: FormData): Promise<{ success
 
         revalidatePath("/dashboard/support");
         return { success: true, ticketId: ticket.id };
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error("[SUPPORT] createSupportTicket:", err);
-        return { success: false, error: err.message ?? "Failed to create ticket." };
+        return { success: false, error: err instanceof Error ? err.message : "Failed to create ticket." };
     }
 }
 
@@ -251,30 +284,64 @@ export async function addTicketReply(formData: FormData): Promise<{ success: boo
 
         const isFromSupport = currentUser.role === "SUPER_ADMIN";
 
-        await db.insert(supportTicketMessage).values({
-            ticketId,
-            senderId: currentUser.id,
-            content,
-            isFromSupport,
-            isInternal: isFromSupport ? isInternal : false,
-            attachmentUrl: attachmentUrl ?? undefined,
-            attachmentName: attachmentName ?? undefined,
-            attachmentType: formData.get("attachmentType") as string | null ?? undefined,
-        });
-
-        // Update ticket lastActivityAt and optionally status
         const newStatus: TicketStatus = isFromSupport
             ? (ticket.status === "OPEN" ? "IN_PROGRESS" : ticket.status) as TicketStatus
             : "OPEN"; // user replied — reopen from AWAITING_USER
 
-        await db
-            .update(supportTicket)
-            .set({
-                lastActivityAt: new Date(),
-                status: newStatus,
-                updatedAt: new Date(),
-            })
-            .where(eq(supportTicket.id, ticketId));
+        await db.transaction(async (tx) => {
+            const [message] = await tx.insert(supportTicketMessage).values({
+                ticketId,
+                senderId: currentUser.id,
+                content,
+                isFromSupport,
+                isInternal: isFromSupport ? isInternal : false,
+                attachmentUrl: attachmentUrl ?? undefined,
+                attachmentName: attachmentName ?? undefined,
+                attachmentType: formData.get("attachmentType") as string | null ?? undefined,
+            }).returning();
+
+            await tx
+                .update(supportTicket)
+                .set({
+                    lastActivityAt: new Date(),
+                    status: newStatus,
+                    updatedAt: new Date(),
+                })
+                .where(eq(supportTicket.id, ticketId));
+
+            await logAuditEvent({
+                executor: tx,
+                action: isFromSupport
+                    ? (isInternal ? "support_ticket.internal_reply_added" : "support_ticket.reply_added_by_support")
+                    : "support_ticket.reply_added_by_user",
+                entityType: "support_ticket",
+                entityId: ticketId,
+                organizationId: ticket.organizationId ?? null,
+                actor: {
+                    id: currentUser.id,
+                    name: currentUser.name,
+                    email: currentUser.email,
+                    role: currentUser.role,
+                },
+                target: {
+                    entityType: "support_ticket",
+                    entityId: ticketId,
+                    label: ticket.ticketNumber,
+                    userId: ticket.raisedBy,
+                },
+                sourceModule: "support-actions",
+                metadata: {
+                    messageId: message.id,
+                    previousStatus: ticket.status,
+                    newStatus,
+                    isFromSupport,
+                    isInternal: isFromSupport ? isInternal : false,
+                    hasAttachment: Boolean(attachmentUrl && attachmentName),
+                    attachmentName: attachmentName ?? null,
+                    contentPreview: content.slice(0, 200),
+                },
+            });
+        });
 
         // ── Email: notify user when support responds ──────────────────────────
         if (isFromSupport && !isInternal && ticket.raiser) {
@@ -292,9 +359,9 @@ export async function addTicketReply(formData: FormData): Promise<{ success: boo
         revalidatePath(`/dashboard/support/${ticketId}`);
         revalidatePath("/dashboard/support");
         return { success: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error("[SUPPORT] addTicketReply:", err);
-        return { success: false, error: err.message ?? "Failed to send reply." };
+        return { success: false, error: err instanceof Error ? err.message : "Failed to send reply." };
     }
 }
 
@@ -335,6 +402,20 @@ export async function updateTicketStatus(
 ): Promise<{ success: boolean; error?: string }> {
     try {
         const admin = await requireSuperAdmin();
+        const existingTicket = await db.query.supportTicket.findFirst({
+            where: and(eq(supportTicket.id, ticketId), eq(supportTicket.isDeleted, false)),
+            columns: {
+                id: true,
+                ticketNumber: true,
+                organizationId: true,
+                status: true,
+                raisedBy: true,
+            },
+        });
+
+        if (!existingTicket) {
+            return { success: false, error: "Ticket not found." };
+        }
 
         const updates: Partial<typeof supportTicket.$inferInsert> = {
             status,
@@ -344,16 +425,43 @@ export async function updateTicketStatus(
         if (status === "RESOLVED") updates.resolvedAt = new Date();
         if (status === "CLOSED") updates.closedAt = new Date();
 
-        await db
-            .update(supportTicket)
-            .set(updates)
-            .where(eq(supportTicket.id, ticketId));
+        await db.transaction(async (tx) => {
+            await tx
+                .update(supportTicket)
+                .set(updates)
+                .where(eq(supportTicket.id, ticketId));
+
+            await logAuditEvent({
+                executor: tx,
+                action: "support_ticket.status_changed",
+                entityType: "support_ticket",
+                entityId: ticketId,
+                organizationId: existingTicket.organizationId ?? null,
+                actor: {
+                    id: admin.id,
+                    name: admin.name,
+                    email: admin.email,
+                    role: admin.role,
+                },
+                target: {
+                    entityType: "support_ticket",
+                    entityId: ticketId,
+                    label: existingTicket.ticketNumber,
+                    userId: existingTicket.raisedBy,
+                },
+                sourceModule: "support-actions",
+                metadata: {
+                    previousStatus: existingTicket.status,
+                    newStatus: status,
+                },
+            });
+        });
 
         revalidatePath(`/dashboard/support/${ticketId}`);
         revalidatePath("/dashboard/support");
         return { success: true };
-    } catch (err: any) {
-        return { success: false, error: err.message };
+    } catch (err: unknown) {
+        return { success: false, error: err instanceof Error ? err.message : "Failed to update ticket status." };
     }
 }
 
@@ -366,16 +474,58 @@ export async function assignTicket(
     assignToUserId: string
 ): Promise<{ success: boolean; error?: string }> {
     try {
-        await requireSuperAdmin();
-        await db
-            .update(supportTicket)
-            .set({ assignedTo: assignToUserId, updatedAt: new Date() })
-            .where(eq(supportTicket.id, ticketId));
+        const admin = await requireSuperAdmin();
+        const existingTicket = await db.query.supportTicket.findFirst({
+            where: and(eq(supportTicket.id, ticketId), eq(supportTicket.isDeleted, false)),
+            columns: {
+                id: true,
+                ticketNumber: true,
+                organizationId: true,
+                assignedTo: true,
+                raisedBy: true,
+            },
+        });
+
+        if (!existingTicket) {
+            return { success: false, error: "Ticket not found." };
+        }
+
+        await db.transaction(async (tx) => {
+            await tx
+                .update(supportTicket)
+                .set({ assignedTo: assignToUserId, updatedAt: new Date() })
+                .where(eq(supportTicket.id, ticketId));
+
+            await logAuditEvent({
+                executor: tx,
+                action: "support_ticket.assignment_changed",
+                entityType: "support_ticket",
+                entityId: ticketId,
+                organizationId: existingTicket.organizationId ?? null,
+                actor: {
+                    id: admin.id,
+                    name: admin.name,
+                    email: admin.email,
+                    role: admin.role,
+                },
+                target: {
+                    entityType: "support_ticket",
+                    entityId: ticketId,
+                    label: existingTicket.ticketNumber,
+                    userId: existingTicket.raisedBy,
+                },
+                sourceModule: "support-actions",
+                metadata: {
+                    previousAssignedTo: existingTicket.assignedTo ?? null,
+                    assignedTo: assignToUserId,
+                },
+            });
+        });
 
         revalidatePath(`/dashboard/support/${ticketId}`);
         return { success: true };
-    } catch (err: any) {
-        return { success: false, error: err.message };
+    } catch (err: unknown) {
+        return { success: false, error: err instanceof Error ? err.message : "Failed to assign ticket." };
     }
 }
 

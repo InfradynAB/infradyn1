@@ -1,16 +1,12 @@
 'use server';
 
 import db from "../../../db/drizzle";
-import { invitation, member, organization, supplier } from "../../../db/schema";
+import { invitation, member, supplier } from "../../../db/schema";
 import { auth } from "../../../auth";
 import { headers } from "next/headers";
-import { eq, and, inArray } from "drizzle-orm";
-import { Resend } from "resend";
+import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { render } from "@react-email/render";
-import InvitationEmail from "@/emails/invitation-email";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { performInvitation } from "./invitation";
 
 // Helper to get all organization IDs for the user
 async function getUserOrganizationIds(userId: string): Promise<string[]> {
@@ -71,51 +67,23 @@ export async function inviteSupplierUser(formData: FormData) {
         return { success: false, error: "Invitation already pending for this email." };
     }
 
-    const token = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-    // Fetch org name
-    const org = await db.query.organization.findFirst({
-        where: eq(organization.id, orgId),
-        columns: { name: true }
-    });
-    const orgName = org?.name || "Infradyn Organization";
-
     try {
-        await db.insert(invitation).values({
-            organizationId: orgId,
+        const result = await performInvitation({
+            orgId,
             email,
             role: "SUPPLIER",
-            token,
-            expiresAt,
-            status: "PENDING",
-            supplierId: supplierId
+            supplierId,
+            inviterName: session.user.name || "Project Manager",
+            actor: {
+                id: session.user.id,
+                name: session.user.name,
+                email: session.user.email,
+                role: session.user.role,
+            },
         });
 
-        const inviteUrl = `${process.env.BETTER_AUTH_URL}/invite/${token}`;
-
-        const emailHtml = await render(
-            InvitationEmail({
-                organizationName: orgName,
-                role: "Supplier Representative",
-                inviteLink: inviteUrl,
-                inviterName: session.user.name || "Project Manager"
-            })
-        );
-
-        const result = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
-            to: email,
-            subject: `Invitation to join ${orgName} as a Supplier on Infradyn`,
-            html: emailHtml
-        });
-
-        if (result.error) {
-            console.error("[SUPPLIER INVITE] Resend Error:", result.error);
-            return {
-                success: false,
-                error: `Failed to send email: ${result.error.message || "Unknown error"}`
-            };
+        if (!result.success) {
+            return result;
         }
 
         revalidatePath("/dashboard/suppliers");

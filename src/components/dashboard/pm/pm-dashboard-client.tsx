@@ -88,8 +88,10 @@ import { ChangeOrdersWidget } from "./widgets/change-orders-widget";
 import type { ChangeOrderItem } from "./widgets/change-orders-widget";
 
 // Shared charts from executive
-import { HealthGauge } from "../charts/health-gauge";
 import { RiskHeatmap } from "../charts/risk-heatmap";
+
+// PM Widgets (continued)
+import { AttentionList } from "./widgets/attention-list";
 
 import type { DashboardKPIs } from "@/lib/services/kpi-engine";
 
@@ -406,8 +408,6 @@ export function PMDashboardClient() {
 
     useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
-    const healthScore = data ? calcHealthScore(data.kpis) : 0;
-    const healthBreakdown = data ? calcHealthBreakdown(data.kpis) : [];
     const overdueDeliveries = deliveries.filter(d => d.status === "delayed").length;
 
     // ── Column definition maps ──
@@ -756,10 +756,10 @@ export function PMDashboardClient() {
                             />
                         </div>
 
-                        {/* Health + Traffic Light */}
+                        {/* Attention List + Traffic Light */}
                         <div className="grid gap-5 lg:grid-cols-2">
                             <GlowCard>
-                                <HealthGauge score={healthScore} label="Project Health" breakdown={healthBreakdown} />
+                                <AttentionList kpis={data.kpis} milestones={milestones} deliveries={deliveries} />
                             </GlowCard>
                             <GlowCard>
                                 <TrafficLightChart data={trafficLight} onLightClick={(status) => console.log("Filter:", status)} />
@@ -1447,21 +1447,6 @@ function DashboardSkeleton() {
 // ============================================
 // CALCULATIONS
 // ============================================
-function calcHealthScore(kpis: DashboardKPIs): number {
-    const f = Math.min(100, (kpis.financial.totalPaid / Math.max(kpis.financial.totalCommitted, 1)) * 100);
-    const q = Math.max(0, 100 - (kpis.quality.ncrRate || 0) * 10);
-    const l = kpis.logistics.onTimeRate || 100;
-    const p = kpis.progress.physicalProgress || 0;
-    return f * 0.25 + q * 0.25 + l * 0.25 + p * 0.25;
-}
-function calcHealthBreakdown(kpis: DashboardKPIs) {
-    return [
-        { category: "Financial", score: Math.min(100, (kpis.financial.totalPaid / Math.max(kpis.financial.totalCommitted, 1)) * 100), weight: 25 },
-        { category: "Quality", score: Math.max(0, 100 - (kpis.quality.ncrRate || 0) * 10), weight: 25 },
-        { category: "Logistics", score: kpis.logistics.onTimeRate || 100, weight: 25 },
-        { category: "Progress", score: kpis.progress.physicalProgress || 0, weight: 25 },
-    ];
-}
 function calcMaterialAvailability(materials: MaterialItem[]): number {
     const totalOrdered = materials.reduce((s, m) => s + m.ordered, 0);
     const totalDelivered = materials.reduce((s, m) => s + m.delivered, 0);

@@ -28,6 +28,7 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { getSupplierActionItems } from "@/lib/actions/supplier-dashboard-actions";
 import { getSupplierPerformance } from "@/lib/actions/supplier-performance";
 import { OnboardingTourWrapper } from "@/components/dashboard/supplier/onboarding-tour";
+import { SupplierChecklistWrapper } from "@/components/dashboard/supplier/supplier-checklist-wrapper";
 
 export default async function SupplierDashboardPage() {
     const session = await auth.api.getSession({
@@ -183,6 +184,13 @@ export default async function SupplierDashboardPage() {
         <div className="w-full space-y-8 pb-16">
             {/* Onboarding Tour */}
             <OnboardingTourWrapper />
+
+            {/* First-time checklist */}
+            <SupplierChecklistWrapper
+                readinessScore={readinessScore}
+                poCount={pos.length}
+                openNcrs={actions.openNcrs}
+            />
 
             {/* ── HEADER BAR ── */}
             <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">

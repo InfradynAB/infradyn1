@@ -17,6 +17,9 @@ import {
     XCircle,
     Funnel,
     ClockCounterClockwise,
+    Plus,
+    FileText,
+    ArrowSquareOut,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -201,16 +204,40 @@ export function AlertsPageClient() {
                 </div>
             ) : filteredAlerts.length === 0 ? (
                 <Card className="border-dashed">
-                    <CardContent className="py-12 text-center">
+                    <CardContent className="py-12 px-6 text-center">
                         <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
-                            <CheckCircle className="h-8 w-8 text-emerald-500" />
+                            <CheckCircle className="h-8 w-8 text-emerald-500" weight="fill" />
                         </div>
-                        <p className="text-lg font-medium text-emerald-600">All Clear!</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            {filter !== "all"
-                                ? `No ${filter} alerts at this time`
-                                : "No items requiring your attention"}
+                        <p className="text-lg font-medium text-emerald-600">
+                            {filter !== "all" ? `No ${filter} alerts` : "All Clear!"}
                         </p>
+                        <p className="text-sm text-muted-foreground mt-1 mb-6 max-w-md mx-auto">
+                            {filter !== "all"
+                                ? `No ${filter} alerts at this time. Try a different filter.`
+                                : "No items requiring your attention right now. Here are some ways to stay productive:"}
+                        </p>
+                        {filter === "all" && (
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                                <Button asChild variant="outline" size="sm">
+                                    <Link href="/dashboard/procurement/new">
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        Create PO
+                                    </Link>
+                                </Button>
+                                <Button asChild variant="outline" size="sm">
+                                    <Link href="/dashboard/procurement">
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        View Procurement
+                                    </Link>
+                                </Button>
+                                <Button asChild variant="ghost" size="sm">
+                                    <Link href="/docs" className="text-muted-foreground hover:text-foreground">
+                                        <ArrowSquareOut className="mr-2 h-4 w-4" />
+                                        Documentation
+                                    </Link>
+                                </Button>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             ) : (

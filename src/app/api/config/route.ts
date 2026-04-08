@@ -4,11 +4,12 @@ import { headers } from "next/headers";
 import db from "@/db/drizzle";
 import { systemConfig } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
+import { logAuditEvent } from "@/lib/audit/log-audit-event";
 
 /**
  * GET /api/config - List all configs for the organization
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
     try {
         const session = await auth.api.getSession({ headers: await headers() });
         if (!session?.user?.organizationId) {
@@ -76,20 +77,64 @@ export async function POST(request: NextRequest) {
             ),
         });
 
-        if (existing) {
-            // Update
-            await db.update(systemConfig)
-                .set({ configValue: String(value), updatedAt: new Date() })
-                .where(eq(systemConfig.id, existing.id));
-        } else {
-            // Insert new org override
-            await db.insert(systemConfig).values({
-                organizationId: session.user.organizationId,
-                configKey: key,
-                configValue: String(value),
-                configType: type,
-            });
-        }
+        await db.transaction(async (tx) => {
+            let configId = existing?.id ?? null;
+            const previousValue = existing?.configValue ?? null;
+
+            if (existing) {
+                await tx.update(systemConfig)
+                    .set({ configValue: String(value), updatedAt: new Date() })
+                    .where(eq(systemConfig.id, existing.id));
+            } else {
+                const [createdConfig] = await tx.insert(systemConfig).values({
+                    organizationId: session.user.organizationId,
+                    configKey: key,
+                    configValue: String(value),
+                    configType: type,
+                }).returning({ id: systemConfig.id });
+                configId = createdConfig.id;
+            }
+
+            if (configId) {
+                const normalizedKey = String(key).toLowerCase();
+                const stringValue = String(value);
+                const isToggle =
+                    type === "BOOLEAN" ||
+                    normalizedKey.includes("enable") ||
+                    normalizedKey.includes("disable") ||
+                    normalizedKey.includes("feature") ||
+                    normalizedKey.includes("ai");
+
+                await logAuditEvent({
+                    executor: tx,
+                    action: isToggle
+                        ? (stringValue === "true" ? "feature.enabled" : "feature.disabled")
+                        : "settings.config_updated",
+                    entityType: "system_config",
+                    entityId: configId,
+                    organizationId: session.user.organizationId,
+                    actor: {
+                        id: session.user.id,
+                        name: session.user.name,
+                        email: session.user.email,
+                        role: session.user.role,
+                    },
+                    target: {
+                        entityType: "system_config",
+                        entityId: configId,
+                        label: key,
+                        userId: session.user.id,
+                    },
+                    sourceModule: "api/config",
+                    metadata: {
+                        configKey: key,
+                        configType: type,
+                        previousValue,
+                        newValue: stringValue,
+                    },
+                });
+            }
+        });
 
         return NextResponse.json({ success: true });
     } catch (error) {

@@ -188,7 +188,13 @@ export async function createSupplier(input: CreateSupplierInput) {
                 email: trimmedEmail,
                 role: "SUPPLIER",
                 supplierId: newSupplier.id,
-                inviterName: session.user.name || "A team member"
+                inviterName: session.user.name || "A team member",
+                actor: {
+                    id: session.user.id,
+                    name: session.user.name,
+                    email: session.user.email,
+                    role: session.user.role,
+                },
             });
 
             if (!inviteResult.success) {
@@ -254,7 +260,13 @@ export async function bulkInviteSuppliers() {
                     email: s.contactEmail!,
                     role: "SUPPLIER",
                     supplierId: s.id,
-                    inviterName: session.user.name || "A team member"
+                    inviterName: session.user.name || "A team member",
+                    actor: {
+                        id: session.user.id,
+                        name: session.user.name,
+                        email: session.user.email,
+                        role: session.user.role,
+                    },
                 });
 
                 if (inviteResult.success) {
@@ -596,7 +608,13 @@ export async function inviteSelectedSuppliers(supplierIds: string[]) {
                     email: s.contactEmail!,
                     role: "SUPPLIER",
                     supplierId: s.id,
-                    inviterName: session.user.name || "A team member"
+                    inviterName: session.user.name || "A team member",
+                    actor: {
+                        id: session.user.id,
+                        name: session.user.name,
+                        email: session.user.email,
+                        role: session.user.role,
+                    },
                 });
 
                 if (inviteResult.success) {
