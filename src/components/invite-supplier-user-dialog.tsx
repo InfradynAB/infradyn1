@@ -40,7 +40,7 @@ export function InviteSupplierUserDialog({ supplierId, supplierName, trigger }: 
             toast.success(`Invitation sent to ${formData.get("email")}`);
             setOpen(false);
         } else {
-            toast.error(result.error || "Failed to send invitation");
+            toast.error(("error" in result && result.error) || "Failed to send invitation");
         }
     };
 

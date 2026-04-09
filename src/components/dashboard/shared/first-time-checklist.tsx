@@ -18,8 +18,8 @@ interface ChecklistItem {
 
 interface FirstTimeChecklistProps {
     role: UserRole;
-    /** Supplier: readiness 0-100, has POs, has responded to NCR */
-    supplierData?: { readinessScore: number; poCount: number; ncrRespondedCount: number };
+    /** Supplier: readiness 0-100, has POs, has responded to NCR, open NCR count */
+    supplierData?: { readinessScore: number; poCount: number; ncrRespondedCount: number; openNcrs: number };
     /** Receiver: has confirmed delivery, has viewed POs */
     receiverData?: { confirmedCount: number; hasViewedPos: boolean };
     /** PM: has created PO, has viewed dashboard */

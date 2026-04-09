@@ -8,6 +8,18 @@ import { uploadFile, generateS3Key } from "@/lib/services/s3";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 
 type UploadDocumentType = typeof document.$inferInsert.documentType;
+type S3DocType = "po" | "boq" | "milestone" | "ro" | "invoice" | "packing-list" | "evidence" | "progress" | "other";
+
+const DOC_TYPE_TO_S3_KEY: Record<string, S3DocType> = {
+    PURCHASE_ORDER_REPORT: "po",
+    BOQ_REPORT: "boq",
+    INVOICE: "invoice",
+    PACKING_LIST: "packing-list",
+    EVIDENCE: "evidence",
+    MILESTONE: "milestone",
+    RO: "ro",
+    PROGRESS: "progress",
+};
 
 /**
  * POST /api/documents/upload
@@ -85,8 +97,8 @@ export async function POST(request: NextRequest) {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        // Convert documentType to lowercase for S3 key convention (po, boq, invoice, etc.)
-        const s3DocType = documentType.toLowerCase().replace("_report", "");
+        // Resolve S3 doc type via lookup map; falls back to "other" for unknown types
+        const s3DocType: S3DocType = DOC_TYPE_TO_S3_KEY[documentType as string] ?? "other";
         const key = generateS3Key(
             organizationId,
             targetProjectId,
