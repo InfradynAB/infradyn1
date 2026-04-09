@@ -146,6 +146,8 @@ export async function createSupportTicket(formData: FormData): Promise<{ success
 
         // ── Emails ────────────────────────────────────────────────────────────
         const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+        // Admin portal may live on a different domain (e.g. materialsadmin.com)
+        const adminAppUrl = process.env.ADMIN_APP_URL ?? appUrl;
 
         // 1. Confirm to the user who raised it
         await sendTicketCreatedToUser({
@@ -158,7 +160,7 @@ export async function createSupportTicket(formData: FormData): Promise<{ success
             ticketUrl: `${appUrl}/dashboard/support/${ticket.id}`,
         });
 
-        // 2. Notify all super admins
+        // 2. Notify all super admins — link goes to the ADMIN app
         const superAdmins = await db.query.user.findMany({
             where: and(eq(user.role, "SUPER_ADMIN"), eq(user.isDeleted, false)),
             columns: { email: true, name: true },
@@ -174,7 +176,7 @@ export async function createSupportTicket(formData: FormData): Promise<{ success
                 raisedByName: currentUser.name,
                 raisedByEmail: currentUser.email,
                 description: description.slice(0, 300) + (description.length > 300 ? "…" : ""),
-                ticketUrl: `${appUrl}/dashboard/support/${ticket.id}`,
+                ticketUrl: `${adminAppUrl}/dashboard/support/${ticket.id}`,
             });
         }
 

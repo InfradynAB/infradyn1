@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ import {
     Warning,
     ArrowLeft,
     Paperclip,
+    ClipboardText,
     X,
     Image as ImageIcon,
     ArrowRight,
@@ -150,12 +151,13 @@ export function NewTicketForm() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [pastedHighlight, setPastedHighlight] = useState(false);
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const allowed = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "application/pdf"];
-        if (!allowed.includes(file.type)) {
+    // ── shared validation ────────────────────────────────────────────────────
+    const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "application/pdf"];
+
+    const validateAndSetFile = useCallback((file: File) => {
+        if (!ALLOWED_TYPES.includes(file.type)) {
             toast.error("Only images (PNG, JPG, GIF, WebP) and PDFs are allowed.");
             return;
         }
@@ -165,7 +167,40 @@ export function NewTicketForm() {
         }
         setSelectedFile(file);
         setUploadedFileUrl(null);
+    }, []);
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) validateAndSetFile(file);
     };
+
+    // ── clipboard paste ──────────────────────────────────────────────────────
+    useEffect(() => {
+        if (step !== 2) return; // only active on the details step
+
+        const handlePaste = (e: ClipboardEvent) => {
+            const items = Array.from(e.clipboardData?.items ?? []);
+            const imageItem = items.find((item) => item.type.startsWith("image/"));
+            if (!imageItem) return;
+
+            const file = imageItem.getAsFile();
+            if (!file) return;
+
+            // Give the file a human-readable name since pasted images are unnamed
+            const ext = file.type.split("/")[1] ?? "png";
+            const named = new File([file], `screenshot-${Date.now()}.${ext}`, { type: file.type });
+
+            validateAndSetFile(named);
+            toast.info("Screenshot pasted — click \"Upload Screenshot\" to attach it.");
+
+            // Brief highlight so the user notices the drop-zone reacted
+            setPastedHighlight(true);
+            setTimeout(() => setPastedHighlight(false), 1500);
+        };
+
+        document.addEventListener("paste", handlePaste);
+        return () => document.removeEventListener("paste", handlePaste);
+    }, [step, validateAndSetFile]);
 
     const handleUpload = async () => {
         if (!selectedFile) return;
@@ -378,9 +413,11 @@ export function NewTicketForm() {
                                 </Label>
                                 <div
                                     className={cn(
-                                        "flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition-colors cursor-pointer",
+                                        "flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition-all duration-300 cursor-pointer",
                                         selectedFile
                                             ? "border-primary/40 bg-primary/5"
+                                            : pastedHighlight
+                                            ? "border-primary bg-primary/10 scale-[1.01]"
                                             : "border-border hover:border-border/80 hover:bg-muted/30"
                                     )}
                                     onClick={() => fileInputRef.current?.click()}
@@ -434,6 +471,21 @@ export function NewTicketForm() {
                                             <p className="text-xs text-muted-foreground/60 mt-1">
                                                 PNG, JPG, GIF, WebP, PDF — max 10 MB
                                             </p>
+                                            {/* Paste hint */}
+                                            <div className="flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-full border border-dashed border-border bg-muted/40">
+                                                <ClipboardText className="h-3.5 w-3.5 text-muted-foreground/70" />
+                                                <span className="text-[11px] text-muted-foreground/70 font-medium">
+                                                    or press{" "}
+                                                    <kbd className="rounded border border-border bg-background px-1 py-px font-mono text-[10px]">
+                                                        Ctrl
+                                                    </kbd>
+                                                    {" + "}
+                                                    <kbd className="rounded border border-border bg-background px-1 py-px font-mono text-[10px]">
+                                                        V
+                                                    </kbd>
+                                                    {" to paste a screenshot"}
+                                                </span>
+                                            </div>
                                         </>
                                     )}
                                 </div>
