@@ -99,6 +99,15 @@ export const organization = pgTable('organization', {
     logo: text('logo'),
     metadata: jsonb('metadata'),
     retentionPolicyDays: integer('retention_policy_days').default(365).notNull(),
+    /** ACTIVE, TRIAL, ONBOARDING, INACTIVE, SUSPENDED, TERMINATED — aligned with admin app */
+    status: text('status').default('ACTIVE').notNull(),
+    terminatedAt: timestamp('terminated_at'),
+    /** FK to user.id at DB level (see migration); plain text here to avoid circular inference with `user` */
+    terminatedBy: text('terminated_by'),
+    terminationReason: text('termination_reason'),
+    suspendedAt: timestamp('suspended_at'),
+    suspendedBy: text('suspended_by'),
+    suspensionReason: text('suspension_reason'),
     // Admin Dashboard Fields
     industry: text('industry'),
     size: text('size'), // e.g., "1-10", "11-50", "51-200", "200+"
@@ -1463,7 +1472,10 @@ export const ncrMagicLinkRelations = relations(ncrMagicLink, ({ one }) => ({
 export const supportTicket = pgTable('support_ticket', {
     ...baseColumns,
     ticketNumber: text('ticket_number').notNull(), // e.g. TKT-0001
-    raisedBy: text('raised_by').references(() => user.id).notNull(),
+    /** Null for guest-raised tickets (admin inbox uses requester_email) */
+    raisedBy: text('raised_by').references(() => user.id),
+    requesterEmail: text('requester_email'),
+    requesterName: text('requester_name'),
     organizationId: uuid('organization_id').references(() => organization.id),
     category: supportTicketCategoryEnum('category').notNull().default('GENERAL'),
     priority: supportTicketPriorityEnum('priority').notNull().default('MEDIUM'),

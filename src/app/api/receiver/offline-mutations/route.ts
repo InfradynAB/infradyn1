@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import { raiseReceiverNCR, receiverConfirmDelivery } from "@/lib/actions/receiver-actions";
 
 interface OfflineMutationRequest {
@@ -16,6 +17,9 @@ export async function POST(req: Request) {
     if (session.user.role !== "SITE_RECEIVER") {
         return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
+
+    const orgGate = await ensureActiveOrgForApi(session);
+    if (!orgGate.ok) return orgGate.response;
 
     let body: OfflineMutationRequest;
     try {

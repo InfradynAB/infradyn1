@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import db from "@/db/drizzle";
 import { supplier } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -19,6 +20,10 @@ export async function GET() {
         if (!session?.user) {
             return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
         }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
 
         const activeOrgId = await getActiveOrganizationId();
 

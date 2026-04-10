@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import path from "path";
 import sharp from "sharp";
 import {
@@ -73,14 +74,12 @@ async function resolveSupplierIdForUser(userId: string, fallbackSupplierId?: str
 export async function GET(request: NextRequest) {
     try {
         const session = await auth.api.getSession({ headers: await headers() });
-        if (!session?.user?.id) {
+        if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
-
-        const orgId = session.user.organizationId;
-        if (!orgId) {
-            return NextResponse.json({ error: "No active organization" }, { status: 400 });
-        }
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+        const orgId = orgGate.organizationId;
         const orgRecord = await db.query.organization.findFirst({
             where: eq(organization.id, orgId),
             columns: { name: true },

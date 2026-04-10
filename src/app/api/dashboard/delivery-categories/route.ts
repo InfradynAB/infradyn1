@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import { headers } from "next/headers";
 import { auth } from "@/auth";
 import {
@@ -29,6 +30,10 @@ export async function GET(req: NextRequest) {
         if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
 
         const organizationId = (session.user as any).organizationId as string | undefined;
         if (!organizationId) {

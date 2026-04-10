@@ -12,6 +12,7 @@ import db from "@/db/drizzle";
 import { externalSync } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { syncSheetToPO } from "@/lib/services/smartsheet";
+import { verifyOrgAccess } from "@/lib/utils/org-context";
 
 export async function POST(request: NextRequest) {
     try {
@@ -51,6 +52,10 @@ export async function POST(request: NextRequest) {
                 { error: "Sync is disabled" },
                 { status: 400 }
             );
+        }
+
+        if (!(await verifyOrgAccess(session.user.id, syncConfig.organizationId))) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         // Determine target PO

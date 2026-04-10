@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import OpenAI from "openai";
@@ -31,6 +32,10 @@ export async function POST(request: NextRequest) {
         if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
 
         const body = await request.json();
         const { milestoneId, source, purchaseOrderId } = body;

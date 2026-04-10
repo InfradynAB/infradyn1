@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { getUploadPresignedUrl, generateS3Key } from "@/lib/services/s3";
 import { z } from "zod";
+import { verifyOrgAccess } from "@/lib/utils/org-context";
 
 // Request validation schema
 const requestSchema = z.object({
@@ -44,6 +45,10 @@ export async function POST(request: NextRequest) {
         }
 
         const { fileName, contentType, docType, orgId, projectId } = parsed.data;
+
+        if (!(await verifyOrgAccess(session.user.id, orgId))) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
 
         // Generate S3 key
         const key = generateS3Key(orgId, projectId, docType, fileName);

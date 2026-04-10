@@ -15,6 +15,7 @@ import { headers } from "next/headers"
 import { noIndexMetadata } from "@/lib/seo.config"
 import type { Metadata } from "next"
 import { getUserOrganizationsWithActive } from "@/lib/utils/org-context"
+import { redirectToRevokeBlockedSession } from "@/lib/server/org-access"
 import { getActiveProjectId } from "@/lib/utils/project-context"
 import { getSupplierProjects, getSupplierActiveProjectId } from "@/lib/utils/supplier-project-context"
 import { redirect } from "next/navigation"
@@ -52,11 +53,15 @@ export default async function DashboardLayout({
         role: session.user.role,
     };
 
-    // Fetch organizations for the org switcher
-    const { organizations, activeOrgId } = await getUserOrganizationsWithActive();
+    // Fetch organizations for the org switcher (excludes SUSPENDED/TERMINATED orgs)
+    const { organizations, activeOrgId, allOrganizationsBlocked, blockedReason } =
+        await getUserOrganizationsWithActive();
 
-    // CRITICAL: User must belong to at least one organization to access the dashboard
-    // Only invited users can access the software
+    if (allOrganizationsBlocked && blockedReason) {
+        redirectToRevokeBlockedSession(blockedReason);
+    }
+
+    // CRITICAL: User must belong to at least one product-allowed organization
     if (organizations.length === 0) {
         redirect("/access-denied");
     }

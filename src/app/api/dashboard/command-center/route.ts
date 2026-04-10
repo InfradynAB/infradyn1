@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import db from "@/db/drizzle";
 import {
     purchaseOrder,
@@ -27,23 +28,13 @@ export async function GET() {
             headers: await headers(),
         });
 
-        if (!session?.user?.id) {
+        if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const organizationId = session.user.organizationId;
-        if (!organizationId) {
-            return NextResponse.json({
-                success: true,
-                data: {
-                    projects: [],
-                    alerts: [],
-                    activity: [],
-                    aiSummary: null,
-                    quickStats: null,
-                },
-            });
-        }
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+        const { organizationId } = orgGate;
 
         const cacheKey = buildTrafficCacheKey("dashboard:command-center", [organizationId]);
         const cached = await getOrSetTrafficCache(cacheKey, 20, async () => {

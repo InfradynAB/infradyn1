@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import db from "@/db/drizzle";
@@ -6,6 +7,7 @@ import { document, purchaseOrder, project } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { uploadFile, generateS3Key } from "@/lib/services/s3";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
+import { verifyOrgAccess } from "@/lib/utils/org-context";
 
 type UploadDocumentType = typeof document.$inferInsert.documentType;
 type S3DocType = "po" | "boq" | "milestone" | "ro" | "invoice" | "packing-list" | "evidence" | "progress" | "other";
@@ -35,6 +37,10 @@ export async function POST(request: NextRequest) {
         if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
 
         const formData = await request.formData();
         const file = formData.get("file") as File;
@@ -91,6 +97,10 @@ export async function POST(request: NextRequest) {
         }
         else {
             return NextResponse.json({ error: "Missing purchaseOrderId or projectId" }, { status: 400 });
+        }
+
+        if (!(await verifyOrgAccess(session.user.id, organizationId))) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         // 2. Upload to S3

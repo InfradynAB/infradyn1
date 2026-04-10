@@ -5,6 +5,7 @@ import { project, organization, member } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { updateProjectSchema } from "@/lib/schemas/project";
 import { headers } from "next/headers";
+import { verifyOrgAccess } from "@/lib/utils/org-context";
 
 // GET /api/projects/[id] - Get project by ID
 export async function GET(
@@ -46,19 +47,7 @@ export async function GET(
             return NextResponse.json({ error: "Project not found" }, { status: 404 });
         }
 
-        // Check user has access to this organization
-        const membership = await db
-            .select({ id: member.id })
-            .from(member)
-            .where(
-                and(
-                    eq(member.userId, session.user.id),
-                    eq(member.organizationId, projectData[0].organization.id)
-                )
-            )
-            .limit(1);
-
-        if (membership.length === 0) {
+        if (!(await verifyOrgAccess(session.user.id, projectData[0].organization.id))) {
             return NextResponse.json({ error: "Access denied" }, { status: 403 });
         }
 
@@ -98,6 +87,10 @@ export async function PATCH(
 
         if (existingProject.length === 0) {
             return NextResponse.json({ error: "Project not found" }, { status: 404 });
+        }
+
+        if (!(await verifyOrgAccess(session.user.id, existingProject[0].organizationId))) {
+            return NextResponse.json({ error: "Access denied" }, { status: 403 });
         }
 
         // Check user has admin/owner access

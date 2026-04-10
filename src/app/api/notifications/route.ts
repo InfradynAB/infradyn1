@@ -14,9 +14,9 @@ import {
     changeOrder,
     ncr,
     milestone,
-    member,
 } from "@/db/schema";
 import { eq, and, inArray, lt, isNull } from "drizzle-orm";
+import { getProductAllowedOrgIdsForUser } from "@/lib/server/org-lifecycle-db";
 
 export async function GET(request: NextRequest) {
     try {
@@ -43,11 +43,7 @@ export async function GET(request: NextRequest) {
         }));
 
         // ── 2. Live synthesized alerts from org data ──────────────────────────
-        const memberships = await db.query.member.findMany({
-            where: eq(member.userId, userId),
-            columns: { organizationId: true },
-        });
-        const orgIds = memberships.map((m) => m.organizationId);
+        const orgIds = await getProductAllowedOrgIdsForUser(userId);
 
         const liveItems: {
             id: string;

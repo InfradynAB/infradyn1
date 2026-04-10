@@ -6,19 +6,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import { getRiskAssessments, getCashflowForecast, getSupplierProgressData } from "@/lib/services/report-engine";
 
 export async function GET(request: NextRequest) {
     try {
         const session = await auth.api.getSession({ headers: await headers() });
-        if (!session?.user?.id) {
+        if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
-
-        const orgId = session.user.organizationId;
-        if (!orgId) {
-            return NextResponse.json({ error: "No active organization" }, { status: 400 });
-        }
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+        const orgId = orgGate.organizationId;
 
         const { searchParams } = new URL(request.url);
         const projectId = searchParams.get("projectId") || undefined;

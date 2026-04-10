@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 
 function resolvePythonServiceUrl(): string {
     const configuredUrl = process.env.PYTHON_SERVICE_URL?.trim();
@@ -68,6 +69,9 @@ export async function POST(request: NextRequest) {
                 { status: 401 }
             );
         }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
 
         // Read the uploaded file from the request
         const formData = await request.formData();

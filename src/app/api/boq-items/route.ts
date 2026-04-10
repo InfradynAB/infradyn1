@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import db from "@/db/drizzle";
@@ -11,6 +12,10 @@ export async function GET(request: NextRequest) {
         if (!session?.user) {
             return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
         }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
 
         const { searchParams } = new URL(request.url);
         const action = searchParams.get("action");

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/auth";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import { findSupplierForUser } from "@/lib/actions/supplier-lookup";
 import { getSupplierAnalyticsData } from "@/lib/services/supplier-analytics";
 
@@ -12,10 +13,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const organizationId = session.user.organizationId;
-    if (!organizationId) {
-      return NextResponse.json({ error: "No active organization" }, { status: 400 });
-    }
+    const orgGate = await ensureActiveOrgForApi(session);
+    if (!orgGate.ok) return orgGate.response;
+    const organizationId = orgGate.organizationId;
 
     const { supplier } = await findSupplierForUser(
       session.user.id,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import db from "@/db/drizzle";
 import {
     purchaseOrder,
@@ -25,14 +26,13 @@ export async function GET(request: NextRequest) {
             headers: await headers(),
         });
 
-        if (!session?.user?.id) {
+        if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const organizationId = session.user.organizationId;
-        if (!organizationId) {
-            return NextResponse.json({ results: [] });
-        }
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+        const { organizationId } = orgGate;
 
         const searchParams = request.nextUrl.searchParams;
         const query = searchParams.get("q")?.trim();

@@ -5,6 +5,7 @@ import db from "@/db/drizzle";
 import { ncrMagicLink, ncr, auditLog } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
+import { verifyOrgAccess } from "@/lib/utils/org-context";
 
 export async function POST(
     request: NextRequest,
@@ -15,7 +16,7 @@ export async function POST(
             headers: await headers(),
         });
 
-        if (!session) {
+        if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -32,6 +33,10 @@ export async function POST(
 
         if (!ncrData) {
             return NextResponse.json({ error: "NCR not found" }, { status: 404 });
+        }
+
+        if (!(await verifyOrgAccess(session.user.id, ncrData.organizationId))) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         if (!ncrData.supplier) {

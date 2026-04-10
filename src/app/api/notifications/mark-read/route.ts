@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { markNotificationsAsRead } from "@/lib/actions/notifications";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 
 export async function POST(request: NextRequest) {
     try {
@@ -14,6 +15,9 @@ export async function POST(request: NextRequest) {
         if (!session?.user?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
 
         const body = await request.json();
         const { notificationIds } = body;

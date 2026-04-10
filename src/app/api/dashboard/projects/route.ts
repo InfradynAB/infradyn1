@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import { headers } from "next/headers";
 import db from "@/db/drizzle";
 import { project, purchaseOrder, changeOrder, invoice } from "@/db/schema";
 import { eq, and, count, sql } from "drizzle-orm";
-import { getActiveOrganizationId } from "@/lib/utils/org-context";
 import { auth } from "@/auth";
 
 export async function GET(request: NextRequest) {
@@ -16,10 +16,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
         }
 
-        const activeOrgId = await getActiveOrganizationId();
-        if (!activeOrgId) {
-            return NextResponse.json({ success: false, error: "No active organization" }, { status: 400 });
-        }
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+        const activeOrgId = orgGate.organizationId;
 
         // Fetch all projects for the organization
         const projects = await db.query.project.findMany({

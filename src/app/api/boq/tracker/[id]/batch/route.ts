@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import { auth } from "@/auth";
 import db from "@/db/drizzle";
 import { boqDeliveryBatch, boqItem } from "@/db/schema";
@@ -15,6 +16,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!session?.user) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
 
     const { id } = await params;
     const parentItem = await db.query.boqItem.findFirst({ where: eq(boqItem.id, id) });

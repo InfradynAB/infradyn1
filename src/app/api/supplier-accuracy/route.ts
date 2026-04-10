@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import db from "@/db/drizzle";
 import { supplierAccuracy, supplier } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -11,9 +12,12 @@ import { eq, and } from "drizzle-orm";
 export async function GET(request: NextRequest) {
     try {
         const session = await auth.api.getSession({ headers: await headers() });
-        if (!session?.user?.organizationId) {
+        if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+        const organizationId = orgGate.organizationId;
 
         // Get suppliers for this organization with their accuracy data
         const records = await db.query.supplierAccuracy.findMany({
@@ -31,7 +35,7 @@ export async function GET(request: NextRequest) {
 
         // Filter by organization
         const orgSuppliers = records.filter(
-            (s) => s.supplier?.organizationId === session.user.organizationId
+            (s) => s.supplier?.organizationId === organizationId
         );
 
         return NextResponse.json({
@@ -66,9 +70,12 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
     try {
         const session = await auth.api.getSession({ headers: await headers() });
-        if (!session?.user?.organizationId) {
+        if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+        const organizationId = orgGate.organizationId;
 
         const body = await request.json();
         const { supplierId, autoAcceptEnabled, autoAcceptThreshold } = body;
@@ -84,7 +91,7 @@ export async function PATCH(request: NextRequest) {
         const supplierRecord = await db.query.supplier.findFirst({
             where: and(
                 eq(supplier.id, supplierId),
-                eq(supplier.organizationId, session.user.organizationId)
+                eq(supplier.organizationId, organizationId)
             ),
         });
 

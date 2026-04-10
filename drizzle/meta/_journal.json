@@ -36,9 +36,19 @@
       "when": 1740355200000,
       "tag": "0004_support_tickets",
       "breakpoints": true
-    }
-  ]
-}
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1740355200001,
+      "tag": "0005_boq_tracker_batches",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1740355200002,
+      "tag": "0006_org_terminate_guest_support",
       "breakpoints": true
     }
   ]

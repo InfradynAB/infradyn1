@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import db from "@/db/drizzle";
@@ -6,6 +7,7 @@ import { invoice, document, purchaseOrder, supplier, organization } from "@/db/s
 import { eq } from "drizzle-orm";
 import { createInvoice, validateInvoiceAmount, updatePaymentStatus, getPendingInvoices, getPaymentSummary } from "@/lib/actions/finance-engine";
 import { sendEmail, buildInvoiceCreatedEmail } from "@/lib/services/email";
+import { verifyOrgAccess } from "@/lib/utils/org-context";
 
 export async function POST(request: NextRequest) {
     try {
@@ -13,6 +15,10 @@ export async function POST(request: NextRequest) {
         if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
 
         const body = await request.json();
         const { action, ...data } = body;
@@ -33,22 +39,18 @@ export async function POST(request: NextRequest) {
             }
 
             case "submitForApproval": {
-                // Determine Organization ID (Essential for multi-tenancy)
-                let orgId = session.user.organizationId;
+                let orgId = orgGate.organizationId;
 
-                // Fallback: If supplier is submitting, look up the PO's organization
-                if (!orgId || orgId === "") {
-                    const po = await db.query.purchaseOrder.findFirst({
-                        where: eq(purchaseOrder.id, data.purchaseOrderId),
-                        columns: { organizationId: true }
-                    });
-                    if (po) {
-                        orgId = po.organizationId;
-                    }
+                const po = await db.query.purchaseOrder.findFirst({
+                    where: eq(purchaseOrder.id, data.purchaseOrderId),
+                    columns: { organizationId: true }
+                });
+                if (po?.organizationId) {
+                    orgId = po.organizationId;
                 }
 
-                if (!orgId || orgId === "") {
-                    return NextResponse.json({ error: "Contextual Organization ID not found" }, { status: 400 });
+                if (!(await verifyOrgAccess(session.user.id, orgId))) {
+                    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
                 }
 
                 // Create document record first if we have a URL
@@ -213,6 +215,10 @@ export async function GET(request: NextRequest) {
         if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
 
         const { searchParams } = new URL(request.url);
         const action = searchParams.get("action");

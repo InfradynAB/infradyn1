@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import db from "@/db/drizzle";
 import { alertLog, auditLog, user, member } from "@/db/schema";
 import { eq, and, desc, gte, lte, sql, or } from "drizzle-orm";
@@ -71,13 +72,9 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const organizationId = session.user.organizationId;
-        if (!organizationId) {
-            return NextResponse.json({
-                success: true,
-                data: { logs: [], total: 0 },
-            });
-        }
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+        const organizationId = orgGate.organizationId;
 
         // Parse query params
         const { searchParams } = new URL(request.url);
@@ -265,13 +262,9 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const organizationId = session.user.organizationId;
-        if (!organizationId) {
-            return NextResponse.json(
-                { error: "No organization selected" },
-                { status: 400 }
-            );
-        }
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+        const organizationId = orgGate.organizationId;
 
         const body = await request.json();
         const {

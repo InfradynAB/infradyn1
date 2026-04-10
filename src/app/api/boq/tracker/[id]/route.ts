@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import { headers } from "next/headers";
 import { auth } from "@/auth";
 import db from "@/db/drizzle";
@@ -16,6 +17,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (!session?.user) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
 
     const { id } = await params;
     const body = await request.json();

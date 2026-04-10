@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import {
@@ -17,11 +18,13 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+        const { organizationId } = orgGate;
+
         const { searchParams } = new URL(request.url);
         const purchaseOrderId = searchParams.get("purchaseOrderId");
         const projectId = searchParams.get("projectId");
-        // Always use the session's organizationId (ignore untrusted client-supplied value)
-        const organizationId = session.user.organizationId;
 
         // If purchaseOrderId provided, get NCRs for that PO
         if (purchaseOrderId) {
@@ -59,9 +62,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+        const { organizationId } = orgGate;
+
         const body = await request.json();
         const {
-            organizationId,
             projectId,
             purchaseOrderId,
             supplierId,
@@ -75,7 +81,7 @@ export async function POST(request: NextRequest) {
             sourceDocumentId,
         } = body;
 
-        if (!organizationId || !projectId || !purchaseOrderId || !supplierId || !title || !severity || !issueType) {
+        if (!projectId || !purchaseOrderId || !supplierId || !title || !severity || !issueType) {
             return NextResponse.json(
                 { error: "Missing required fields" },
                 { status: 400 }

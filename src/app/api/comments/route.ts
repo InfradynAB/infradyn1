@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import db from "@/db/drizzle";
@@ -17,6 +18,10 @@ export async function GET(request: NextRequest) {
         if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
 
         const { searchParams } = new URL(request.url);
         const parentType = searchParams.get("parentType") as "PO" | "SHIPMENT" | "DELIVERY" | "QA_TASK" | "INVOICE";
@@ -57,6 +62,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
+
         const body = await request.json();
         const { parentType, parentId, content } = body;
 
@@ -92,6 +101,10 @@ export async function PATCH(request: NextRequest) {
         if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
 
         const body = await request.json();
         const { commentId, content } = body;
@@ -148,6 +161,10 @@ export async function DELETE(request: NextRequest) {
         if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
 
         const { searchParams } = new URL(request.url);
         const commentId = searchParams.get("commentId");

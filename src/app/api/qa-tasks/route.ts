@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { listPendingQaTasks, updateQaTask } from "@/lib/actions/delivery-engine";
@@ -12,6 +13,10 @@ export async function GET(request: NextRequest) {
         if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
 
         const { searchParams } = new URL(request.url);
         const purchaseOrderId = searchParams.get("purchaseOrderId");
@@ -46,6 +51,10 @@ export async function PATCH(request: NextRequest) {
         if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
 
         const body = await request.json();
         const { taskId, ...data } = body;

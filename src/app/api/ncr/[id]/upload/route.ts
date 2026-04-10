@@ -5,6 +5,7 @@ import { getUploadPresignedUrl } from "@/lib/services/s3";
 import db from "@/db/drizzle";
 import { ncrAttachment, ncr } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { verifyOrgAccess } from "@/lib/utils/org-context";
 import crypto from "crypto";
 
 export async function POST(
@@ -16,7 +17,7 @@ export async function POST(
             headers: await headers(),
         });
 
-        if (!session) {
+        if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -60,6 +61,10 @@ export async function POST(
 
         if (!ncrRecord) {
             return NextResponse.json({ error: "NCR not found" }, { status: 404 });
+        }
+
+        if (!(await verifyOrgAccess(session.user.id, ncrRecord.organizationId))) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         // Generate unique key

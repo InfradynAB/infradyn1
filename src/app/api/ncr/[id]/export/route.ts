@@ -5,6 +5,7 @@ import db from "@/db/drizzle";
 import { ncr, ncrComment, ncrMagicLink, auditLog } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { format } from "date-fns";
+import { verifyOrgAccess } from "@/lib/utils/org-context";
 
 export async function GET(
     request: NextRequest,
@@ -15,7 +16,7 @@ export async function GET(
             headers: await headers(),
         });
 
-        if (!session) {
+        if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -35,6 +36,10 @@ export async function GET(
 
         if (!ncrData) {
             return NextResponse.json({ error: "NCR not found" }, { status: 404 });
+        }
+
+        if (!(await verifyOrgAccess(session.user.id, ncrData.organizationId))) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         // Get all comments

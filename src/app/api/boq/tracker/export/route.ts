@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import { headers } from "next/headers";
 import { auth } from "@/auth";
 import { getBoqItemsList, getBatchesByBoqItemIds } from "@/lib/actions/boq-tracker";
@@ -15,6 +16,10 @@ export async function GET(request: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
+
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+
 
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId");

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import db from "@/db/drizzle";
-import { purchaseOrder, invoice, changeOrder, member } from "@/db/schema";
+import { purchaseOrder, invoice, changeOrder } from "@/db/schema";
 import { eq, and, inArray, lt } from "drizzle-orm";
+import { getProductAllowedOrgIdsForUser } from "@/lib/server/org-lifecycle-db";
 
 export async function GET(request: NextRequest) {
     try {
@@ -15,13 +16,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        // Get user's organizations
-        const memberships = await db.query.member.findMany({
-            where: eq(member.userId, session.user.id),
-            columns: { organizationId: true },
-        });
-
-        const orgIds = memberships.map((m) => m.organizationId);
+        const orgIds = await getProductAllowedOrgIdsForUser(session.user.id);
 
         if (orgIds.length === 0) {
             return NextResponse.json({

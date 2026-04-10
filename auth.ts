@@ -14,6 +14,9 @@ export const auth = betterAuth({
         provider: "pg",
         // schema: {...} // Optional: Pass schema if needed, but CLI generation is preferred
     }),
+    // Note: Do not block session creation here for suspended orgs — Better Auth returns raw JSON
+    // on OAuth callback errors. Instead, dashboard layout revokes the session and sends users to
+    // /access-blocked with the guest support UI.
     user: {
         additionalFields: {
             organizationId: {

@@ -9,10 +9,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import OpenAI from "openai";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
-import { getActiveOrganizationId } from "@/lib/utils/org-context";
 import { getActiveProjectId } from "@/lib/utils/project-context";
 import { resolveUserContext, buildSystemPrompt } from "@/lib/ai-assistant/context";
 import { getToolDefinitions, executeTool } from "@/lib/ai-assistant/tools";
@@ -48,6 +48,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const orgGate = await ensureActiveOrgForApi(session);
+    if (!orgGate.ok) return orgGate.response;
+
     if (!process.env.OPENAI_API_KEY) {
         return NextResponse.json(
             { error: "AI Assistant is not configured. Missing OPENAI_API_KEY." },
@@ -68,10 +71,8 @@ export async function POST(req: NextRequest) {
     }
 
     // ---- Build context ----
-    const [activeOrgId, activeProjectId] = await Promise.all([
-        getActiveOrganizationId(),
-        getActiveProjectId(),
-    ]);
+    const activeOrgId = orgGate.organizationId;
+    const activeProjectId = await getActiveProjectId();
 
     const userCtx = await resolveUserContext(
         session.user as {

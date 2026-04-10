@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
+import { ensureActiveOrgForApi } from "@/lib/server/org-access";
 import db from "@/db/drizzle";
 import { systemConfig } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
@@ -12,14 +13,17 @@ import { logAuditEvent } from "@/lib/audit/log-audit-event";
 export async function GET() {
     try {
         const session = await auth.api.getSession({ headers: await headers() });
-        if (!session?.user?.organizationId) {
+        if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+        const { organizationId } = orgGate;
 
         // Get org configs with global defaults
         const configs = await db.query.systemConfig.findMany({
             where: and(
-                eq(systemConfig.organizationId, session.user.organizationId)
+                eq(systemConfig.organizationId, organizationId)
             ),
         });
 
@@ -55,9 +59,12 @@ export async function GET() {
 export async function POST(request: NextRequest) {
     try {
         const session = await auth.api.getSession({ headers: await headers() });
-        if (!session?.user?.organizationId) {
+        if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+        const orgGate = await ensureActiveOrgForApi(session);
+        if (!orgGate.ok) return orgGate.response;
+        const { organizationId } = orgGate;
 
         const body = await request.json();
         const { key, value, type = "STRING" } = body;
@@ -72,7 +79,7 @@ export async function POST(request: NextRequest) {
         // Check if org config exists
         const existing = await db.query.systemConfig.findFirst({
             where: and(
-                eq(systemConfig.organizationId, session.user.organizationId),
+                eq(systemConfig.organizationId, organizationId),
                 eq(systemConfig.configKey, key)
             ),
         });
@@ -87,7 +94,7 @@ export async function POST(request: NextRequest) {
                     .where(eq(systemConfig.id, existing.id));
             } else {
                 const [createdConfig] = await tx.insert(systemConfig).values({
-                    organizationId: session.user.organizationId,
+                    organizationId,
                     configKey: key,
                     configValue: String(value),
                     configType: type,
@@ -112,7 +119,7 @@ export async function POST(request: NextRequest) {
                         : "settings.config_updated",
                     entityType: "system_config",
                     entityId: configId,
-                    organizationId: session.user.organizationId,
+                    organizationId,
                     actor: {
                         id: session.user.id,
                         name: session.user.name,
