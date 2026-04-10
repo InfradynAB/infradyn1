@@ -6,11 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PaperPlaneTilt, CheckCircle } from "@phosphor-icons/react";
+import type { OrgAccessBlockReason } from "@/lib/constants/organization-lifecycle";
 
-export function GuestSupportForm() {
+type Props = {
+    accessBlockedReason: OrgAccessBlockReason;
+};
+
+export function GuestSupportForm({ accessBlockedReason }: Props) {
     const [email, setEmail] = useState("");
     const [name, setName] = useState("");
     const [organizationName, setOrganizationName] = useState("");
+    const [formerOrgSlug, setFormerOrgSlug] = useState("");
     const [subject, setSubject] = useState("");
     const [description, setDescription] = useState("");
     const [website, setWebsite] = useState("");
@@ -34,8 +40,10 @@ export function GuestSupportForm() {
                     email,
                     name: name || undefined,
                     organizationName: organizationName || undefined,
+                    formerOrgSlug: formerOrgSlug.trim() || undefined,
                     subject,
                     description,
+                    accessBlockedReason,
                     website: "",
                 }),
             });
@@ -124,6 +132,18 @@ export function GuestSupportForm() {
                             value={organizationName}
                             onChange={(e) => setOrganizationName(e.target.value)}
                             placeholder="Company"
+                            className="h-9 rounded-lg border-border/80 bg-background/90 text-sm"
+                        />
+                    </div>
+                    <div className="grid gap-1">
+                        <Label htmlFor="gs-slug" className="text-[11px] font-medium">
+                            Former org slug <span className="font-normal text-muted-foreground">(opt.)</span>
+                        </Label>
+                        <Input
+                            id="gs-slug"
+                            value={formerOrgSlug}
+                            onChange={(e) => setFormerOrgSlug(e.target.value)}
+                            placeholder="your-org-slug"
                             className="h-9 rounded-lg border-border/80 bg-background/90 text-sm"
                         />
                     </div>

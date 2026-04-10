@@ -31,3 +31,14 @@ export function blockReasonForOrgStatus(status: string): OrgAccessBlockReason | 
     if (status === ORG_STATUS.SUSPENDED) return "org_suspended";
     return null;
 }
+
+/** Admin webhook / guest-ticket payload: org lifecycle highlight. */
+export type AdminNotifyOrganizationStatus = "SUSPENDED" | "TERMINATED";
+
+export function adminNotifyOrganizationStatusFromAccessBlockedReason(
+    reason: string | undefined
+): AdminNotifyOrganizationStatus | null {
+    if (reason === "org_terminated") return "TERMINATED";
+    if (reason === "org_suspended") return "SUSPENDED";
+    return null;
+}

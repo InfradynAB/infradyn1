@@ -61,7 +61,7 @@ export default async function AccessBlockedPage({
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="p-5 pt-0 md:p-6 md:pt-6">
-                        <GuestSupportForm />
+                        <GuestSupportForm accessBlockedReason={reason} />
                     </CardContent>
                 </div>
                 <CardFooter className="flex flex-col gap-2 border-t border-border/50 bg-muted/15 px-5 py-3 sm:flex-row sm:justify-end sm:gap-3 md:px-6">

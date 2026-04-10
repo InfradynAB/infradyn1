@@ -4,14 +4,18 @@ import { supportTicket, user } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { sendTicketAdminNotify, sendTicketCreatedToUser } from "@/lib/services/email";
 import { CATEGORY_LABELS, PRIORITY_LABELS } from "@/lib/actions/support-constants";
+import { adminNotifyOrganizationStatusFromAccessBlockedReason } from "@/lib/constants/organization-lifecycle";
 
 type GuestBody = {
     email?: string;
     name?: string;
     organizationName?: string;
+    formerOrgSlug?: string;
     subject?: string;
     description?: string;
     website?: string;
+    /** Passed through to admin guest-ticket API for highlighted org-blocked notifications. */
+    accessBlockedReason?: "org_suspended" | "org_terminated";
 };
 
 function normalizeBase(raw: string): string {
@@ -31,6 +35,17 @@ function isSameOrigin(a: string, b: string): boolean {
     }
 }
 
+function sanitizeGuestBody(raw: GuestBody): GuestBody {
+    const accessBlockedReason =
+        raw.accessBlockedReason === "org_suspended" || raw.accessBlockedReason === "org_terminated"
+            ? raw.accessBlockedReason
+            : undefined;
+    return {
+        ...raw,
+        accessBlockedReason,
+    };
+}
+
 async function forwardUpstream(res: Response): Promise<NextResponse> {
     const text = await res.text();
     const ct = res.headers.get("content-type") ?? "";
@@ -44,20 +59,75 @@ async function forwardUpstream(res: Response): Promise<NextResponse> {
     return new NextResponse(text || null, { status: res.status });
 }
 
-async function createGuestTicketInDb(body: GuestBody): Promise<NextResponse> {
+async function postAdminSupportTicketWebhook(
+    requestOrigin: string,
+    payload: {
+        ticketId: string;
+        ticketNumber: string;
+        subject: string;
+        organizationName?: string;
+        organizationStatus: "SUSPENDED" | "TERMINATED";
+    }
+): Promise<void> {
+    const secret = process.env.ADMIN_WEBHOOK_SECRET?.trim();
+    const base = adminBaseFromEnv();
+    if (!secret || !base) {
+        return;
+    }
+    if (isSameOrigin(base, requestOrigin)) {
+        console.warn("[guest-ticket] Admin support webhook skipped: ADMIN_APP_URL origin matches this app.");
+        return;
+    }
+    const url = `${base}/api/webhooks/support-ticket`;
+    try {
+        const res = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-admin-webhook-secret": secret,
+            },
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+            console.warn(`[guest-ticket] Admin support webhook returned ${res.status}`);
+        }
+    } catch (e) {
+        console.error("[guest-ticket] Admin support webhook request failed:", e);
+    }
+}
+
+function buildStoredDescription(body: GuestBody, userMessage: string): string {
+    const lines: string[] = [];
+    if (body.accessBlockedReason) {
+        lines.push(`Access blocked reason: ${body.accessBlockedReason}`);
+    }
+    const slug = String(body.formerOrgSlug ?? "").trim();
+    if (slug) {
+        lines.push(`Former org slug: ${slug}`);
+    }
+    const orgName = String(body.organizationName ?? "").trim();
+    if (orgName) {
+        lines.push(`Organization (provided): ${orgName}`);
+    }
+    if (lines.length === 0) {
+        return userMessage;
+    }
+    return `${lines.join("\n")}\n\n${userMessage}`;
+}
+
+async function createGuestTicketInDb(body: GuestBody, requestOrigin: string): Promise<NextResponse> {
     const email = String(body.email ?? "").trim();
     const subject = String(body.subject ?? "").trim();
-    let description = String(body.description ?? "").trim();
+    const userMessage = String(body.description ?? "").trim();
     const nameRaw = String(body.name ?? "").trim();
     const name = nameRaw || null;
-    const orgName = String(body.organizationName ?? "").trim();
+    const orgNameForWebhook = String(body.organizationName ?? "").trim() || undefined;
 
-    if (!email || !subject || !description) {
+    if (!email || !subject || !userMessage) {
         return NextResponse.json({ error: "Email, subject, and message are required." }, { status: 400 });
     }
-    if (orgName) {
-        description = `Organization (provided): ${orgName}\n\n${description}`;
-    }
+
+    const description = buildStoredDescription(body, userMessage);
 
     const count = await db.$count(supportTicket);
     const next = (count ?? 0) + 1;
@@ -128,6 +198,17 @@ async function createGuestTicketInDb(body: GuestBody): Promise<NextResponse> {
             console.error("[guest-ticket] admin notify email failed:", e);
         }
 
+        const orgStatus = adminNotifyOrganizationStatusFromAccessBlockedReason(body.accessBlockedReason);
+        if (orgStatus) {
+            await postAdminSupportTicketWebhook(requestOrigin, {
+                ticketId: created.id,
+                ticketNumber,
+                subject,
+                organizationName: orgNameForWebhook,
+                organizationStatus: orgStatus,
+            });
+        }
+
         return NextResponse.json({ ok: true }, { status: 200 });
     } catch (e) {
         console.error("[guest-ticket] database insert failed:", e);
@@ -145,12 +226,14 @@ export async function GET() {
  * (404) or unreachable, falls back to creating a guest ticket in this app's database.
  */
 export async function POST(request: NextRequest) {
-    let body: GuestBody;
+    let raw: GuestBody;
     try {
-        body = (await request.json()) as GuestBody;
+        raw = (await request.json()) as GuestBody;
     } catch {
         return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
+
+    const body = sanitizeGuestBody(raw);
 
     if (String(body.website ?? "").trim()) {
         return NextResponse.json({ ok: true });
@@ -200,5 +283,5 @@ export async function POST(request: NextRequest) {
         }
     }
 
-    return createGuestTicketInDb(body);
+    return createGuestTicketInDb(body, selfOrigin);
 }
