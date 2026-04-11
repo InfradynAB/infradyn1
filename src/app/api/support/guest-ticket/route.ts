@@ -10,7 +10,6 @@ type GuestBody = {
     email?: string;
     name?: string;
     organizationName?: string;
-    formerOrgSlug?: string;
     subject?: string;
     description?: string;
     website?: string;
@@ -41,7 +40,12 @@ function sanitizeGuestBody(raw: GuestBody): GuestBody {
             ? raw.accessBlockedReason
             : undefined;
     return {
-        ...raw,
+        email: raw.email,
+        name: raw.name,
+        organizationName: raw.organizationName,
+        subject: raw.subject,
+        description: raw.description,
+        website: raw.website,
         accessBlockedReason,
     };
 }
@@ -100,10 +104,6 @@ function buildStoredDescription(body: GuestBody, userMessage: string): string {
     const lines: string[] = [];
     if (body.accessBlockedReason) {
         lines.push(`Access blocked reason: ${body.accessBlockedReason}`);
-    }
-    const slug = String(body.formerOrgSlug ?? "").trim();
-    if (slug) {
-        lines.push(`Former org slug: ${slug}`);
     }
     const orgName = String(body.organizationName ?? "").trim();
     if (orgName) {
