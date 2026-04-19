@@ -1,4 +1,4 @@
-import { siteConfig } from "@/lib/seo.config";
+import { getOgImageUrl, siteConfig } from "@/lib/seo.config";
 
 type OrganizationSchemaProps = {
     url?: string;
@@ -15,11 +15,17 @@ type BreadcrumbItem = {
     url: string;
 };
 
-// Organization Schema
+function parseOrganizationSameAs(): string[] {
+    const raw = process.env.NEXT_PUBLIC_ORGANIZATION_SAME_AS?.trim();
+    if (!raw) return [];
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
 export function OrganizationSchema({
     url = siteConfig.url,
-    logo = `${siteConfig.url}/og-image.png`,
+    logo = getOgImageUrl(),
 }: OrganizationSchemaProps = {}) {
+    const sameAs = parseOrganizationSameAs();
     const schema = {
         "@context": "https://schema.org",
         "@type": "Organization",
@@ -27,11 +33,7 @@ export function OrganizationSchema({
         url: url,
         logo: logo,
         description: siteConfig.description,
-        sameAs: [
-            // Add social media URLs here when available
-            // "https://twitter.com/infradyn",
-            // "https://linkedin.com/company/infradyn",
-        ],
+        ...(sameAs.length > 0 ? { sameAs } : {}),
         contactPoint: {
             "@type": "ContactPoint",
             contactType: "customer service",
@@ -47,7 +49,6 @@ export function OrganizationSchema({
     );
 }
 
-// WebSite Schema with SearchAction
 export function WebSiteSchema({
     url = siteConfig.url,
     name = siteConfig.name,
@@ -72,7 +73,25 @@ export function WebSiteSchema({
     );
 }
 
-// Breadcrumb Schema
+export function SoftwareApplicationSchema() {
+    const schema = {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        name: siteConfig.name,
+        applicationCategory: "BusinessApplication",
+        operatingSystem: "Web",
+        description: siteConfig.description,
+        url: siteConfig.url,
+    };
+
+    return (
+        <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+    );
+}
+
 export function BreadcrumbSchema({ items }: { items: BreadcrumbItem[] }) {
     const schema = {
         "@context": "https://schema.org",
@@ -93,12 +112,12 @@ export function BreadcrumbSchema({ items }: { items: BreadcrumbItem[] }) {
     );
 }
 
-// Combined schemas for the homepage
 export function HomePageStructuredData() {
     return (
         <>
             <OrganizationSchema />
             <WebSiteSchema />
+            <SoftwareApplicationSchema />
         </>
     );
 }

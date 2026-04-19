@@ -1,0 +1,32 @@
+import Link from "next/link";
+import type { Metadata } from "next";
+import { Button } from "@/components/ui/button";
+import { noIndexMetadata } from "@/lib/seo.config";
+
+export const metadata: Metadata = {
+    ...noIndexMetadata,
+    title: "Security",
+    description: "Security practices and trust center for Infradyn. Expanded content coming soon.",
+};
+
+export default function SecurityStubPage() {
+    return (
+        <main className="min-h-screen bg-slate-950 px-4 py-20 text-slate-100">
+            <div className="mx-auto max-w-lg text-center">
+                <h1 className="text-3xl font-semibold tracking-tight">Security</h1>
+                <p className="mt-4 text-slate-400">
+                    A dedicated security and trust overview is in progress. For questionnaires or data processing
+                    agreements, email our team.
+                </p>
+                <div className="mt-8 flex flex-wrap justify-center gap-3">
+                    <Button asChild variant="outline" className="border-slate-600 text-slate-100">
+                        <a href="mailto:support@infradyn.com">Request security information</a>
+                    </Button>
+                    <Button asChild className="bg-sky-600 hover:bg-sky-500">
+                        <Link href="/">Back to home</Link>
+                    </Button>
+                </div>
+            </div>
+        </main>
+    );
+}

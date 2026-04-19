@@ -1,38 +1,28 @@
-import { MetadataRoute } from "next";
-
-const SITE_URL = "https://infradyn.com";
+import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/seo.config";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-    const currentDate = new Date().toISOString();
+    const lastModified = new Date().toISOString();
 
-    // Define all public routes
     const routes: MetadataRoute.Sitemap = [
         {
             url: SITE_URL,
-            lastModified: currentDate,
-            changeFrequency: "monthly",
-            priority: 1.0,
+            lastModified,
+            changeFrequency: "weekly",
+            priority: 1,
         },
-        // Add more public pages here as they are created
-        // Example:
-        // {
-        //   url: `${SITE_URL}/about`,
-        //   lastModified: currentDate,
-        //   changeFrequency: "monthly",
-        //   priority: 0.8,
-        // },
-        // {
-        //   url: `${SITE_URL}/pricing`,
-        //   lastModified: currentDate,
-        //   changeFrequency: "weekly",
-        //   priority: 0.9,
-        // },
-        // {
-        //   url: `${SITE_URL}/contact`,
-        //   lastModified: currentDate,
-        //   changeFrequency: "monthly",
-        //   priority: 0.7,
-        // },
+        {
+            url: `${SITE_URL}/privacy-policy`,
+            lastModified,
+            changeFrequency: "yearly",
+            priority: 0.4,
+        },
+        {
+            url: `${SITE_URL}/terms-of-service`,
+            lastModified,
+            changeFrequency: "yearly",
+            priority: 0.4,
+        },
     ];
 
     return routes;

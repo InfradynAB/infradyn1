@@ -1,6 +1,18 @@
 import type { Metadata } from "next";
+import { getSiteUrl } from "./site-url";
 
-const SITE_URL = "https://infradyn.com";
+/** Canonical site origin (respects `NEXT_PUBLIC_SITE_URL` when set). */
+export const SITE_URL = getSiteUrl();
+
+/** Set after Google Search Console verification; submit the sitemap URL (root + /sitemap.xml) in GSC. */
+const googleVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim();
+
+/** Open Graph / Twitter image route (see `app/opengraph-image.tsx`). */
+export const OG_IMAGE_PATH = "/opengraph-image" as const;
+
+export function getOgImageUrl(): string {
+    return `${SITE_URL}${OG_IMAGE_PATH}`;
+}
 
 export const siteConfig = {
     name: "Infradyn",
@@ -20,7 +32,7 @@ export const siteConfig = {
     ],
     author: "Infradyn",
     locale: "en_US",
-    themeColor: "#0f172a", // slate-900 from the app theme
+    themeColor: "#0f172a",
 };
 
 export const defaultMetadata: Metadata = {
@@ -52,27 +64,20 @@ export const defaultMetadata: Metadata = {
         title: siteConfig.title,
         description: siteConfig.description,
         siteName: siteConfig.name,
-        images: [
-            {
-                url: `${SITE_URL}/og-image.png`,
-                width: 1200,
-                height: 630,
-                alt: siteConfig.title,
-            },
-        ],
     },
     twitter: {
         card: "summary_large_image",
         title: siteConfig.title,
         description: siteConfig.description,
-        images: [`${SITE_URL}/og-image.png`],
         creator: "@infradyn",
     },
-    verification: {
-        // Add your verification codes here after setting up Search Console
-        // google: "your-google-verification-code",
-        // yandex: "your-yandex-verification-code",
-    },
+    ...(googleVerification
+        ? {
+              verification: {
+                  google: googleVerification,
+              },
+          }
+        : {}),
     alternates: {
         canonical: SITE_URL,
     },
@@ -83,7 +88,6 @@ export const defaultMetadata: Metadata = {
     manifest: "/manifest.json",
 };
 
-// Metadata for pages that should not be indexed (auth, dashboard)
 export const noIndexMetadata: Metadata = {
     robots: {
         index: false,
@@ -94,13 +98,13 @@ export const noIndexMetadata: Metadata = {
     },
 };
 
-// Helper to generate page-specific metadata
 export function generatePageMetadata(
     title: string,
     description: string,
     path: string = ""
 ): Metadata {
     const url = `${SITE_URL}${path}`;
+    const ogUrl = getOgImageUrl();
     return {
         title,
         description,
@@ -108,13 +112,29 @@ export function generatePageMetadata(
             title,
             description,
             url,
+            images: [
+                {
+                    url: ogUrl,
+                    width: 1200,
+                    height: 630,
+                    alt: title,
+                },
+            ],
         },
         twitter: {
             title,
             description,
+            images: [ogUrl],
         },
         alternates: {
             canonical: url,
         },
     };
 }
+
+/** Homepage uses shared site title/description and canonical root URL. */
+export const homePageMetadata: Metadata = generatePageMetadata(
+    siteConfig.title,
+    siteConfig.description,
+    ""
+);
