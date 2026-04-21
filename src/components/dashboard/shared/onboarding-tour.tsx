@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X, ArrowRight, ArrowLeft, ShieldCheck, Info } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { markTourSeen } from "@/lib/actions/tour-preferences";
 
 export interface TourStep {
     id: string;
@@ -17,6 +18,8 @@ export interface TourStep {
 interface OnboardingTourProps {
     steps: TourStep[];
     storageKey: string;
+    /** Pre-fetched from the DB by the parent server component */
+    initialHasSeen?: boolean;
     welcomeTitle?: string;
     welcomeSubtitle?: string;
     accentColor?: string; // Tailwind color class like "indigo-600" or hex if used in style
@@ -27,6 +30,7 @@ interface OnboardingTourProps {
 export function OnboardingTour({
     steps,
     storageKey,
+    initialHasSeen = false,
     welcomeTitle = "Welcome.",
     welcomeSubtitle = "Ready to explore?",
     accentColor = "indigo-600",
@@ -38,22 +42,15 @@ export function OnboardingTour({
     const [currentStep, setCurrentStep] = useState(-1);
     const [isVisible, setIsVisible] = useState(false);
 
-    // Robust single-effect initialization
+    // Initialization: use `initialHasSeen` from the DB (passed by the server parent).
+    // If the user hasn't seen the tour, show the welcome screen.
     useEffect(() => {
         setMounted(true);
-        try {
-            const hasSeen = localStorage.getItem(storageKey);
-            const isFresh = !hasSeen || hasSeen === "false" || hasSeen === "null" || hasSeen === "undefined";
-
-            if (isFresh) {
-                setIsVisible(true);
-                setShowWelcome(true);
-            }
-        } catch (e) {
+        if (!initialHasSeen) {
             setIsVisible(true);
             setShowWelcome(true);
         }
-    }, [storageKey]);
+    }, [initialHasSeen]);
 
 
 
@@ -147,7 +144,8 @@ export function OnboardingTour({
 
     const handleSkip = () => {
         setIsVisible(false);
-        localStorage.setItem(storageKey, "true");
+        // Persist to the DB so this user won't see the tour on any device
+        markTourSeen(storageKey).catch(console.error);
     };
 
     const handleStart = () => {

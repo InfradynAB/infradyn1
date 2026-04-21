@@ -167,6 +167,8 @@ export const user = pgTable('user', {
     // Phase 3B: Link user to supplier
     supplierId: uuid('supplier_id'),
 
+    // UI Preferences: stores keys of tours/guides the user has already seen
+    toursSeen: jsonb('tours_seen').$type<Record<string, boolean>>().default({}),
 
     // Timestamps
     createdAt: timestamp("created_at").defaultNow().notNull(),
