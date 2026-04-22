@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean, integer, numeric, pgEnum, uniqueIndex, check, index, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, boolean, integer, bigint, numeric, pgEnum, uniqueIndex, check, index, jsonb } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 
 // --- ENUMS ---
@@ -222,6 +222,14 @@ export const twoFactor = pgTable("two_factor", {
     backupCodes: text("backup_codes").notNull(),
     userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     enabled: boolean("enabled").default(false),
+});
+
+/** Better Auth: distributed rate limit storage (see auth.ts `rateLimit.storage: "database"`). Use bigint for epoch ms. */
+export const rateLimit = pgTable("rate_limit", {
+    id: text("id").primaryKey(),
+    key: text("key").notNull().unique(),
+    count: integer("count").notNull(),
+    lastRequest: bigint("last_request", { mode: "number" }).notNull(),
 });
 
 export const projectUser = pgTable('project_user', {

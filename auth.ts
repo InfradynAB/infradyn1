@@ -9,11 +9,36 @@ import ResetPasswordEmail from "./src/emails/reset-password-email";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const rateLimitEnabled =
+    process.env.NODE_ENV === "production" || process.env.AUTH_RATE_LIMIT_IN_DEV === "true";
+
 export const auth = betterAuth({
     database: drizzleAdapter(db, {
         provider: "pg",
-        // schema: {...} // Optional: Pass schema if needed, but CLI generation is preferred
     }),
+    advanced: {
+        ipAddress: {
+            // Cloudflare, then common reverse proxies; first present wins per framework behavior
+            ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for", "x-real-ip"],
+            /** Reduce IPv6 address-farm abuse; see Better Auth rate-limit docs for /128 vs subnet. */
+            ipv6Subnet: 64,
+        },
+    },
+    rateLimit: {
+        enabled: rateLimitEnabled,
+        window: 60,
+        max: 120,
+        storage: "database",
+        modelName: "rateLimit",
+        customRules: {
+            // Session checks should not eat the global budget (polling / layout).
+            "/get-session": false,
+            "/sign-in/email": { window: 10, max: 5 },
+            "/sign-up/email": { window: 60, max: 5 },
+            // forgetPassword.emailOtp, emailOtp.resetPassword, sign-up verification sends, etc.
+            "/email-otp/*": { window: 60, max: 5 },
+        },
+    },
     // Note: Do not block session creation here for suspended orgs — Better Auth returns raw JSON
     // on OAuth callback errors. Instead, dashboard layout revokes the session and sends users to
     // /access-blocked with the guest support UI.

@@ -50,6 +50,13 @@
       "when": 1740355200002,
       "tag": "0006_org_terminate_guest_support",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776890646271,
+      "tag": "0007_add_auth_rate_limit",
+      "breakpoints": true
     }
   ]
 }
