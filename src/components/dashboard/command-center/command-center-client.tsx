@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, type ReactNode } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,6 @@ import {
     QuickStatsTiles,
 } from "@/components/dashboard/command-center";
 import { toast } from "sonner";
-import { HomeOnboardingTour } from "./onboarding-tour";
 import { FirstTimeChecklist } from "@/components/dashboard/shared/first-time-checklist";
 
 interface ProjectData {
@@ -88,9 +87,10 @@ interface CommandCenterData {
 interface CommandCenterClientProps {
     userName?: string;
     userRole?: string;
+    children?: ReactNode;
 }
 
-export function CommandCenterClient({ userName, userRole }: CommandCenterClientProps) {
+export function CommandCenterClient({ userName, userRole, children }: CommandCenterClientProps) {
     const [data, setData] = useState<CommandCenterData | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -141,7 +141,7 @@ export function CommandCenterClient({ userName, userRole }: CommandCenterClientP
 
     return (
         <div className="space-y-6 pb-8">
-            <HomeOnboardingTour />
+            {children}
             {showPMChecklist && (
                 <FirstTimeChecklist
                     role="PM"

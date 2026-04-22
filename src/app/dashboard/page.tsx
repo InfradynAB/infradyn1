@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { CommandCenterClient } from "@/components/dashboard/command-center";
+import { HomeOnboardingTour } from "@/components/dashboard/command-center/onboarding-tour";
 
 export const metadata = {
     title: "Home | Infradyn",
@@ -29,6 +30,8 @@ export default async function DashboardPage() {
         <CommandCenterClient
             userName={session.user.name || undefined}
             userRole={session.user.role}
-        />
+        >
+            <HomeOnboardingTour />
+        </CommandCenterClient>
     );
 }

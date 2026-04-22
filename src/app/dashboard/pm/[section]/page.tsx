@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PMDashboardClient } from "@/components/dashboard/pm/pm-dashboard-client";
+import { PMOnboardingTour } from "@/components/dashboard/pm/onboarding-tour";
 
 const SECTION_TITLES = {
     overview: "Overview",
@@ -38,7 +39,9 @@ export default async function PMSectionPage({ params }: PageProps) {
 
     return (
         <div className="w-full py-6">
-            <PMDashboardClient />
+            <PMDashboardClient>
+                <PMOnboardingTour />
+            </PMDashboardClient>
         </div>
     );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
@@ -64,7 +64,6 @@ import {
     DotsSixVertical,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import { PMOnboardingTour } from "./onboarding-tour";
 
 // PM Charts
 import { TrafficLightChart } from "./charts/traffic-light-chart";
@@ -153,7 +152,7 @@ function reorderCols(arr: string[], from: string, to: string, set: React.Dispatc
 // ============================================
 // MAIN COMPONENT
 // ============================================
-export function PMDashboardClient() {
+export function PMDashboardClient({ children }: { children?: ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -484,7 +483,7 @@ export function PMDashboardClient() {
     // ════════════════════════════════════════════════════════
     return (
         <div className="relative">
-            <PMOnboardingTour />
+            {children}
             {/* Header / Global Filters */}
             <div id="tour-pm-header" className="sticky top-0 z-30 bg-background/85 backdrop-blur-2xl border-b border-border/60 -mx-4 -mt-4 px-4 lg:-mx-6 lg:-mt-4 lg:px-6">
                 <div className="flex items-center justify-between py-3">
