@@ -63,7 +63,7 @@ export default function SignUpPage() {
             <span className="text-cyan-400">Construction</span>
           </h1>
           <p className="mb-8 max-w-xs text-sm leading-relaxed text-slate-300">
-            The single source of truth for massive capital projects — from BOQ ingestion to last-mile delivery.
+            The single source of truth for massive capital projects  from BOQ ingestion to last-mile delivery.
           </p>
 
           <ul className="space-y-5">
