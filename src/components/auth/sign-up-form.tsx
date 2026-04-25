@@ -34,8 +34,8 @@ const signUpSchema = z.object({
 const INPUT_CLS =
     "h-10 rounded-lg border-slate-200 bg-slate-50 text-sm text-[#1E293B] placeholder:text-slate-400 " +
     "focus-visible:border-[#0E7490] focus-visible:ring-2 focus-visible:ring-[#0E7490]/15 focus-visible:bg-white " +
-    "dark:border-[#2a3f52] dark:bg-[#1E2D3D] dark:text-[#F5F5F5] dark:placeholder:text-slate-500 " +
-    "dark:focus-visible:border-[#0E7490] dark:focus-visible:bg-[#152836] " +
+    "dark:border-border dark:bg-input dark:text-foreground dark:placeholder:text-muted-foreground " +
+    "dark:focus-visible:border-primary dark:focus-visible:bg-muted " +
     "transition-all duration-150";
 
 const LABEL_CLS = "text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400";
@@ -230,7 +230,7 @@ export function SignUpForm() {
                     <span className="w-full border-t border-slate-100 dark:border-[#2a3f52]" />
                 </div>
                 <div className="relative flex justify-center">
-                    <span className="bg-white px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-300 dark:bg-[#152836] dark:text-slate-600">
+                    <span className="bg-white px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-300 dark:bg-card dark:text-muted-foreground/40">
                         or
                     </span>
                 </div>
@@ -240,7 +240,7 @@ export function SignUpForm() {
                 variant="outline"
                 onClick={handleGoogleContinue}
                 disabled={isLoading}
-                className="h-11 w-full rounded-xl border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:border-[#0E7490]/30 hover:bg-slate-50 transition-all duration-150 dark:border-[#2a3f52] dark:bg-[#1E2D3D] dark:text-[#F5F5F5] dark:hover:border-[#0E7490]/40 dark:hover:bg-[#243649]"
+                className="h-11 w-full rounded-xl border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:border-[#0E7490]/30 hover:bg-slate-50 transition-all duration-150 dark:border-border dark:bg-input dark:text-foreground dark:hover:border-primary/40 dark:hover:bg-muted"
             >
                 <GoogleLogoIcon className="mr-2 h-4 w-4" weight="bold" />
                 Continue with Google

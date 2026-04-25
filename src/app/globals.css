@@ -108,54 +108,49 @@
 }
 
 .dark {
-  /* Dark Theme Adaptation */
-  --background: #0B2A33;
-  /* Deep Navy Main BG */
-  --foreground: #F5F5F5;
+  /* Matches infradyn.com "sunset" DaisyUI dark theme */
+  --background: oklch(22% 0.02 238);   /* base-100 */
+  --foreground: oklch(98% 0.01 255);   /* base-content */
 
-  --card: #152836;
-  /* Slightly lighter navy for cards */
-  --card-foreground: #F5F5F5;
+  --card: oklch(20% 0.02 238);         /* base-200 */
+  --card-foreground: oklch(98% 0.01 255);
 
-  --popover: #152836;
-  --popover-foreground: #F5F5F5;
+  --popover: oklch(20% 0.02 238);
+  --popover-foreground: oklch(98% 0.01 255);
 
-  --primary: #0E7490;
-  /* Action Teal-Blue (distinct from success green) */
-  --primary-foreground: #FFFFFF;
+  --primary: oklch(0.66 0.2 195);      /* landing page primary teal */
+  --primary-foreground: oklch(98% 0.01 255);
 
-  --secondary: #1E2D3D;
-  --secondary-foreground: #F5F5F5;
+  --secondary: oklch(0.6 0.18 200);
+  --secondary-foreground: oklch(98% 0.01 255);
 
-  --muted: #1E2D3D;
-  --muted-foreground: #A0A0A0;
+  --muted: oklch(18% 0.02 238);        /* base-300 */
+  --muted-foreground: oklch(65% 0.02 238);
 
-  --accent: #1E2D3D;
-  --accent-foreground: #F5F5F5;
+  --accent: oklch(0.7 0.27 350);       /* landing page pink accent */
+  --accent-foreground: oklch(98% 0.01 255);
 
-  --destructive: #FF4F4F;
-  --destructive-foreground: #FFFFFF;
+  --destructive: oklch(0.7 0.28 16);
+  --destructive-foreground: oklch(98% 0.01 255);
 
-  --border: #1E2D3D;
-  --input: #1E2D3D;
-  --ring: #0E7490;
+  --border: oklch(28% 0.03 238);
+  --input: oklch(25% 0.02 238);
+  --ring: oklch(0.66 0.2 195);
 
-  --chart-1: #0E7490;
-  --chart-2: #E14FE3;
-  --chart-3: #F5F5F5;
-  --chart-4: #FFC107;
-  --chart-5: #FF4F4F;
+  --chart-1: oklch(0.66 0.2 195);
+  --chart-2: oklch(0.7 0.27 350);
+  --chart-3: oklch(98% 0.01 255);
+  --chart-4: oklch(0.84 0.22 86);
+  --chart-5: oklch(0.7 0.28 16);
 
-  /* Sidebar uses slightly darker navy for contrast */
-  --sidebar: #050E14;
-  /* Darker navy sidebar in dark mode */
-  --sidebar-foreground: #F5F5F5;
-  --sidebar-primary: #0E7490;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #0E7490;
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #1E2D3D;
-  --sidebar-ring: #E14FE3;
+  --sidebar: oklch(18% 0.02 238);      /* base-300 for sidebar */
+  --sidebar-foreground: oklch(98% 0.01 255);
+  --sidebar-primary: oklch(0.66 0.2 195);
+  --sidebar-primary-foreground: oklch(98% 0.01 255);
+  --sidebar-accent: oklch(0.66 0.2 195);
+  --sidebar-accent-foreground: oklch(98% 0.01 255);
+  --sidebar-border: oklch(28% 0.03 238);
+  --sidebar-ring: oklch(0.7 0.27 350);
 }
 
 @layer base {

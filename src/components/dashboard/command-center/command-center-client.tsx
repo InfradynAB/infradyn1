@@ -13,14 +13,12 @@ import {
     Sparkle,
     FolderPlus,
 } from "@phosphor-icons/react";
-import {
-    GlobalSearch,
-    ProjectCardsGrid,
-    TopPrioritiesSection,
-    ActivityFeed,
-    AISummaryCard,
-    QuickStatsTiles,
-} from "@/components/dashboard/command-center";
+import { GlobalSearch } from "@/components/dashboard/command-center/global-search";
+import { ProjectCardsGrid } from "@/components/dashboard/command-center/project-cards";
+import { TopPrioritiesSection } from "@/components/dashboard/command-center/smart-alert-cards";
+import { ActivityFeed } from "@/components/dashboard/command-center/activity-feed";
+import { AISummaryCard } from "@/components/dashboard/command-center/ai-summary-card";
+import { QuickStatsTiles } from "@/components/dashboard/command-center/quick-stats-tiles";
 import { toast } from "sonner";
 import { FirstTimeChecklist } from "@/components/dashboard/shared/first-time-checklist";
 

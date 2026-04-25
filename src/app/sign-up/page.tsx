@@ -89,7 +89,7 @@ export default function SignUpPage() {
       </div>
 
       {/* ── Right form panel ── */}
-      <div className="relative flex flex-1 flex-col overflow-y-auto bg-[#F4F6F8] dark:bg-[#0B2A33]">
+      <div className="relative flex flex-1 flex-col overflow-y-auto bg-[#F4F6F8] dark:bg-background">
         {/* Subtle background texture */}
         <div
           aria-hidden
@@ -126,7 +126,7 @@ export default function SignUpPage() {
             </div>
 
             {/* Form card */}
-            <div className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.06),0_16px_48px_rgba(0,0,0,0.1)] dark:border-[#1E2D3D] dark:bg-[#152836] dark:shadow-[0_2px_8px_rgba(0,0,0,0.4),0_16px_48px_rgba(0,0,0,0.5)]">
+            <div className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.06),0_16px_48px_rgba(0,0,0,0.1)] dark:border-border dark:bg-card dark:shadow-[0_2px_8px_rgba(0,0,0,0.4),0_16px_48px_rgba(0,0,0,0.5)]">
               <div className="px-7 py-6 sm:px-8 sm:py-7">
                 <SignUpForm />
               </div>
