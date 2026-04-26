@@ -204,20 +204,18 @@ export function AppSidebar({
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
-                            <a href={isSupplier ? "/dashboard/supplier" : "/dashboard"} className="flex items-center gap-2">
-                                <div className="flex h-9 items-center overflow-hidden">
-                                    <Image
-                                        src="/logos/logo.png"
-                                        alt="Infradyn"
-                                        width={120}
-                                        height={28}
-                                        className="h-7 w-auto object-contain"
-                                    />
-                                </div>
-                                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Materials</span>
-                            </a>
-                        </SidebarMenuButton>
+                        <div className="flex items-center gap-2 px-2 py-1.5">
+                            <div className="flex h-9 items-center overflow-hidden">
+                                <Image
+                                    src="/logos/logo.png"
+                                    alt="Infradyn"
+                                    width={120}
+                                    height={28}
+                                    className="h-7 w-auto object-contain"
+                                />
+                            </div>
+                            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Materials</span>
+                        </div>
                     </SidebarMenuItem>
                 </SidebarMenu>
                 {/* Organization Switcher - always show for non-suppliers */}
